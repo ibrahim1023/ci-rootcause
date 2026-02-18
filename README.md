@@ -1,0 +1,83 @@
+# ci-rootcause
+
+Deterministic multi-agent CI root-cause analysis engine for failed CI runs.
+
+## Purpose
+
+`ci-rootcause` analyzes CI failures and produces:
+
+- Structured failure graph
+- Deterministic root-cause ranking
+- Deterministic confidence score
+- Evidence-backed fix plan
+- Optional guarded fix PR (never auto-merged)
+- `ci-rca.json` and `ci-rca.md` artifacts
+
+Primary runtime target is GitHub Actions.
+
+## Architecture Overview
+
+```mermaid
+flowchart LR
+  A[CI Logs + Diff] --> B[Log Ingest Agent]
+  A --> C[Diff Analysis Agent]
+  B --> D[Failure Classification Agent]
+  C --> E[Root Cause Ranker Agent]
+  D --> E
+  E --> F[Fix Planner Agent]
+  E --> G[Reporter Agent]
+  F --> H[PR Creation Agent]
+  G --> I[Artifacts ci-rca.json + ci-rca.md]
+  H --> J[Guarded Fix PR]
+```
+
+## Local Setup
+
+Requirements:
+
+- Python 3.11+
+
+Install tools:
+
+```bash
+python -m pip install --upgrade pip
+pip install pytest ruff pre-commit
+pre-commit install
+```
+
+Run checks:
+
+```bash
+ruff check .
+ruff format --check .
+pytest
+```
+
+## GitHub Action Interface
+
+The action is defined in `action.yml`.
+
+Inputs:
+
+- `github_token` (required)
+- `create_fix_pr` (default `false`)
+- `post_pr_comment` (default `true`)
+- `base_ref`, `head_ref`
+- `config_path` (default `.ci-rootcause.yml`)
+- `max_fix_files` (default `5`)
+
+Outputs:
+
+- `classification`, `confidence`, `primary_root_cause_title`
+- `rca_json_path`, `rca_md_path`
+- `pr_created`, `pr_url`, `pr_number`
+
+Required workflow permissions:
+
+- `contents: write` (PR creation only)
+- `pull-requests: write`
+- `actions: read`
+
+## Contributing
+
+Contribution standards are documented in `CONTRIBUTING.md`.
