@@ -1,0 +1,22 @@
+diff --git a/src/old_name.py b/src/new_name.py
+similarity index 96%
+rename from src/old_name.py
+rename to src/new_name.py
+index aabbcc1..ddffee2 100644
+--- a/src/old_name.py
++++ b/src/new_name.py
+@@ -10,3 +10,3 @@ def add(a, b):
+-    return a + b
++    return int(a + b)
+ 
+diff --git a/src/app.py b/src/app.py
+index 1111111..2222222 100644
+--- a/src/app.py
++++ b/src/app.py
+@@ -1,4 +1,5 @@
+ import os
++import sys
+ 
+ def main():
+-    print("hi")
++    print("hello")
