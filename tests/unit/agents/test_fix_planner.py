@@ -1,0 +1,90 @@
+import pytest
+
+from src.agents.fix_planner import run_fix_planner
+
+
+def _base_payload() -> dict:
+    return {
+        "classification": "TYPECHECK",
+        "primary_root_cause": {
+            "title": "Incompatible return type in src/core/math.py",
+            "evidence": [{"file": "src/core/math.py", "line": 42}],
+            "confidence": 0.82,
+        },
+    }
+
+
+def test_fix_planner_generates_evidence_backed_steps() -> None:
+    output = run_fix_planner(_base_payload())
+
+    assert len(output["fix_steps"]) == 1
+    assert output["fix_steps"][0]["file"] == "src/core/math.py"
+    assert len(output["patch_plan"]) == 1
+    assert output["patch_plan"][0]["operation"] == "modify"
+
+
+def test_fix_planner_rejects_evidence_outside_allowed_scope() -> None:
+    payload = _base_payload()
+    payload["allowed_files"] = ["src/other.py"]
+
+    with pytest.raises(ValueError, match="outside allowed fix scope"):
+        run_fix_planner(payload)
+
+
+def test_fix_planner_rejects_speculative_candidate_file() -> None:
+    payload = _base_payload()
+    payload["candidate_fix_steps"] = [
+        {
+            "file": "src/speculative.py",
+            "instruction": "Change src/speculative.py to resolve error",
+            "reason": "guess",
+        }
+    ]
+
+    with pytest.raises(ValueError, match="Speculative file reference rejected"):
+        run_fix_planner(payload)
+
+
+def test_fix_planner_rejects_hidden_speculative_reference_in_instruction() -> None:
+    payload = _base_payload()
+    payload["candidate_fix_steps"] = [
+        {
+            "file": "src/core/math.py",
+            "instruction": "Also update src/secret/file.py for consistency",
+            "reason": "guess",
+        }
+    ]
+
+    with pytest.raises(ValueError, match="in instruction"):
+        run_fix_planner(payload)
+
+
+def test_fix_planner_output_contains_constrained_prompt_and_schema() -> None:
+    output = run_fix_planner(_base_payload())
+
+    assert "constrained" in output["prompt_template"].lower()
+    assert output["output_schema"]["type"] == "object"
+    assert "fix_steps" in output["output_schema"]["required"]
+
+
+def test_fix_planner_post_processing_is_deterministic() -> None:
+    payload = _base_payload()
+    payload["candidate_fix_steps"] = [
+        {
+            "file": "src/core/math.py",
+            "instruction": "  B step   ",
+            "reason": " two  spaces ",
+        },
+        {
+            "file": "src/core/math.py",
+            "instruction": "A step",
+            "reason": "one",
+        },
+    ]
+
+    first = run_fix_planner(payload)
+    second = run_fix_planner(payload)
+
+    assert first == second
+    assert first["fix_steps"][0]["instruction"] == "A step"
+    assert first["fix_steps"][1]["instruction"] == "B step"
