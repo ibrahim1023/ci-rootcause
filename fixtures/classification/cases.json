@@ -1,0 +1,76 @@
+[
+  {
+    "name": "infra-timeout",
+    "failure_events": [
+      {
+        "error_signature": "ERROR: Connection reset by peer",
+        "log_excerpt": "network is unreachable"
+      }
+    ],
+    "expected_classification": "INFRA"
+  },
+  {
+    "name": "dependency-lockfile",
+    "failure_events": [
+      {
+        "error_signature": "ModuleNotFoundError: no module named requests",
+        "log_excerpt": "lockfile changed"
+      }
+    ],
+    "dependency_change_flags": {
+      "has_lockfile_change": true,
+      "has_manifest_change": false
+    },
+    "expected_classification": "DEPENDENCY"
+  },
+  {
+    "name": "typecheck-ts",
+    "failure_events": [
+      {
+        "error_signature": "TS2322: Type 'string' is not assignable to type 'number'",
+        "log_excerpt": "typescript error"
+      }
+    ],
+    "expected_classification": "TYPECHECK"
+  },
+  {
+    "name": "lint-ruff",
+    "failure_events": [
+      {
+        "error_signature": "ruff failed",
+        "log_excerpt": "style violation"
+      }
+    ],
+    "expected_classification": "LINT"
+  },
+  {
+    "name": "test-assert",
+    "failure_events": [
+      {
+        "error_signature": "AssertionError: assert 3 == 4",
+        "log_excerpt": "pytest failed"
+      }
+    ],
+    "expected_classification": "TEST"
+  },
+  {
+    "name": "build-compile",
+    "failure_events": [
+      {
+        "error_signature": "build failed: cannot compile c extension",
+        "log_excerpt": "linker error"
+      }
+    ],
+    "expected_classification": "BUILD"
+  },
+  {
+    "name": "unknown-ambiguous",
+    "failure_events": [
+      {
+        "error_signature": "job failed",
+        "log_excerpt": "step failed"
+      }
+    ],
+    "expected_classification": "UNKNOWN"
+  }
+]
