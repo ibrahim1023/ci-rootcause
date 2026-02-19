@@ -1,0 +1,7 @@
+{
+  "pr_created": false,
+  "pr_url": null,
+  "pr_number": null,
+  "pr_branch": null,
+  "failure_reason": "Patch exceeded max_fix_files"
+}
