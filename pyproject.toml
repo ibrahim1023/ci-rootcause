@@ -13,6 +13,9 @@ dependencies = []
 [tool.pytest.ini_options]
 addopts = "-q"
 testpaths = ["tests/unit", "tests/integration"]
+markers = [
+  "nondeterministic: marks tests that are intentionally non-deterministic",
+]
 
 [tool.ruff]
 line-length = 100
