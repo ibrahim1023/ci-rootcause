@@ -18,6 +18,7 @@ STACK_FRAME_PATTERN = re.compile(
 
 @dataclass(frozen=True)
 class ParsedFailureEvent:
+    event_index: int
     stage: str
     timestamp: str
     error_signature: str
@@ -96,6 +97,7 @@ def parse_ci_log(raw_log: str, timestamp: str = "1970-01-01T00:00:00Z") -> Parse
 
         events.append(
             ParsedFailureEvent(
+                event_index=idx,
                 stage=current_stage,
                 timestamp=timestamp,
                 error_signature=_normalize_signature(raw_line),
