@@ -1,0 +1,34 @@
+{
+  "classification": "TEST",
+  "meta": { "commit": "abc123", "run_id": "gha_4002" },
+  "primary_root_cause": {
+    "confidence": 0.86,
+    "evidence": [
+      {
+        "excerpt": "##[group] test\nTraceback (most recent call last):\n  File \"src/app.py\", line 7, in <module>",
+        "file": "src/app.py",
+        "line": 7,
+        "signal": "classification:test"
+      }
+    ],
+    "title": "Traceback (most recent call last): at src/app.py:7"
+  },
+  "ranked_alternatives": [
+    {
+      "evidence": [
+        {
+          "excerpt": "File \"src/app.py\", line 7, in <module>\nAssertionError: expected 1 == 2\n##[endgroup]",
+          "file": "src/app.py",
+          "line": 7,
+          "signal": "classification:test"
+        }
+      ],
+      "score": 0.62,
+      "title": "AssertionError: expected 1 == 2 at src/app.py:7"
+    }
+  ],
+  "suggested_fix": [
+    "Adjust implementation or assertion so observed behavior matches expected test contract."
+  ],
+  "summary": "TEST failure: Traceback (most recent call last): at src/app.py:7"
+}

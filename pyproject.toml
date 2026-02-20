@@ -8,7 +8,9 @@ version = "0.1.0"
 description = "Deterministic multi-agent CI root cause engine"
 readme = "README.md"
 requires-python = ">=3.11"
-dependencies = []
+dependencies = [
+  "google-adk==1.25.1",
+]
 
 [tool.pytest.ini_options]
 addopts = "-q"
