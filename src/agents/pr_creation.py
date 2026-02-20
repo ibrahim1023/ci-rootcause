@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import json
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterable, Protocol
+from urllib import error, parse, request
 
 
 class ProviderAdapterError(RuntimeError):
@@ -18,9 +20,37 @@ class PatchApplicationError(RuntimeError):
     """Raised when validated file changes cannot be applied safely."""
 
 
+class GuardrailViolationError(RuntimeError):
+    """Raised when PR creation guardrails are violated."""
+
+
 class GitCommandRunner(Protocol):
     def run(self, args: list[str], cwd: Path) -> None:
         """Execute a git command."""
+
+
+class GitHubClient(Protocol):
+    def find_open_pull_request(
+        self,
+        *,
+        owner: str,
+        repo: str,
+        head_branch: str,
+        base_branch: str,
+    ) -> dict[str, Any] | None:
+        """Return an existing open PR for the branch pair, if present."""
+
+    def create_pull_request(
+        self,
+        *,
+        owner: str,
+        repo: str,
+        title: str,
+        body: str,
+        head_branch: str,
+        base_branch: str,
+    ) -> dict[str, Any]:
+        """Create a pull request and return response payload."""
 
 
 @dataclass(frozen=True)
@@ -34,6 +64,16 @@ class BranchCreationPlan:
 class ValidatedFileChange:
     file: str
     content: str
+
+
+@dataclass(frozen=True)
+class PullRequestRequest:
+    owner: str
+    repo: str
+    title: str
+    body: str
+    head_branch: str
+    base_branch: str
 
 
 def _normalize_ref_segment(value: str) -> str:
@@ -168,7 +208,7 @@ def create_fix_branch(
         else:
             raise BranchCreationError(f"Unable to verify base reference: {exc}") from exc
     else:
-        raise BranchCreationError(f"Fix branch already exists: {plan.pr_branch}")
+        return plan.pr_branch
 
     try:
         runner.run(["git", "branch", plan.pr_branch, plan.base_ref], cwd=cwd)
@@ -182,6 +222,77 @@ def _build_commit_message(payload: dict[str, Any], changed_files: Iterable[str])
     run_id = str(payload.get("meta", {}).get("run_id", "")).strip() or "unknown-run"
     file_count = len(list(changed_files))
     return f"ci-rootcause: apply evidence-backed fix plan ({run_id}, files={file_count})"
+
+
+def _build_pr_body(payload: dict[str, Any], changed_files: list[str]) -> str:
+    summary = str(payload.get("summary", "")).strip() or "No summary provided"
+    classification = str(payload.get("classification", "UNKNOWN")).strip() or "UNKNOWN"
+    confidence = float(payload.get("confidence", 0.0))
+    run_id = str(payload.get("meta", {}).get("run_id", "unknown-run")).strip() or "unknown-run"
+    root_cause = str(payload.get("primary_root_cause", {}).get("title", "")).strip()
+
+    lines = [
+        f"ci-rootcause automated fix proposal for run `{run_id}`.",
+        "",
+        f"- Classification: `{classification}`",
+        f"- Confidence: `{confidence:.4f}`",
+        f"- Summary: {summary}",
+    ]
+    if root_cause:
+        lines.append(f"- Primary root cause: {root_cause}")
+
+    lines.extend(
+        [
+            "- Changed files:",
+            *[f"  - `{path}`" for path in changed_files],
+            "",
+            "<!-- ci-rootcause:auto-merge=false -->",
+            "<!-- ci-rootcause:respect-branch-protection=true -->",
+            "<!-- ci-rootcause:run-id="
+            f"{run_id}"
+            " -->",
+        ]
+    )
+    return "\n".join(lines)
+
+
+def build_pull_request_request(
+    payload: dict[str, Any],
+    pr_branch: str,
+    changed_files: list[str],
+) -> PullRequestRequest:
+    repository = str(payload.get("repository", "")).strip()
+    if "/" not in repository:
+        raise GuardrailViolationError("repository must be in 'owner/repo' format")
+    owner, repo = repository.split("/", maxsplit=1)
+    owner = owner.strip()
+    repo = repo.strip()
+    if not owner or not repo:
+        raise GuardrailViolationError("repository must be in 'owner/repo' format")
+
+    base_branch = str(payload.get("target_branch") or payload.get("base_branch") or "main").strip()
+    if not base_branch:
+        raise GuardrailViolationError("target base branch is required")
+
+    run_id = str(payload.get("meta", {}).get("run_id", "unknown-run")).strip() or "unknown-run"
+    title = f"ci-rootcause: suggested fix ({run_id})"
+    body = _build_pr_body(payload=payload, changed_files=changed_files)
+
+    return PullRequestRequest(
+        owner=owner,
+        repo=repo,
+        title=title,
+        body=body,
+        head_branch=pr_branch,
+        base_branch=base_branch,
+    )
+
+
+def _enforce_pr_guardrails(payload: dict[str, Any]) -> None:
+    if bool(payload.get("auto_merge", False)):
+        raise GuardrailViolationError("auto-merge is prohibited for ci-rootcause PRs")
+    if bool(payload.get("bypass_branch_protections", False)):
+        raise GuardrailViolationError("branch protection bypass is prohibited for ci-rootcause PRs")
 
 
 def checkout_fix_branch(
@@ -222,10 +333,146 @@ def commit_evidence_backed_changes(
     return commit_message
 
 
+class GitHubRESTClient:
+    def __init__(self, token: str, api_base: str = "https://api.github.com") -> None:
+        self._token = token.strip()
+        if not self._token:
+            raise GuardrailViolationError("github_token is required to create PRs")
+        self._api_base = api_base.rstrip("/")
+
+    def _request(
+        self,
+        method: str,
+        path: str,
+        query: dict[str, str] | None = None,
+        payload: dict[str, Any] | None = None,
+    ) -> Any:
+        url = f"{self._api_base}{path}"
+        if query:
+            url = f"{url}?{parse.urlencode(query)}"
+        body = None
+        headers = {
+            "Accept": "application/vnd.github+json",
+            "Authorization": f"Bearer {self._token}",
+            "X-GitHub-Api-Version": "2022-11-28",
+        }
+        if payload is not None:
+            body = json.dumps(payload).encode("utf-8")
+            headers["Content-Type"] = "application/json"
+
+        req = request.Request(url=url, method=method, headers=headers, data=body)
+        try:
+            with request.urlopen(req, timeout=15) as response:
+                return json.loads(response.read().decode("utf-8"))
+        except error.HTTPError as exc:
+            message = exc.read().decode("utf-8", errors="replace")
+            raise ProviderAdapterError(
+                f"GitHub API request failed ({method} {path}): {message}"
+            ) from exc
+        except error.URLError as exc:
+            raise ProviderAdapterError(
+                f"GitHub API network error ({method} {path}): {exc}"
+            ) from exc
+
+    def find_open_pull_request(
+        self,
+        *,
+        owner: str,
+        repo: str,
+        head_branch: str,
+        base_branch: str,
+    ) -> dict[str, Any] | None:
+        payload = self._request(
+            method="GET",
+            path=f"/repos/{owner}/{repo}/pulls",
+            query={
+                "state": "open",
+                "head": f"{owner}:{head_branch}",
+                "base": base_branch,
+                "per_page": "1",
+            },
+        )
+        if payload:
+            return dict(payload[0])
+        return None
+
+    def create_pull_request(
+        self,
+        *,
+        owner: str,
+        repo: str,
+        title: str,
+        body: str,
+        head_branch: str,
+        base_branch: str,
+    ) -> dict[str, Any]:
+        return self._request(
+            method="POST",
+            path=f"/repos/{owner}/{repo}/pulls",
+            payload={
+                "title": title,
+                "head": head_branch,
+                "base": base_branch,
+                "body": body,
+                "draft": False,
+                "maintainer_can_modify": False,
+            },
+        )
+
+
+def create_or_reuse_pull_request(
+    payload: dict[str, Any],
+    pr_branch: str,
+    changed_files: list[str],
+    github_client: GitHubClient,
+) -> dict[str, Any]:
+    request_payload = build_pull_request_request(
+        payload=payload,
+        pr_branch=pr_branch,
+        changed_files=changed_files,
+    )
+    existing = github_client.find_open_pull_request(
+        owner=request_payload.owner,
+        repo=request_payload.repo,
+        head_branch=request_payload.head_branch,
+        base_branch=request_payload.base_branch,
+    )
+    if existing is not None:
+        return dict(existing)
+
+    return github_client.create_pull_request(
+        owner=request_payload.owner,
+        repo=request_payload.repo,
+        title=request_payload.title,
+        body=request_payload.body,
+        head_branch=request_payload.head_branch,
+        base_branch=request_payload.base_branch,
+    )
+
+
+def find_existing_pull_request(
+    payload: dict[str, Any],
+    pr_branch: str,
+    github_client: GitHubClient,
+) -> dict[str, Any] | None:
+    request_payload = build_pull_request_request(
+        payload=payload,
+        pr_branch=pr_branch,
+        changed_files=[],
+    )
+    return github_client.find_open_pull_request(
+        owner=request_payload.owner,
+        repo=request_payload.repo,
+        head_branch=request_payload.head_branch,
+        base_branch=request_payload.base_branch,
+    )
+
+
 def run_pr_creation(
     payload: dict[str, Any],
     repo_path: str = ".",
     git_runner: GitCommandRunner | None = None,
+    github_client: GitHubClient | None = None,
 ) -> dict[str, Any]:
     if not bool(payload.get("create_fix_pr", False)):
         return {
@@ -236,11 +483,34 @@ def run_pr_creation(
             "failure_reason": "create_fix_pr=false",
         }
 
+    _enforce_pr_guardrails(payload)
+
+    plan = build_branch_creation_plan(payload)
+
     evidence_files = _extract_evidence_files(payload)
     changes = _extract_validated_changes(payload)
     _validate_changes_against_evidence(changes=changes, evidence_files=evidence_files)
 
-    plan = build_branch_creation_plan(payload)
+    client = github_client
+    if not bool(payload.get("dry_run", False)):
+        if client is None:
+            token = str(payload.get("github_token", "")).strip()
+            client = GitHubRESTClient(token=token)
+        existing = find_existing_pull_request(
+            payload=payload,
+            pr_branch=plan.pr_branch,
+            github_client=client,
+        )
+        if existing is not None:
+            return {
+                "pr_created": True,
+                "pr_url": str(existing["html_url"]),
+                "pr_number": int(existing["number"]),
+                "pr_branch": plan.pr_branch,
+                "failure_reason": None,
+                "commit_message": None,
+            }
+
     created_branch = create_fix_branch(plan=plan, repo_path=repo_path, git_runner=git_runner)
     checkout_fix_branch(plan=plan, repo_path=repo_path, git_runner=git_runner)
     changed_files = apply_validated_changes(changes=changes, repo_path=repo_path)
@@ -252,11 +522,28 @@ def run_pr_creation(
         git_runner=git_runner,
     )
 
+    if bool(payload.get("dry_run", False)):
+        return {
+            "pr_created": False,
+            "pr_url": None,
+            "pr_number": None,
+            "pr_branch": created_branch,
+            "failure_reason": "dry_run=true",
+            "commit_message": commit_message,
+        }
+
+    pr_payload = create_or_reuse_pull_request(
+        payload=payload,
+        pr_branch=created_branch,
+        changed_files=changed_files,
+        github_client=client,
+    )
+
     return {
-        "pr_created": False,
-        "pr_url": None,
-        "pr_number": None,
+        "pr_created": True,
+        "pr_url": str(pr_payload["html_url"]),
+        "pr_number": int(pr_payload["number"]),
         "pr_branch": created_branch,
-        "failure_reason": "Branch and commit created; PR opening flow not implemented yet",
+        "failure_reason": None,
         "commit_message": commit_message,
     }
