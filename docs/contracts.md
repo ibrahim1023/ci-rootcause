@@ -1,0 +1,72 @@
+# Contract Summary
+
+This document describes the current MVP contract models in `src/contracts/models.py`.
+
+## Failure Graph
+
+`FailureGraph` is a list of `FailureNode` objects.
+
+Required failure node fields:
+
+- `stage`
+- `timestamp`
+- `error_signature`
+
+Optional failure node fields:
+
+- `file`
+- `line` (must be `> 0` when present)
+- `stack_frames`
+- `log_excerpt`
+- `is_first_failure`
+
+Validation rules:
+
+- `FailureGraph.nodes` must not be empty.
+- Exactly one node must have `is_first_failure=true`.
+
+## RCA Output (`ci-rca.json`)
+
+`RCAOutput` includes:
+
+- `summary`
+- `classification` (`FailureClass` enum)
+- `primary_root_cause`
+- `ranked_alternatives`
+- `suggested_fix`
+- `meta` (`commit`, `run_id`)
+
+Validation rules:
+
+- `summary` is required.
+- Confidence and score values are constrained to `[0, 1]`.
+- Evidence entries must include `file`.
+
+Deterministic serialization:
+
+- `RCAOutput.to_json()` uses stable key ordering (`sort_keys=True`).
+
+## PR Creation Result
+
+`PRCreationResult` includes:
+
+- `pr_created`
+- `pr_url`
+- `pr_number`
+- `pr_branch`
+- `failure_reason`
+
+Validation rules:
+
+- If `pr_created=true`: `pr_url`, `pr_number (>0)`, and `pr_branch` are required.
+- If `pr_created=false`: `failure_reason` is required.
+
+## Conversion Helpers
+
+`src/contracts/converters.py` provides:
+
+- `failure_graph_from_log_ingest(payload)`
+- `rca_output_from_agent_outputs(payload)`
+- `pr_result_from_agent_output(payload)`
+
+These helpers convert raw agent payloads to typed contract models and validate them.

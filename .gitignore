@@ -30,6 +30,8 @@ runs/
 .env
 .env.*
 
-# Agents
-docs/
+# --- Control-plane / planning / handoffs (never committed) ---
+handoff/
+context.md
+task.md
 AGENTS.md
