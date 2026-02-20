@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+import re
 
 from src.contracts.converters import pr_result_from_agent_output, rca_output_from_agent_outputs
 
@@ -14,3 +15,12 @@ def test_sample_pr_result_artifact_is_valid_contract() -> None:
     payload = json.loads(Path("fixtures/contracts/pr-result.sample.json").read_text())
     contract = pr_result_from_agent_output(payload)
     assert contract.pr_created is False
+
+
+def test_sample_created_pr_result_has_deterministic_branch_name_shape() -> None:
+    payload = json.loads(Path("fixtures/contracts/pr-result.created.sample.json").read_text())
+    contract = pr_result_from_agent_output(payload)
+
+    assert contract.pr_created is True
+    assert contract.pr_branch is not None
+    assert re.fullmatch(r"ci-rootcause/fix/[a-z0-9]+-[a-z0-9]+", contract.pr_branch)

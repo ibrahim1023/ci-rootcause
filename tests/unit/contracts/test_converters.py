@@ -60,3 +60,19 @@ def test_pr_result_converter() -> None:
     result = pr_result_from_agent_output(payload)
     assert result.pr_created is False
     assert result.failure_reason == "Patch exceeded max_fix_files"
+
+
+def test_pr_result_converter_is_deterministic_for_created_pr_payload() -> None:
+    payload = {
+        "pr_created": True,
+        "pr_url": "https://github.com/acme/repo/pull/11",
+        "pr_number": "11",
+        "pr_branch": "ci-rootcause/fix/abc123-ghi456",
+    }
+
+    first = pr_result_from_agent_output(payload)
+    second = pr_result_from_agent_output(payload)
+
+    assert first == second
+    assert first.pr_branch == "ci-rootcause/fix/abc123-ghi456"
+    assert first.pr_number == 11

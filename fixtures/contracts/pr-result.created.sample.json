@@ -1,0 +1,7 @@
+{
+  "pr_created": true,
+  "pr_url": "https://github.com/acme/repo/pull/42",
+  "pr_number": 42,
+  "pr_branch": "ci-rootcause/fix/abc123-def456",
+  "failure_reason": null
+}

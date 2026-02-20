@@ -132,8 +132,27 @@ def test_pr_creation_result_contract() -> None:
     skipped.validate()
 
 
+def test_pr_creation_result_requires_branch_when_created() -> None:
+    created = PRCreationResult(
+        pr_created=True,
+        pr_url="https://github.com/acme/repo/pull/7",
+        pr_number=7,
+        pr_branch=None,
+    )
+
+    with pytest.raises(ValueError, match="pr_branch"):
+        created.validate()
+
+
 def test_pr_creation_result_requires_failure_reason_when_not_created() -> None:
     skipped = PRCreationResult(pr_created=False)
 
     with pytest.raises(ValueError, match="failure_reason"):
         skipped.validate()
+
+
+def test_rca_meta_requires_commit_for_commit_safety() -> None:
+    meta = RCAMeta(commit="", run_id="gha_2")
+
+    with pytest.raises(ValueError, match="commit"):
+        meta.validate()

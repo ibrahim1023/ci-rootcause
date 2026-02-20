@@ -31,6 +31,15 @@ def test_fix_planner_rejects_evidence_outside_allowed_scope() -> None:
         run_fix_planner(payload)
 
 
+def test_fix_planner_rejects_empty_evidence_even_with_allowed_files() -> None:
+    payload = _base_payload()
+    payload["primary_root_cause"]["evidence"] = []
+    payload["allowed_files"] = ["src/core/math.py"]
+
+    with pytest.raises(ValueError, match="No evidence-backed files"):
+        run_fix_planner(payload)
+
+
 def test_fix_planner_rejects_speculative_candidate_file() -> None:
     payload = _base_payload()
     payload["candidate_fix_steps"] = [
@@ -88,3 +97,44 @@ def test_fix_planner_post_processing_is_deterministic() -> None:
     assert first == second
     assert first["fix_steps"][0]["instruction"] == "A step"
     assert first["fix_steps"][1]["instruction"] == "B step"
+
+
+def test_fix_planner_patch_plan_order_is_deterministic() -> None:
+    payload = _base_payload()
+    payload["candidate_fix_steps"] = [
+        {
+            "file": "src/core/zeta.py",
+            "instruction": "  Last step ",
+            "reason": "r3",
+        },
+        {
+            "file": "src/core/alpha.py",
+            "instruction": " First step",
+            "reason": "r1",
+        },
+        {
+            "file": "src/core/alpha.py",
+            "instruction": "Second  step",
+            "reason": "r2",
+        },
+    ]
+    payload["primary_root_cause"]["evidence"] = [
+        {"file": "src/core/alpha.py", "line": 10},
+        {"file": "src/core/zeta.py", "line": 20},
+    ]
+    payload["allowed_files"] = ["src/core/zeta.py", "src/core/alpha.py"]
+
+    first = run_fix_planner(payload)
+    second = run_fix_planner(payload)
+
+    assert first == second
+    assert [item["file"] for item in first["patch_plan"]] == [
+        "src/core/alpha.py",
+        "src/core/alpha.py",
+        "src/core/zeta.py",
+    ]
+    assert [item["summary"] for item in first["patch_plan"]] == [
+        "First step",
+        "Second step",
+        "Last step",
+    ]
