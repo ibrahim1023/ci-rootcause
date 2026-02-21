@@ -127,6 +127,10 @@ def test_run_pipeline_wires_shared_context_and_outputs(tmp_path: Path) -> None:
     assert result.input_hashes["raw_log_sha256"]
     assert result.input_hashes["raw_diff_sha256"]
     assert result.input_hashes["config_sha256"]
+    assert result.pipeline_timing_ms >= 0.0
+    assert "timing_metrics" in result.nondeterministic_components
+    assert sorted(result.agent_timing_ms) == sorted(result.execution_order)
+    assert all(duration >= 0.0 for duration in result.agent_timing_ms.values())
     assert result.structured_logs[0]["event"] == "pipeline_started"
     assert result.structured_logs[-1]["event"] == "pipeline_completed"
 
@@ -160,6 +164,11 @@ def test_run_pipeline_adk_mode_matches_local_outputs(tmp_path: Path) -> None:
     assert local_result.failures == adk_result.failures
     assert local_result.trace_id == adk_result.trace_id
     assert local_result.input_hashes == adk_result.input_hashes
+    assert sorted(local_result.agent_timing_ms) == sorted(adk_result.agent_timing_ms)
+    assert local_result.pipeline_timing_ms >= 0.0
+    assert adk_result.pipeline_timing_ms >= 0.0
+    assert local_result.nondeterministic_components == ["timing_metrics"]
+    assert adk_result.nondeterministic_components == ["timing_metrics"]
     assert (
         local_result.agent_outputs["failure_classification"]["classification"]
         == adk_result.agent_outputs["failure_classification"]["classification"]
@@ -194,6 +203,44 @@ def test_trace_id_and_structured_logs_are_deterministic(tmp_path: Path) -> None:
     assert [item["event"] for item in first.structured_logs] == [
         item["event"] for item in second.structured_logs
     ]
+
+
+def test_timing_metrics_are_recorded_for_partial_runs() -> None:
+    registry = DeterministicAgentRegistry()
+    registry.register(
+        AgentRegistration(name="ok", depends_on=(), handler=lambda _: {"ok": True})
+    )
+
+    def _crash(_: object) -> dict:
+        raise ValueError("boom")
+
+    registry.register(
+        AgentRegistration(name="crash", depends_on=("ok",), handler=_crash)
+    )
+    registry.register(
+        AgentRegistration(
+            name="after_crash", depends_on=("crash",), handler=lambda _: {"should_not_run": True}
+        )
+    )
+
+    request = PipelineRequest(
+        raw_log="",
+        raw_diff="",
+        timestamp="2026-02-20T00:00:00Z",
+        commit="abc123",
+        run_id="gha_3111",
+        base_commit="abc123",
+        head_commit="def456",
+        output_dir=".",
+        fail_fast=False,
+        use_adk_runtime=False,
+    )
+    result = run_pipeline(request=request, registry=registry)
+
+    assert result.pipeline_status == "partial"
+    assert result.pipeline_timing_ms >= 0.0
+    assert sorted(result.agent_timing_ms) == ["after_crash", "crash", "ok"]
+    assert all(duration >= 0.0 for duration in result.agent_timing_ms.values())
 
 
 def test_run_pipeline_returns_partial_results_when_fail_fast_is_disabled() -> None:

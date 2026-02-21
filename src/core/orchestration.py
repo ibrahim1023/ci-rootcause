@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import time
 from copy import deepcopy
 from dataclasses import dataclass, field
 from importlib.util import find_spec
@@ -156,6 +157,9 @@ class PipelineState:
     trace_id: str = ""
     input_hashes: dict[str, str] = field(default_factory=dict)
     structured_logs: list[dict[str, Any]] = field(default_factory=list)
+    agent_timing_ms: dict[str, float] = field(default_factory=dict)
+    pipeline_timing_ms: float = 0.0
+    nondeterministic_components: list[str] = field(default_factory=list)
     pipeline_status: str = "pending"
     config: PipelineConfig | None = None
 
@@ -419,6 +423,10 @@ def _append_structured_log(
     state.structured_logs.append(entry)
 
 
+def _elapsed_ms(start_ns: int, end_ns: int) -> float:
+    return round((end_ns - start_ns) / 1_000_000.0, 3)
+
+
 def run_pipeline(
     request: PipelineRequest,
     registry: DeterministicAgentRegistry | None = None,
@@ -448,7 +456,9 @@ def _run_pipeline_local(
         config=config,
         trace_id=_compute_trace_id(request=request, config=config),
         input_hashes=_compute_input_hashes(request=request, config=config),
+        nondeterministic_components=["timing_metrics"],
     )
+    pipeline_start_ns = time.perf_counter_ns()
     _append_structured_log(
         state,
         "pipeline_started",
@@ -460,6 +470,7 @@ def _run_pipeline_local(
     )
 
     for name in active_registry.resolve_order():
+        agent_start_ns = time.perf_counter_ns()
         state.execution_order.append(name)
         _append_structured_log(state, "agent_started", agent=name)
         registration = active_registry.get(name)
@@ -473,11 +484,13 @@ def _run_pipeline_local(
             state.agent_outputs[name] = output
             state.shared[name] = output
             state.agent_status[name] = "skipped"
+            duration_ms = _elapsed_ms(agent_start_ns, time.perf_counter_ns())
+            state.agent_timing_ms[name] = duration_ms
             _append_structured_log(
                 state,
                 "agent_skipped",
                 agent=name,
-                details={"blocked_by": blocked_by},
+                details={"blocked_by": blocked_by, "duration_ms": duration_ms},
             )
             continue
 
@@ -494,11 +507,17 @@ def _run_pipeline_local(
             state.agent_outputs[name] = output
             state.shared[name] = output
             state.agent_status[name] = "failed"
+            duration_ms = _elapsed_ms(agent_start_ns, time.perf_counter_ns())
+            state.agent_timing_ms[name] = duration_ms
             _append_structured_log(
                 state,
                 "agent_failed",
                 agent=name,
-                details={"error_type": type(exc).__name__, "message": str(exc)},
+                details={
+                    "error_type": type(exc).__name__,
+                    "message": str(exc),
+                    "duration_ms": duration_ms,
+                },
             )
             if request.fail_fast:
                 raise OrchestrationError(
@@ -509,17 +528,29 @@ def _run_pipeline_local(
         state.agent_outputs[name] = output
         state.shared[name] = output
         state.agent_status[name] = "completed"
-        _append_structured_log(state, "agent_completed", agent=name)
+        duration_ms = _elapsed_ms(agent_start_ns, time.perf_counter_ns())
+        state.agent_timing_ms[name] = duration_ms
+        _append_structured_log(
+            state,
+            "agent_completed",
+            agent=name,
+            details={"duration_ms": duration_ms},
+        )
 
     if state.failures:
         completed_count = sum(1 for status in state.agent_status.values() if status == "completed")
         state.pipeline_status = "partial" if completed_count else "failed"
     else:
         state.pipeline_status = "completed"
+    state.pipeline_timing_ms = _elapsed_ms(pipeline_start_ns, time.perf_counter_ns())
     _append_structured_log(
         state,
         "pipeline_completed",
-        details={"pipeline_status": state.pipeline_status, "failure_count": len(state.failures)},
+        details={
+            "pipeline_status": state.pipeline_status,
+            "failure_count": len(state.failures),
+            "duration_ms": state.pipeline_timing_ms,
+        },
     )
 
     return state
@@ -533,6 +564,9 @@ STATE_FAILURES = "__ci_rootcause_failures"
 STATE_TRACE_ID = "__ci_rootcause_trace_id"
 STATE_INPUT_HASHES = "__ci_rootcause_input_hashes"
 STATE_STRUCTURED_LOGS = "__ci_rootcause_structured_logs"
+STATE_AGENT_TIMING_MS = "__ci_rootcause_agent_timing_ms"
+STATE_PIPELINE_TIMING_MS = "__ci_rootcause_pipeline_timing_ms"
+STATE_NONDETERMINISTIC_COMPONENTS = "__ci_rootcause_nondeterministic_components"
 
 
 def _run_pipeline_with_adk(
@@ -567,10 +601,15 @@ def _run_pipeline_with_adk(
             agent_status = deepcopy(state.get(STATE_AGENT_STATUS, {}))
             failures = deepcopy(state.get(STATE_FAILURES, []))
             structured_logs = deepcopy(state.get(STATE_STRUCTURED_LOGS, []))
+            agent_timing_ms = deepcopy(state.get(STATE_AGENT_TIMING_MS, {}))
             current_trace_id = str(state.get(STATE_TRACE_ID, trace_id))
             current_input_hashes = deepcopy(state.get(STATE_INPUT_HASHES, input_hashes))
+            nondeterministic_components = list(
+                state.get(STATE_NONDETERMINISTIC_COMPONENTS, ["timing_metrics"])
+            )
 
             name = self.registration.name
+            agent_start_ns = time.perf_counter_ns()
             execution_order.append(name)
             structured_logs.append(
                 {
@@ -601,6 +640,8 @@ def _run_pipeline_with_adk(
                 agent_outputs[name] = output
                 shared[name] = output
                 agent_status[name] = "skipped"
+                duration_ms = _elapsed_ms(agent_start_ns, time.perf_counter_ns())
+                agent_timing_ms[name] = duration_ms
                 structured_logs.append(
                     {
                         "sequence": len(structured_logs) + 1,
@@ -608,7 +649,7 @@ def _run_pipeline_with_adk(
                         "run_id": self.config.run.run_id,
                         "event": "agent_skipped",
                         "agent": name,
-                        "details": {"blocked_by": blocked_by},
+                        "details": {"blocked_by": blocked_by, "duration_ms": duration_ms},
                     }
                 )
             else:
@@ -627,6 +668,8 @@ def _run_pipeline_with_adk(
                     agent_outputs[name] = output
                     shared[name] = output
                     agent_status[name] = "completed"
+                    duration_ms = _elapsed_ms(agent_start_ns, time.perf_counter_ns())
+                    agent_timing_ms[name] = duration_ms
                     structured_logs.append(
                         {
                             "sequence": len(structured_logs) + 1,
@@ -634,6 +677,7 @@ def _run_pipeline_with_adk(
                             "run_id": self.config.run.run_id,
                             "event": "agent_completed",
                             "agent": name,
+                            "details": {"duration_ms": duration_ms},
                         }
                     )
                 except Exception as exc:
@@ -647,6 +691,8 @@ def _run_pipeline_with_adk(
                     agent_outputs[name] = output
                     shared[name] = output
                     agent_status[name] = "failed"
+                    duration_ms = _elapsed_ms(agent_start_ns, time.perf_counter_ns())
+                    agent_timing_ms[name] = duration_ms
                     structured_logs.append(
                         {
                             "sequence": len(structured_logs) + 1,
@@ -657,6 +703,7 @@ def _run_pipeline_with_adk(
                             "details": {
                                 "error_type": type(exc).__name__,
                                 "message": str(exc),
+                                "duration_ms": duration_ms,
                             },
                         }
                     )
@@ -674,6 +721,8 @@ def _run_pipeline_with_adk(
                         STATE_TRACE_ID: current_trace_id,
                         STATE_INPUT_HASHES: current_input_hashes,
                         STATE_STRUCTURED_LOGS: structured_logs,
+                        STATE_AGENT_TIMING_MS: agent_timing_ms,
+                        STATE_NONDETERMINISTIC_COMPONENTS: nondeterministic_components,
                     }
                 ),
             )
@@ -687,6 +736,9 @@ def _run_pipeline_with_adk(
             state={
                 STATE_TRACE_ID: trace_id,
                 STATE_INPUT_HASHES: input_hashes,
+                STATE_AGENT_TIMING_MS: {},
+                STATE_PIPELINE_TIMING_MS: 0.0,
+                STATE_NONDETERMINISTIC_COMPONENTS: ["timing_metrics"],
                 STATE_STRUCTURED_LOGS: [
                     {
                         "sequence": 1,
@@ -729,19 +781,23 @@ def _run_pipeline_with_adk(
             role="user",
             parts=[types.Part(text="run ci-rootcause pipeline")],
         )
+        pipeline_start_ns = time.perf_counter_ns()
         async for _ in runner.run_async(
             user_id="ci-rootcause",
             session_id=request.run_id or "run",
             new_message=user_message,
         ):
             pass
+        pipeline_duration_ms = _elapsed_ms(pipeline_start_ns, time.perf_counter_ns())
 
         session = await session_service.get_session(
             app_name="ci-rootcause",
             user_id="ci-rootcause",
             session_id=request.run_id or "run",
         )
-        return dict(session.state)
+        session_state = dict(session.state)
+        session_state[STATE_PIPELINE_TIMING_MS] = pipeline_duration_ms
+        return session_state
 
     session_state = asyncio.run(_execute())
 
@@ -755,6 +811,11 @@ def _run_pipeline_with_adk(
         trace_id=str(session_state.get(STATE_TRACE_ID, trace_id)),
         input_hashes=deepcopy(session_state.get(STATE_INPUT_HASHES, input_hashes)),
         structured_logs=deepcopy(session_state.get(STATE_STRUCTURED_LOGS, [])),
+        agent_timing_ms=deepcopy(session_state.get(STATE_AGENT_TIMING_MS, {})),
+        pipeline_timing_ms=float(session_state.get(STATE_PIPELINE_TIMING_MS, 0.0)),
+        nondeterministic_components=list(
+            session_state.get(STATE_NONDETERMINISTIC_COMPONENTS, ["timing_metrics"])
+        ),
         config=config,
     )
 
@@ -766,7 +827,11 @@ def _run_pipeline_with_adk(
     _append_structured_log(
         state,
         "pipeline_completed",
-        details={"pipeline_status": state.pipeline_status, "failure_count": len(state.failures)},
+        details={
+            "pipeline_status": state.pipeline_status,
+            "failure_count": len(state.failures),
+            "duration_ms": state.pipeline_timing_ms,
+        },
     )
 
     return state
