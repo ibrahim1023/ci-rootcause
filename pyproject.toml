@@ -12,6 +12,9 @@ dependencies = [
   "google-adk==1.25.1",
 ]
 
+[project.scripts]
+ci-rootcause = "src.cli:main"
+
 [tool.pytest.ini_options]
 addopts = "-q"
 testpaths = ["tests/unit", "tests/integration"]

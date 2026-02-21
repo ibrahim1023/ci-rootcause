@@ -53,6 +53,29 @@ ruff format --check .
 pytest
 ```
 
+## Local CLI Execution
+
+Run end-to-end deterministic analysis locally:
+
+```bash
+ci-rootcause \
+  --log-path fixtures/ci-logs/github-actions-python-failure.log \
+  --diff-path fixtures/diffs/refactor-only.diff \
+  --output-dir artifacts \
+  --timestamp 2026-02-20T00:00:00Z \
+  --commit abc123 \
+  --run-id gha_local_1 \
+  --base-commit abc122 \
+  --head-commit abc123 \
+  --repository owner/repo
+```
+
+CLI behavior:
+
+- Writes `ci-rca.json` and `ci-rca.md` into `--output-dir`
+- Prints a machine-readable JSON summary to stdout
+- Exits `0` for `completed`/`partial` analysis runs, `2` for runtime/input errors
+
 ## GitHub Action Interface
 
 The action is defined in `action.yml`.
