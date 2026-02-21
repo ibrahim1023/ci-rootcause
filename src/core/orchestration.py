@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+import json
 from copy import deepcopy
 from dataclasses import dataclass, field
 from importlib.util import find_spec
@@ -151,6 +153,9 @@ class PipelineState:
     execution_order: list[str] = field(default_factory=list)
     agent_status: dict[str, str] = field(default_factory=dict)
     failures: list[dict[str, str]] = field(default_factory=list)
+    trace_id: str = ""
+    input_hashes: dict[str, str] = field(default_factory=dict)
+    structured_logs: list[dict[str, Any]] = field(default_factory=list)
     pipeline_status: str = "pending"
     config: PipelineConfig | None = None
 
@@ -344,6 +349,76 @@ def resolve_pipeline_config(request: PipelineRequest) -> PipelineConfig:
     )
 
 
+def _sha256_text(value: str) -> str:
+    return hashlib.sha256(value.encode("utf-8")).hexdigest()
+
+
+def _config_hash(config: PipelineConfig) -> str:
+    payload = {
+        "ci_provider": config.ci_provider,
+        "provider_adapter": config.provider_adapter,
+        "repo": {
+            "repository": config.repo.repository,
+            "target_branch": config.repo.target_branch,
+        },
+        "commit": {
+            "commit": config.commit.commit,
+            "base_commit": config.commit.base_commit,
+            "head_commit": config.commit.head_commit,
+        },
+        "run": {
+            "run_id": config.run.run_id,
+            "timestamp": config.run.timestamp,
+            "job_id": config.run.job_id,
+        },
+    }
+    serialized = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+    return _sha256_text(serialized)
+
+
+def _compute_input_hashes(request: PipelineRequest, config: PipelineConfig) -> dict[str, str]:
+    return {
+        "raw_log_sha256": _sha256_text(request.raw_log),
+        "raw_diff_sha256": _sha256_text(request.raw_diff),
+        "config_sha256": _config_hash(config),
+    }
+
+
+def _compute_trace_id(request: PipelineRequest, config: PipelineConfig) -> str:
+    material = {
+        "ci_provider": config.ci_provider,
+        "repository": config.repo.repository,
+        "base_commit": config.commit.base_commit,
+        "head_commit": config.commit.head_commit,
+        "run_id": config.run.run_id,
+        "timestamp": config.run.timestamp,
+        "job_id": config.run.job_id,
+        "request_commit": request.commit,
+    }
+    serialized = json.dumps(material, sort_keys=True, separators=(",", ":"))
+    return _sha256_text(serialized)[:24]
+
+
+def _append_structured_log(
+    state: PipelineState,
+    event: str,
+    *,
+    agent: str | None = None,
+    details: dict[str, Any] | None = None,
+) -> None:
+    entry: dict[str, Any] = {
+        "sequence": len(state.structured_logs) + 1,
+        "trace_id": state.trace_id,
+        "run_id": state.config.run.run_id if state.config is not None else state.request.run_id,
+        "event": event,
+    }
+    if agent is not None:
+        entry["agent"] = agent
+    if details:
+        entry["details"] = details
+    state.structured_logs.append(entry)
+
+
 def run_pipeline(
     request: PipelineRequest,
     registry: DeterministicAgentRegistry | None = None,
@@ -367,10 +442,26 @@ def _run_pipeline_local(
     registry: DeterministicAgentRegistry | None = None,
 ) -> PipelineState:
     active_registry = registry or build_default_registry()
-    state = PipelineState(request=request, config=resolve_pipeline_config(request))
+    config = resolve_pipeline_config(request)
+    state = PipelineState(
+        request=request,
+        config=config,
+        trace_id=_compute_trace_id(request=request, config=config),
+        input_hashes=_compute_input_hashes(request=request, config=config),
+    )
+    _append_structured_log(
+        state,
+        "pipeline_started",
+        details={
+            "runtime": "local",
+            "agent_count": len(active_registry.resolve_order()),
+            "input_hashes": state.input_hashes,
+        },
+    )
 
     for name in active_registry.resolve_order():
         state.execution_order.append(name)
+        _append_structured_log(state, "agent_started", agent=name)
         registration = active_registry.get(name)
         blocked_by = _blocked_dependencies(registration=registration, state=state)
         if blocked_by:
@@ -382,6 +473,12 @@ def _run_pipeline_local(
             state.agent_outputs[name] = output
             state.shared[name] = output
             state.agent_status[name] = "skipped"
+            _append_structured_log(
+                state,
+                "agent_skipped",
+                agent=name,
+                details={"blocked_by": blocked_by},
+            )
             continue
 
         try:
@@ -397,6 +494,12 @@ def _run_pipeline_local(
             state.agent_outputs[name] = output
             state.shared[name] = output
             state.agent_status[name] = "failed"
+            _append_structured_log(
+                state,
+                "agent_failed",
+                agent=name,
+                details={"error_type": type(exc).__name__, "message": str(exc)},
+            )
             if request.fail_fast:
                 raise OrchestrationError(
                     f"Pipeline failed in agent '{name}': {type(exc).__name__}: {exc}"
@@ -406,12 +509,18 @@ def _run_pipeline_local(
         state.agent_outputs[name] = output
         state.shared[name] = output
         state.agent_status[name] = "completed"
+        _append_structured_log(state, "agent_completed", agent=name)
 
     if state.failures:
         completed_count = sum(1 for status in state.agent_status.values() if status == "completed")
         state.pipeline_status = "partial" if completed_count else "failed"
     else:
         state.pipeline_status = "completed"
+    _append_structured_log(
+        state,
+        "pipeline_completed",
+        details={"pipeline_status": state.pipeline_status, "failure_count": len(state.failures)},
+    )
 
     return state
 
@@ -421,6 +530,9 @@ STATE_SHARED = "__ci_rootcause_shared"
 STATE_EXECUTION_ORDER = "__ci_rootcause_execution_order"
 STATE_AGENT_STATUS = "__ci_rootcause_agent_status"
 STATE_FAILURES = "__ci_rootcause_failures"
+STATE_TRACE_ID = "__ci_rootcause_trace_id"
+STATE_INPUT_HASHES = "__ci_rootcause_input_hashes"
+STATE_STRUCTURED_LOGS = "__ci_rootcause_structured_logs"
 
 
 def _run_pipeline_with_adk(
@@ -439,6 +551,8 @@ def _run_pipeline_with_adk(
 
     active_registry = registry or build_default_registry()
     config = resolve_pipeline_config(request)
+    trace_id = _compute_trace_id(request=request, config=config)
+    input_hashes = _compute_input_hashes(request=request, config=config)
 
     class DeterministicADKAgent(BaseAgent):
         registration: AgentRegistration
@@ -452,9 +566,21 @@ def _run_pipeline_with_adk(
             execution_order = list(state.get(STATE_EXECUTION_ORDER, []))
             agent_status = deepcopy(state.get(STATE_AGENT_STATUS, {}))
             failures = deepcopy(state.get(STATE_FAILURES, []))
+            structured_logs = deepcopy(state.get(STATE_STRUCTURED_LOGS, []))
+            current_trace_id = str(state.get(STATE_TRACE_ID, trace_id))
+            current_input_hashes = deepcopy(state.get(STATE_INPUT_HASHES, input_hashes))
 
             name = self.registration.name
             execution_order.append(name)
+            structured_logs.append(
+                {
+                    "sequence": len(structured_logs) + 1,
+                    "trace_id": current_trace_id,
+                    "run_id": self.config.run.run_id,
+                    "event": "agent_started",
+                    "agent": name,
+                }
+            )
 
             blocked_by = _blocked_dependencies(registration=self.registration, state=PipelineState(
                 request=self.request,
@@ -475,6 +601,16 @@ def _run_pipeline_with_adk(
                 agent_outputs[name] = output
                 shared[name] = output
                 agent_status[name] = "skipped"
+                structured_logs.append(
+                    {
+                        "sequence": len(structured_logs) + 1,
+                        "trace_id": current_trace_id,
+                        "run_id": self.config.run.run_id,
+                        "event": "agent_skipped",
+                        "agent": name,
+                        "details": {"blocked_by": blocked_by},
+                    }
+                )
             else:
                 try:
                     output = self.registration.handler(
@@ -491,6 +627,15 @@ def _run_pipeline_with_adk(
                     agent_outputs[name] = output
                     shared[name] = output
                     agent_status[name] = "completed"
+                    structured_logs.append(
+                        {
+                            "sequence": len(structured_logs) + 1,
+                            "trace_id": current_trace_id,
+                            "run_id": self.config.run.run_id,
+                            "event": "agent_completed",
+                            "agent": name,
+                        }
+                    )
                 except Exception as exc:
                     failure = {
                         "agent": name,
@@ -502,6 +647,19 @@ def _run_pipeline_with_adk(
                     agent_outputs[name] = output
                     shared[name] = output
                     agent_status[name] = "failed"
+                    structured_logs.append(
+                        {
+                            "sequence": len(structured_logs) + 1,
+                            "trace_id": current_trace_id,
+                            "run_id": self.config.run.run_id,
+                            "event": "agent_failed",
+                            "agent": name,
+                            "details": {
+                                "error_type": type(exc).__name__,
+                                "message": str(exc),
+                            },
+                        }
+                    )
 
             yield Event(
                 author=self.name,
@@ -513,6 +671,9 @@ def _run_pipeline_with_adk(
                         STATE_EXECUTION_ORDER: execution_order,
                         STATE_AGENT_STATUS: agent_status,
                         STATE_FAILURES: failures,
+                        STATE_TRACE_ID: current_trace_id,
+                        STATE_INPUT_HASHES: current_input_hashes,
+                        STATE_STRUCTURED_LOGS: structured_logs,
                     }
                 ),
             )
@@ -523,6 +684,23 @@ def _run_pipeline_with_adk(
             app_name="ci-rootcause",
             user_id="ci-rootcause",
             session_id=request.run_id or "run",
+            state={
+                STATE_TRACE_ID: trace_id,
+                STATE_INPUT_HASHES: input_hashes,
+                STATE_STRUCTURED_LOGS: [
+                    {
+                        "sequence": 1,
+                        "trace_id": trace_id,
+                        "run_id": config.run.run_id,
+                        "event": "pipeline_started",
+                        "details": {
+                            "runtime": "adk",
+                            "agent_count": len(active_registry.resolve_order()),
+                            "input_hashes": input_hashes,
+                        },
+                    }
+                ],
+            },
         )
 
         sub_agents = [
@@ -574,6 +752,9 @@ def _run_pipeline_with_adk(
         execution_order=list(session_state.get(STATE_EXECUTION_ORDER, [])),
         agent_status=deepcopy(session_state.get(STATE_AGENT_STATUS, {})),
         failures=deepcopy(session_state.get(STATE_FAILURES, [])),
+        trace_id=str(session_state.get(STATE_TRACE_ID, trace_id)),
+        input_hashes=deepcopy(session_state.get(STATE_INPUT_HASHES, input_hashes)),
+        structured_logs=deepcopy(session_state.get(STATE_STRUCTURED_LOGS, [])),
         config=config,
     )
 
@@ -582,5 +763,10 @@ def _run_pipeline_with_adk(
         state.pipeline_status = "partial" if completed_count else "failed"
     else:
         state.pipeline_status = "completed"
+    _append_structured_log(
+        state,
+        "pipeline_completed",
+        details={"pipeline_status": state.pipeline_status, "failure_count": len(state.failures)},
+    )
 
     return state

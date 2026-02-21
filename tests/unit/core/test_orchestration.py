@@ -123,6 +123,12 @@ def test_run_pipeline_wires_shared_context_and_outputs(tmp_path: Path) -> None:
     assert result.agent_outputs["pr_creation"]["failure_reason"] == "create_fix_pr=false"
     assert result.pipeline_status == "completed"
     assert result.failures == []
+    assert result.trace_id
+    assert result.input_hashes["raw_log_sha256"]
+    assert result.input_hashes["raw_diff_sha256"]
+    assert result.input_hashes["config_sha256"]
+    assert result.structured_logs[0]["event"] == "pipeline_started"
+    assert result.structured_logs[-1]["event"] == "pipeline_completed"
 
     json_path = Path(result.agent_outputs["reporter"]["ci_rca_json_path"])
     md_path = Path(result.agent_outputs["reporter"]["ci_rca_md_path"])
@@ -145,19 +151,48 @@ def test_run_pipeline_adk_mode_matches_local_outputs(tmp_path: Path) -> None:
 
     local_result = run_pipeline(request=replace(base_request, use_adk_runtime=False))
     adk_result = run_pipeline(
-        request=replace(base_request, run_id="gha_2102", output_dir=str(tmp_path / "adk"))
+        request=replace(base_request, output_dir=str(tmp_path / "adk"))
     )
 
     assert local_result.pipeline_status == adk_result.pipeline_status == "completed"
     assert local_result.execution_order == adk_result.execution_order
     assert local_result.agent_status == adk_result.agent_status
     assert local_result.failures == adk_result.failures
+    assert local_result.trace_id == adk_result.trace_id
+    assert local_result.input_hashes == adk_result.input_hashes
     assert (
         local_result.agent_outputs["failure_classification"]["classification"]
         == adk_result.agent_outputs["failure_classification"]["classification"]
     )
     assert local_result.agent_outputs["root_cause_ranker"] == adk_result.agent_outputs[
         "root_cause_ranker"
+    ]
+
+
+def test_trace_id_and_structured_logs_are_deterministic(tmp_path: Path) -> None:
+    request = PipelineRequest(
+        raw_log=_sample_log(),
+        raw_diff=_sample_diff(),
+        timestamp="2026-02-20T00:00:00Z",
+        commit="abc123",
+        run_id="gha_2111",
+        base_commit="abc123",
+        head_commit="def456",
+        output_dir=str(tmp_path / "one"),
+        create_fix_pr=False,
+        use_adk_runtime=False,
+    )
+
+    first = run_pipeline(request=request)
+    second = run_pipeline(request=replace(request, output_dir=str(tmp_path / "two")))
+
+    assert first.trace_id == second.trace_id
+    assert first.input_hashes == second.input_hashes
+    assert [item["sequence"] for item in first.structured_logs] == list(
+        range(1, len(first.structured_logs) + 1)
+    )
+    assert [item["event"] for item in first.structured_logs] == [
+        item["event"] for item in second.structured_logs
     ]
 
 
