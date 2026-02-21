@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -127,6 +128,37 @@ def test_run_pipeline_wires_shared_context_and_outputs(tmp_path: Path) -> None:
     md_path = Path(result.agent_outputs["reporter"]["ci_rca_md_path"])
     assert json_path.exists()
     assert md_path.exists()
+
+
+def test_run_pipeline_adk_mode_matches_local_outputs(tmp_path: Path) -> None:
+    base_request = PipelineRequest(
+        raw_log=_sample_log(),
+        raw_diff=_sample_diff(),
+        timestamp="2026-02-20T00:00:00Z",
+        commit="abc123",
+        run_id="gha_2101",
+        base_commit="abc123",
+        head_commit="def456",
+        output_dir=str(tmp_path / "local"),
+        create_fix_pr=False,
+    )
+
+    local_result = run_pipeline(request=replace(base_request, use_adk_runtime=False))
+    adk_result = run_pipeline(
+        request=replace(base_request, run_id="gha_2102", output_dir=str(tmp_path / "adk"))
+    )
+
+    assert local_result.pipeline_status == adk_result.pipeline_status == "completed"
+    assert local_result.execution_order == adk_result.execution_order
+    assert local_result.agent_status == adk_result.agent_status
+    assert local_result.failures == adk_result.failures
+    assert (
+        local_result.agent_outputs["failure_classification"]["classification"]
+        == adk_result.agent_outputs["failure_classification"]["classification"]
+    )
+    assert local_result.agent_outputs["root_cause_ranker"] == adk_result.agent_outputs[
+        "root_cause_ranker"
+    ]
 
 
 def test_run_pipeline_returns_partial_results_when_fail_fast_is_disabled() -> None:

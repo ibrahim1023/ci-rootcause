@@ -76,6 +76,12 @@ CLI behavior:
 - Prints a machine-readable JSON summary to stdout
 - Exits `0` for `completed`/`partial` analysis runs, `2` for runtime/input errors
 
+Runtime mode:
+
+- Uses Google ADK runtime orchestration by default when `google-adk` is installed
+- Falls back to deterministic local orchestration if ADK runtime initialization fails
+- Uses deterministic local orchestration when `--fail-fast` is enabled
+
 ## GitHub Action Interface
 
 The action is defined in `action.yml`.

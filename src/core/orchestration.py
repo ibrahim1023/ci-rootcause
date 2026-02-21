@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from copy import deepcopy
 from dataclasses import dataclass, field
 from importlib.util import find_spec
 from typing import Any, Callable
@@ -139,6 +140,7 @@ class PipelineRequest:
     validated_changes: list[dict[str, str]] = field(default_factory=list)
     fail_fast: bool = False
     config: PipelineConfig | None = None
+    use_adk_runtime: bool | None = None
 
 
 @dataclass
@@ -346,6 +348,24 @@ def run_pipeline(
     request: PipelineRequest,
     registry: DeterministicAgentRegistry | None = None,
 ) -> PipelineState:
+    use_adk_runtime = request.use_adk_runtime
+    if use_adk_runtime is None:
+        use_adk_runtime = bool(find_spec("google.adk"))
+
+    if use_adk_runtime and not request.fail_fast:
+        try:
+            return _run_pipeline_with_adk(request=request, registry=registry)
+        except Exception:
+            # Fall back to deterministic local orchestration if ADK runtime fails.
+            pass
+
+    return _run_pipeline_local(request=request, registry=registry)
+
+
+def _run_pipeline_local(
+    request: PipelineRequest,
+    registry: DeterministicAgentRegistry | None = None,
+) -> PipelineState:
     active_registry = registry or build_default_registry()
     state = PipelineState(request=request, config=resolve_pipeline_config(request))
 
@@ -386,6 +406,176 @@ def run_pipeline(
         state.agent_outputs[name] = output
         state.shared[name] = output
         state.agent_status[name] = "completed"
+
+    if state.failures:
+        completed_count = sum(1 for status in state.agent_status.values() if status == "completed")
+        state.pipeline_status = "partial" if completed_count else "failed"
+    else:
+        state.pipeline_status = "completed"
+
+    return state
+
+
+STATE_AGENT_OUTPUTS = "__ci_rootcause_agent_outputs"
+STATE_SHARED = "__ci_rootcause_shared"
+STATE_EXECUTION_ORDER = "__ci_rootcause_execution_order"
+STATE_AGENT_STATUS = "__ci_rootcause_agent_status"
+STATE_FAILURES = "__ci_rootcause_failures"
+
+
+def _run_pipeline_with_adk(
+    request: PipelineRequest,
+    registry: DeterministicAgentRegistry | None = None,
+) -> PipelineState:
+    # Import ADK modules lazily to keep local deterministic runtime independent.
+    import asyncio
+
+    from google.adk import Runner
+    from google.adk.agents import BaseAgent, InvocationContext, SequentialAgent
+    from google.adk.events import Event
+    from google.adk.events.event_actions import EventActions
+    from google.adk.runners import InMemorySessionService
+    from google.genai import types
+
+    active_registry = registry or build_default_registry()
+    config = resolve_pipeline_config(request)
+
+    class DeterministicADKAgent(BaseAgent):
+        registration: AgentRegistration
+        request: PipelineRequest
+        config: PipelineConfig
+
+        async def _run_async_impl(self, ctx: InvocationContext):
+            state = ctx.session.state
+            agent_outputs = deepcopy(state.get(STATE_AGENT_OUTPUTS, {}))
+            shared = deepcopy(state.get(STATE_SHARED, {}))
+            execution_order = list(state.get(STATE_EXECUTION_ORDER, []))
+            agent_status = deepcopy(state.get(STATE_AGENT_STATUS, {}))
+            failures = deepcopy(state.get(STATE_FAILURES, []))
+
+            name = self.registration.name
+            execution_order.append(name)
+
+            blocked_by = _blocked_dependencies(registration=self.registration, state=PipelineState(
+                request=self.request,
+                shared=shared,
+                agent_outputs=agent_outputs,
+                execution_order=execution_order,
+                agent_status=agent_status,
+                failures=failures,
+                config=self.config,
+            ))
+
+            if blocked_by:
+                output = {
+                    "status": "skipped",
+                    "reason": "dependency_failed",
+                    "blocked_by": blocked_by,
+                }
+                agent_outputs[name] = output
+                shared[name] = output
+                agent_status[name] = "skipped"
+            else:
+                try:
+                    output = self.registration.handler(
+                        PipelineState(
+                            request=self.request,
+                            shared=shared,
+                            agent_outputs=agent_outputs,
+                            execution_order=execution_order,
+                            agent_status=agent_status,
+                            failures=failures,
+                            config=self.config,
+                        )
+                    )
+                    agent_outputs[name] = output
+                    shared[name] = output
+                    agent_status[name] = "completed"
+                except Exception as exc:
+                    failure = {
+                        "agent": name,
+                        "error_type": type(exc).__name__,
+                        "message": str(exc),
+                    }
+                    failures.append(failure)
+                    output = {"status": "failed", "error": failure}
+                    agent_outputs[name] = output
+                    shared[name] = output
+                    agent_status[name] = "failed"
+
+            yield Event(
+                author=self.name,
+                invocation_id=ctx.invocation_id,
+                actions=EventActions(
+                    state_delta={
+                        STATE_AGENT_OUTPUTS: agent_outputs,
+                        STATE_SHARED: shared,
+                        STATE_EXECUTION_ORDER: execution_order,
+                        STATE_AGENT_STATUS: agent_status,
+                        STATE_FAILURES: failures,
+                    }
+                ),
+            )
+
+    async def _execute() -> dict[str, Any]:
+        session_service = InMemorySessionService()
+        await session_service.create_session(
+            app_name="ci-rootcause",
+            user_id="ci-rootcause",
+            session_id=request.run_id or "run",
+        )
+
+        sub_agents = [
+            DeterministicADKAgent(
+                name=registration.name,
+                registration=registration,
+                request=request,
+                config=config,
+            )
+            for registration in (
+                active_registry.get(name) for name in active_registry.resolve_order()
+            )
+        ]
+
+        root = SequentialAgent(
+            name="ci_rootcause_pipeline",
+            sub_agents=sub_agents,
+        )
+        runner = Runner(
+            app_name="ci-rootcause",
+            agent=root,
+            session_service=session_service,
+        )
+
+        user_message = types.Content(
+            role="user",
+            parts=[types.Part(text="run ci-rootcause pipeline")],
+        )
+        async for _ in runner.run_async(
+            user_id="ci-rootcause",
+            session_id=request.run_id or "run",
+            new_message=user_message,
+        ):
+            pass
+
+        session = await session_service.get_session(
+            app_name="ci-rootcause",
+            user_id="ci-rootcause",
+            session_id=request.run_id or "run",
+        )
+        return dict(session.state)
+
+    session_state = asyncio.run(_execute())
+
+    state = PipelineState(
+        request=request,
+        shared=deepcopy(session_state.get(STATE_SHARED, {})),
+        agent_outputs=deepcopy(session_state.get(STATE_AGENT_OUTPUTS, {})),
+        execution_order=list(session_state.get(STATE_EXECUTION_ORDER, [])),
+        agent_status=deepcopy(session_state.get(STATE_AGENT_STATUS, {})),
+        failures=deepcopy(session_state.get(STATE_FAILURES, [])),
+        config=config,
+    )
 
     if state.failures:
         completed_count = sum(1 for status in state.agent_status.values() if status == "completed")
