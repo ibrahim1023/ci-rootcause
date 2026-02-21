@@ -95,12 +95,17 @@ def run_benchmark_suite(
     output_root: str,
     *,
     use_adk_runtime: bool | None = None,
+    repeat_runs: int = 2,
 ) -> dict[str, Any]:
+    if repeat_runs <= 0:
+        raise BenchmarkSuiteError("repeat_runs must be > 0")
+
     suite_name, cases = load_benchmark_suite(suite_path)
     output_root_path = Path(output_root)
     output_root_path.mkdir(parents=True, exist_ok=True)
 
     case_results: list[dict[str, Any]] = []
+    confidence_reproducible_count = 0
     for case in cases:
         log_path = Path(case.log_path)
         diff_path = Path(case.diff_path)
@@ -111,20 +116,28 @@ def run_benchmark_suite(
             raise BenchmarkSuiteError(f"Benchmark case '{case.case_id}' diff_path does not exist")
 
         case_output_dir = output_root_path / case.case_id
-        request = PipelineRequest(
-            raw_log=log_path.read_text(encoding="utf-8"),
-            raw_diff=diff_path.read_text(encoding="utf-8"),
-            timestamp=case.timestamp,
-            commit=case.commit,
-            run_id=case.run_id,
-            base_commit=case.base_commit,
-            head_commit=case.head_commit,
-            output_dir=str(case_output_dir),
-            create_fix_pr=False,
-            use_adk_runtime=use_adk_runtime,
-        )
-        state = run_pipeline(request=request)
+        confidence_values: list[float] = []
+        first_state: Any = None
+        for _ in range(repeat_runs):
+            request = PipelineRequest(
+                raw_log=log_path.read_text(encoding="utf-8"),
+                raw_diff=diff_path.read_text(encoding="utf-8"),
+                timestamp=case.timestamp,
+                commit=case.commit,
+                run_id=case.run_id,
+                base_commit=case.base_commit,
+                head_commit=case.head_commit,
+                output_dir=str(case_output_dir),
+                create_fix_pr=False,
+                use_adk_runtime=use_adk_runtime,
+            )
+            state = run_pipeline(request=request)
+            ranker_output = state.agent_outputs.get("root_cause_ranker", {})
+            confidence_values.append(float(ranker_output.get("confidence", 0.0)))
+            if first_state is None:
+                first_state = state
 
+        state = first_state
         classification_output = state.agent_outputs.get("failure_classification", {})
         ranker_output = state.agent_outputs.get("root_cause_ranker", {})
         reporter_output = state.agent_outputs.get("reporter", {})
@@ -143,6 +156,9 @@ def run_benchmark_suite(
 
         json_path = Path(str(reporter_output.get("ci_rca_json_path", "")))
         md_path = Path(str(reporter_output.get("ci_rca_md_path", "")))
+        confidence_is_reproducible = len(set(confidence_values)) == 1
+        if confidence_is_reproducible:
+            confidence_reproducible_count += 1
 
         case_results.append(
             {
@@ -155,6 +171,8 @@ def run_benchmark_suite(
                 "expected_primary_root_cause_contains": expected_primary_contains,
                 "primary_root_cause_match": primary_root_cause_match,
                 "confidence": float(ranker_output.get("confidence", 0.0)),
+                "confidence_values": confidence_values,
+                "confidence_is_reproducible": confidence_is_reproducible,
                 "primary_root_cause_title": primary_root_cause_title,
                 "trace_id": state.trace_id,
                 "pipeline_timing_ms": state.pipeline_timing_ms,
@@ -167,6 +185,8 @@ def run_benchmark_suite(
     matched = sum(1 for item in case_results if item["classification_match"])
     root_cause_matched = sum(1 for item in case_results if item["primary_root_cause_match"])
     total_cases = len(case_results)
+    total_timing = sum(float(item["pipeline_timing_ms"]) for item in case_results)
+    mean_time_to_diagnosis_ms = round(total_timing / total_cases, 3) if total_cases else 0.0
     return {
         "suite_name": suite_name,
         "total_cases": total_cases,
@@ -176,5 +196,10 @@ def run_benchmark_suite(
         "primary_root_cause_accuracy": (
             round(root_cause_matched / total_cases, 4) if total_cases else 0.0
         ),
+        "confidence_reproducible_cases": confidence_reproducible_count,
+        "confidence_reproducibility": (
+            round(confidence_reproducible_count / total_cases, 4) if total_cases else 0.0
+        ),
+        "mean_time_to_diagnosis_ms": mean_time_to_diagnosis_ms,
         "cases": case_results,
     }

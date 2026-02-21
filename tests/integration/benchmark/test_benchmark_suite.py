@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from src.benchmark.suite import run_benchmark_suite
 
 SUITE_PATH = "fixtures/benchmarks/mvp-suite.json"
@@ -20,6 +22,9 @@ def test_run_benchmark_suite_executes_curated_cases(tmp_path: Path) -> None:
     assert result["classification_matches"] == 4
     assert result["primary_root_cause_matches"] == 4
     assert result["primary_root_cause_accuracy"] == 1.0
+    assert result["confidence_reproducible_cases"] == 4
+    assert result["confidence_reproducibility"] == 1.0
+    assert result["mean_time_to_diagnosis_ms"] >= 0.0
 
     case_ids = [item["case_id"] for item in result["cases"]]
     assert case_ids == sorted(case_ids)
@@ -30,6 +35,9 @@ def test_run_benchmark_suite_executes_curated_cases(tmp_path: Path) -> None:
         assert item["primary_root_cause_title"]
         assert item["primary_root_cause_match"] is True
         assert item["expected_primary_root_cause_contains"] == "AssertionError"
+        assert item["confidence_is_reproducible"] is True
+        assert len(item["confidence_values"]) == 2
+        assert item["confidence_values"][0] == item["confidence_values"][1]
         assert len(item["trace_id"]) == 24
         assert item["pipeline_timing_ms"] >= 0.0
         assert len(item["ci_rca_json_sha256"]) == 64
@@ -57,3 +65,16 @@ def test_run_benchmark_suite_is_repeatable_for_same_inputs(tmp_path: Path) -> No
     assert [item["primary_root_cause_title"] for item in first["cases"]] == [
         item["primary_root_cause_title"] for item in second["cases"]
     ]
+    assert first["confidence_reproducibility"] == second["confidence_reproducibility"] == 1.0
+
+
+def test_run_benchmark_suite_rejects_non_positive_repeat_runs(tmp_path: Path) -> None:
+    from src.benchmark.suite import BenchmarkSuiteError
+
+    with pytest.raises(BenchmarkSuiteError, match="repeat_runs must be > 0"):
+        run_benchmark_suite(
+            suite_path=SUITE_PATH,
+            output_root=str(tmp_path / "bench-invalid"),
+            use_adk_runtime=False,
+            repeat_runs=0,
+        )
