@@ -1,0 +1,57 @@
+{
+  "suite_name": "mvp-curated-v1",
+  "cases": [
+    {
+      "case_id": "case-node-mixed-lock",
+      "description": "Python assertion failure with mixed Node lockfile/code diff",
+      "log_path": "fixtures/ci-logs/github-actions-python-failure.log",
+      "diff_path": "fixtures/diffs/node-mixed-code-lock.diff",
+      "timestamp": "2026-02-21T00:00:00Z",
+      "commit": "abc123",
+      "run_id": "bench_001",
+      "base_commit": "abc122",
+      "head_commit": "abc123",
+      "expected_classification": "DEPENDENCY",
+      "expected_primary_root_cause_contains": "AssertionError"
+    },
+    {
+      "case_id": "case-python-lock-only",
+      "description": "Python assertion failure with lockfile-only diff",
+      "log_path": "fixtures/ci-logs/github-actions-python-failure.log",
+      "diff_path": "fixtures/diffs/python-lockfile-only.diff",
+      "timestamp": "2026-02-21T00:00:00Z",
+      "commit": "abc123",
+      "run_id": "bench_002",
+      "base_commit": "abc122",
+      "head_commit": "abc123",
+      "expected_classification": "DEPENDENCY",
+      "expected_primary_root_cause_contains": "AssertionError"
+    },
+    {
+      "case_id": "case-refactor-only",
+      "description": "Python assertion failure with refactor-only diff",
+      "log_path": "fixtures/ci-logs/github-actions-python-failure.log",
+      "diff_path": "fixtures/diffs/refactor-only.diff",
+      "timestamp": "2026-02-21T00:00:00Z",
+      "commit": "abc123",
+      "run_id": "bench_003",
+      "base_commit": "abc122",
+      "head_commit": "abc123",
+      "expected_classification": "TEST",
+      "expected_primary_root_cause_contains": "AssertionError"
+    },
+    {
+      "case_id": "case-rename-and-modify",
+      "description": "Python assertion failure with rename+modify diff",
+      "log_path": "fixtures/ci-logs/github-actions-python-failure.log",
+      "diff_path": "fixtures/diffs/rename-and-modify.diff",
+      "timestamp": "2026-02-21T00:00:00Z",
+      "commit": "abc123",
+      "run_id": "bench_004",
+      "base_commit": "abc122",
+      "head_commit": "abc123",
+      "expected_classification": "TEST",
+      "expected_primary_root_cause_contains": "AssertionError"
+    }
+  ]
+}

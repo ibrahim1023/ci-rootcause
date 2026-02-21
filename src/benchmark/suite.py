@@ -1,0 +1,180 @@
+from __future__ import annotations
+
+import hashlib
+import json
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
+
+from src.core.orchestration import PipelineRequest, run_pipeline
+
+
+class BenchmarkSuiteError(RuntimeError):
+    """Raised when benchmark suite loading or execution fails."""
+
+
+@dataclass(frozen=True)
+class BenchmarkCase:
+    case_id: str
+    description: str
+    log_path: str
+    diff_path: str
+    timestamp: str
+    commit: str
+    run_id: str
+    base_commit: str
+    head_commit: str
+    expected_classification: str | None = None
+    expected_primary_root_cause_contains: str | None = None
+
+
+def _require_text(value: Any, field_name: str) -> str:
+    text = str(value).strip()
+    if not text:
+        raise BenchmarkSuiteError(f"Benchmark case field '{field_name}' is required")
+    return text
+
+
+def _sha256_file(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def load_benchmark_suite(suite_path: str) -> tuple[str, list[BenchmarkCase]]:
+    path = Path(suite_path)
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except OSError as exc:
+        raise BenchmarkSuiteError(f"Unable to read benchmark suite '{suite_path}': {exc}") from exc
+    except json.JSONDecodeError as exc:
+        raise BenchmarkSuiteError(f"Invalid JSON in benchmark suite '{suite_path}': {exc}") from exc
+
+    suite_name = _require_text(payload.get("suite_name", ""), "suite_name")
+    raw_cases = payload.get("cases")
+    if not isinstance(raw_cases, list) or not raw_cases:
+        raise BenchmarkSuiteError("Benchmark suite must include a non-empty 'cases' list")
+
+    cases: list[BenchmarkCase] = []
+    seen_ids: set[str] = set()
+    for item in raw_cases:
+        if not isinstance(item, dict):
+            raise BenchmarkSuiteError("Each benchmark case must be a JSON object")
+
+        case = BenchmarkCase(
+            case_id=_require_text(item.get("case_id", ""), "case_id"),
+            description=_require_text(item.get("description", ""), "description"),
+            log_path=_require_text(item.get("log_path", ""), "log_path"),
+            diff_path=_require_text(item.get("diff_path", ""), "diff_path"),
+            timestamp=_require_text(item.get("timestamp", ""), "timestamp"),
+            commit=_require_text(item.get("commit", ""), "commit"),
+            run_id=_require_text(item.get("run_id", ""), "run_id"),
+            base_commit=_require_text(item.get("base_commit", ""), "base_commit"),
+            head_commit=_require_text(item.get("head_commit", ""), "head_commit"),
+            expected_classification=(
+                str(item.get("expected_classification")).strip()
+                if item.get("expected_classification") is not None
+                else None
+            ),
+            expected_primary_root_cause_contains=(
+                str(item.get("expected_primary_root_cause_contains")).strip()
+                if item.get("expected_primary_root_cause_contains") is not None
+                else None
+            ),
+        )
+
+        if case.case_id in seen_ids:
+            raise BenchmarkSuiteError(f"Duplicate benchmark case_id: {case.case_id}")
+        seen_ids.add(case.case_id)
+        cases.append(case)
+
+    cases.sort(key=lambda case: case.case_id)
+    return suite_name, cases
+
+
+def run_benchmark_suite(
+    suite_path: str,
+    output_root: str,
+    *,
+    use_adk_runtime: bool | None = None,
+) -> dict[str, Any]:
+    suite_name, cases = load_benchmark_suite(suite_path)
+    output_root_path = Path(output_root)
+    output_root_path.mkdir(parents=True, exist_ok=True)
+
+    case_results: list[dict[str, Any]] = []
+    for case in cases:
+        log_path = Path(case.log_path)
+        diff_path = Path(case.diff_path)
+
+        if not log_path.exists():
+            raise BenchmarkSuiteError(f"Benchmark case '{case.case_id}' log_path does not exist")
+        if not diff_path.exists():
+            raise BenchmarkSuiteError(f"Benchmark case '{case.case_id}' diff_path does not exist")
+
+        case_output_dir = output_root_path / case.case_id
+        request = PipelineRequest(
+            raw_log=log_path.read_text(encoding="utf-8"),
+            raw_diff=diff_path.read_text(encoding="utf-8"),
+            timestamp=case.timestamp,
+            commit=case.commit,
+            run_id=case.run_id,
+            base_commit=case.base_commit,
+            head_commit=case.head_commit,
+            output_dir=str(case_output_dir),
+            create_fix_pr=False,
+            use_adk_runtime=use_adk_runtime,
+        )
+        state = run_pipeline(request=request)
+
+        classification_output = state.agent_outputs.get("failure_classification", {})
+        ranker_output = state.agent_outputs.get("root_cause_ranker", {})
+        reporter_output = state.agent_outputs.get("reporter", {})
+
+        actual_classification = str(classification_output.get("classification", "UNKNOWN"))
+        primary_root_cause_title = str(
+            (ranker_output.get("primary_root_cause") or {}).get("title", "")
+        )
+        expected = case.expected_classification
+        classification_match = expected is None or expected == actual_classification
+        expected_primary_contains = case.expected_primary_root_cause_contains
+        primary_root_cause_match = (
+            expected_primary_contains is None
+            or expected_primary_contains.lower() in primary_root_cause_title.lower()
+        )
+
+        json_path = Path(str(reporter_output.get("ci_rca_json_path", "")))
+        md_path = Path(str(reporter_output.get("ci_rca_md_path", "")))
+
+        case_results.append(
+            {
+                "case_id": case.case_id,
+                "description": case.description,
+                "pipeline_status": state.pipeline_status,
+                "classification": actual_classification,
+                "expected_classification": expected,
+                "classification_match": classification_match,
+                "expected_primary_root_cause_contains": expected_primary_contains,
+                "primary_root_cause_match": primary_root_cause_match,
+                "confidence": float(ranker_output.get("confidence", 0.0)),
+                "primary_root_cause_title": primary_root_cause_title,
+                "trace_id": state.trace_id,
+                "pipeline_timing_ms": state.pipeline_timing_ms,
+                "ci_rca_json_sha256": _sha256_file(json_path) if json_path.exists() else "",
+                "ci_rca_md_sha256": _sha256_file(md_path) if md_path.exists() else "",
+            }
+        )
+
+    completed = sum(1 for item in case_results if item["pipeline_status"] == "completed")
+    matched = sum(1 for item in case_results if item["classification_match"])
+    root_cause_matched = sum(1 for item in case_results if item["primary_root_cause_match"])
+    total_cases = len(case_results)
+    return {
+        "suite_name": suite_name,
+        "total_cases": total_cases,
+        "completed_cases": completed,
+        "classification_matches": matched,
+        "primary_root_cause_matches": root_cause_matched,
+        "primary_root_cause_accuracy": (
+            round(root_cause_matched / total_cases, 4) if total_cases else 0.0
+        ),
+        "cases": case_results,
+    }
