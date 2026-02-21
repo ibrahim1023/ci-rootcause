@@ -53,6 +53,33 @@ ruff format --check .
 pytest
 ```
 
+## Quickstart
+
+1. Install dependencies:
+
+```bash
+pip install -r requirements.txt
+```
+
+2. Run the local pipeline once:
+
+```bash
+ci-rootcause \
+  --log-path fixtures/ci-logs/github-actions-python-failure.log \
+  --diff-path fixtures/diffs/refactor-only.diff \
+  --output-dir artifacts \
+  --timestamp 2026-02-21T00:00:00Z \
+  --commit abc123 \
+  --run-id gha_quickstart_1 \
+  --base-commit abc122 \
+  --head-commit abc123 \
+  --repository owner/repo
+```
+
+3. Inspect generated artifacts:
+- `artifacts/ci-rca.json`
+- `artifacts/ci-rca.md`
+
 ## Local CLI Execution
 
 Run end-to-end deterministic analysis locally:
@@ -106,6 +133,40 @@ Required workflow permissions:
 - `contents: write` (PR creation only)
 - `pull-requests: write`
 - `actions: read`
+
+## Architecture Details
+
+Execution order is deterministic and fixed:
+
+1. `log_ingest`
+2. `diff_analysis`
+3. `failure_classification`
+4. `root_cause_ranker`
+5. `fix_planner`
+6. `reporter`
+7. `pr_creation`
+
+Runtime behavior:
+
+- ADK runtime is used by default when available.
+- Deterministic local fallback executes on ADK initialization/runtime failure.
+- `fail_fast` uses deterministic local orchestration to preserve exception behavior.
+
+## MVP Metrics And Release Artifacts
+
+- Benchmark report JSON: `docs/reports/mvp-benchmark-report.json`
+- Benchmark report summary: `docs/reports/mvp-benchmark-report.md`
+- Release notes: `docs/release-notes-v0.1.0.md`
+- Known limitations: `docs/limitations.md`
+
+## Known Limitations And Non-Goals
+
+- Current curated benchmark corpus is intentionally small (MVP scope).
+- Classification coverage is deterministic-rule based and pattern limited.
+- Timing metrics are runtime-derived and marked as nondeterministic metadata.
+- Automated fix generation is guardrailed and intentionally conservative.
+- No automatic merge or branch-protection bypass is supported.
+- No CI rerun orchestration is included in MVP.
 
 ## Contributing
 

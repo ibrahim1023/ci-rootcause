@@ -1,0 +1,97 @@
+{
+  "cases": [
+    {
+      "case_id": "case-node-mixed-lock",
+      "ci_rca_json_sha256": "3f32b8911794368018ac8cdd60a185a49f7a64c3f437f62879cb22a61e5b1ee9",
+      "ci_rca_md_sha256": "ad9e8007da8f2097aa58ab5c19c68e69187523be6fb1959de09cd51e74027926",
+      "classification": "DEPENDENCY",
+      "classification_match": true,
+      "confidence": 0.6,
+      "confidence_is_reproducible": true,
+      "confidence_values": [
+        0.6,
+        0.6
+      ],
+      "description": "Python assertion failure with mixed Node lockfile/code diff",
+      "expected_classification": "DEPENDENCY",
+      "expected_primary_root_cause_contains": "AssertionError",
+      "pipeline_status": "completed",
+      "pipeline_timing_ms": 0.601,
+      "primary_root_cause_match": true,
+      "primary_root_cause_title": "E AssertionError: assert 3 == 4 at unknown file",
+      "trace_id": "a2462f19dd843a6f109a0a71"
+    },
+    {
+      "case_id": "case-python-lock-only",
+      "ci_rca_json_sha256": "6eeaf2c8e6a78e06ca677e58f1d37071dfb7e9447457a2040fac3381912ed3fb",
+      "ci_rca_md_sha256": "a62a2baafa4854031cf2e388f4ca36b66f74001fcfeb7aa0806b6c0e8945b330",
+      "classification": "DEPENDENCY",
+      "classification_match": true,
+      "confidence": 0.6,
+      "confidence_is_reproducible": true,
+      "confidence_values": [
+        0.6,
+        0.6
+      ],
+      "description": "Python assertion failure with lockfile-only diff",
+      "expected_classification": "DEPENDENCY",
+      "expected_primary_root_cause_contains": "AssertionError",
+      "pipeline_status": "completed",
+      "pipeline_timing_ms": 0.372,
+      "primary_root_cause_match": true,
+      "primary_root_cause_title": "E AssertionError: assert 3 == 4 at unknown file",
+      "trace_id": "1de275596c257cdae90195d0"
+    },
+    {
+      "case_id": "case-refactor-only",
+      "ci_rca_json_sha256": "12aa6d1254b0c2dea5b4e30b340a6b60f06236d3cce822732720e21a02f74ead",
+      "ci_rca_md_sha256": "f92814c49b2891923331ecc4fdaa569de3f510c840880aee23dd048fa44adfef",
+      "classification": "TEST",
+      "classification_match": true,
+      "confidence": 0.54,
+      "confidence_is_reproducible": true,
+      "confidence_values": [
+        0.54,
+        0.54
+      ],
+      "description": "Python assertion failure with refactor-only diff",
+      "expected_classification": "TEST",
+      "expected_primary_root_cause_contains": "AssertionError",
+      "pipeline_status": "completed",
+      "pipeline_timing_ms": 0.29,
+      "primary_root_cause_match": true,
+      "primary_root_cause_title": "E AssertionError: assert 3 == 4 at unknown file",
+      "trace_id": "af93bac269091d44b115ed0c"
+    },
+    {
+      "case_id": "case-rename-and-modify",
+      "ci_rca_json_sha256": "80aaf7b9234ade2ab875a0b7b709622ecebc2a9a846915e4b071b099d8a07d7a",
+      "ci_rca_md_sha256": "446e66fefc391fb6fdc522ac50b9d2026b75b62d4435ae1706d093260b049f84",
+      "classification": "TEST",
+      "classification_match": true,
+      "confidence": 0.54,
+      "confidence_is_reproducible": true,
+      "confidence_values": [
+        0.54,
+        0.54
+      ],
+      "description": "Python assertion failure with rename+modify diff",
+      "expected_classification": "TEST",
+      "expected_primary_root_cause_contains": "AssertionError",
+      "pipeline_status": "completed",
+      "pipeline_timing_ms": 0.295,
+      "primary_root_cause_match": true,
+      "primary_root_cause_title": "E AssertionError: assert 3 == 4 at unknown file",
+      "trace_id": "5407d28ed2bf660b33148710"
+    }
+  ],
+  "classification_matches": 4,
+  "completed_cases": 4,
+  "confidence_reproducibility": 1.0,
+  "confidence_reproducible_cases": 4,
+  "mean_time_to_diagnosis_ms": 0.389,
+  "primary_root_cause_accuracy": 1.0,
+  "primary_root_cause_matches": 4,
+  "suite_name": "mvp-curated-v1",
+  "total_cases": 4
+}
