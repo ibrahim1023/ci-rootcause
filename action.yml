@@ -61,15 +61,4 @@ runs:
     - id: main
       shell: bash
       run: |
-        mkdir -p artifacts
-        echo '{"summary":"not implemented"}' > artifacts/ci-rca.json
-        echo '# CI RCA\n\nNot implemented yet.' > artifacts/ci-rca.md
-
-        echo "classification=UNKNOWN" >> "$GITHUB_OUTPUT"
-        echo "confidence=0.00" >> "$GITHUB_OUTPUT"
-        echo "primary_root_cause_title=Not implemented" >> "$GITHUB_OUTPUT"
-        echo "rca_json_path=artifacts/ci-rca.json" >> "$GITHUB_OUTPUT"
-        echo "rca_md_path=artifacts/ci-rca.md" >> "$GITHUB_OUTPUT"
-        echo "pr_created=false" >> "$GITHUB_OUTPUT"
-        echo "pr_url=" >> "$GITHUB_OUTPUT"
-        echo "pr_number=" >> "$GITHUB_OUTPUT"
+        python -m src.action_entrypoint

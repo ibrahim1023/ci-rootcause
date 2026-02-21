@@ -1,6 +1,6 @@
 import json
-from pathlib import Path
 import re
+from pathlib import Path
 
 from src.contracts.converters import pr_result_from_agent_output, rca_output_from_agent_outputs
 
