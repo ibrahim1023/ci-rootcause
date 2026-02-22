@@ -248,9 +248,7 @@ def _build_pr_body(payload: dict[str, Any], changed_files: list[str]) -> str:
             "",
             "<!-- ci-rootcause:auto-merge=false -->",
             "<!-- ci-rootcause:respect-branch-protection=true -->",
-            "<!-- ci-rootcause:run-id="
-            f"{run_id}"
-            " -->",
+            f"<!-- ci-rootcause:run-id={run_id} -->",
         ]
     )
     return "\n".join(lines)

@@ -174,9 +174,7 @@ def test_action_entrypoint_rejects_invalid_historical_runs_payload(
     assert payload["pr_created"] == "false"
 
 
-def test_action_entrypoint_rejects_invalid_min_pr_confidence(
-    tmp_path: Path, monkeypatch
-) -> None:
+def test_action_entrypoint_rejects_invalid_min_pr_confidence(tmp_path: Path, monkeypatch) -> None:
     output_file = tmp_path / "github_output.txt"
     config_path = tmp_path / "ci-rootcause.yml"
     config_path.write_text(

@@ -156,9 +156,7 @@ def test_run_pipeline_adk_mode_matches_local_outputs(tmp_path: Path) -> None:
     )
 
     local_result = run_pipeline(request=replace(base_request, use_adk_runtime=False))
-    adk_result = run_pipeline(
-        request=replace(base_request, output_dir=str(tmp_path / "adk"))
-    )
+    adk_result = run_pipeline(request=replace(base_request, output_dir=str(tmp_path / "adk")))
 
     assert local_result.pipeline_status == adk_result.pipeline_status == "completed"
     assert local_result.execution_order == adk_result.execution_order
@@ -175,9 +173,10 @@ def test_run_pipeline_adk_mode_matches_local_outputs(tmp_path: Path) -> None:
         local_result.agent_outputs["failure_classification"]["classification"]
         == adk_result.agent_outputs["failure_classification"]["classification"]
     )
-    assert local_result.agent_outputs["root_cause_ranker"] == adk_result.agent_outputs[
-        "root_cause_ranker"
-    ]
+    assert (
+        local_result.agent_outputs["root_cause_ranker"]
+        == adk_result.agent_outputs["root_cause_ranker"]
+    )
 
 
 def test_trace_id_and_structured_logs_are_deterministic(tmp_path: Path) -> None:
@@ -209,16 +208,12 @@ def test_trace_id_and_structured_logs_are_deterministic(tmp_path: Path) -> None:
 
 def test_timing_metrics_are_recorded_for_partial_runs() -> None:
     registry = DeterministicAgentRegistry()
-    registry.register(
-        AgentRegistration(name="ok", depends_on=(), handler=lambda _: {"ok": True})
-    )
+    registry.register(AgentRegistration(name="ok", depends_on=(), handler=lambda _: {"ok": True}))
 
     def _crash(_: object) -> dict:
         raise ValueError("boom")
 
-    registry.register(
-        AgentRegistration(name="crash", depends_on=("ok",), handler=_crash)
-    )
+    registry.register(AgentRegistration(name="crash", depends_on=("ok",), handler=_crash))
     registry.register(
         AgentRegistration(
             name="after_crash", depends_on=("crash",), handler=lambda _: {"should_not_run": True}

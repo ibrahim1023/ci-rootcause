@@ -231,8 +231,7 @@ def _build_parser() -> argparse.ArgumentParser:
         "--min-pr-confidence",
         default="0.75",
         help=(
-            "Minimum confidence (0.0-1.0) required to allow guarded fix PR creation. "
-            "Default: 0.75."
+            "Minimum confidence (0.0-1.0) required to allow guarded fix PR creation. Default: 0.75."
         ),
     )
     parser.add_argument(

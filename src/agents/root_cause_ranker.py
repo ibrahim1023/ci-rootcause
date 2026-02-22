@@ -46,9 +46,7 @@ def _classification_alignment(classification: str, signature: str) -> float:
         "ruff" in signature_l or "eslint" in signature_l or "lint" in signature_l
     ):
         return 1.0
-    if classification == "TEST" and (
-        "assertionerror" in signature_l or "failed" in signature_l
-    ):
+    if classification == "TEST" and ("assertionerror" in signature_l or "failed" in signature_l):
         return 1.0
     if classification == "INFRA" and (
         "timeout" in signature_l or "network" in signature_l or "connection" in signature_l

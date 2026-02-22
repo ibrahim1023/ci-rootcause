@@ -56,8 +56,7 @@ class DeterministicAgentRegistry:
 
     def resolve_order(self) -> list[str]:
         pending = {
-            name: set(registration.depends_on)
-            for name, registration in self._registrations.items()
+            name: set(registration.depends_on) for name, registration in self._registrations.items()
         }
 
         resolved: list[str] = []
@@ -642,15 +641,18 @@ def _run_pipeline_with_adk(
                 }
             )
 
-            blocked_by = _blocked_dependencies(registration=self.registration, state=PipelineState(
-                request=self.request,
-                shared=shared,
-                agent_outputs=agent_outputs,
-                execution_order=execution_order,
-                agent_status=agent_status,
-                failures=failures,
-                config=self.config,
-            ))
+            blocked_by = _blocked_dependencies(
+                registration=self.registration,
+                state=PipelineState(
+                    request=self.request,
+                    shared=shared,
+                    agent_outputs=agent_outputs,
+                    execution_order=execution_order,
+                    agent_status=agent_status,
+                    failures=failures,
+                    config=self.config,
+                ),
+            )
 
             if blocked_by:
                 output = {

@@ -15,9 +15,12 @@ def test_load_benchmark_suite_returns_sorted_cases() -> None:
     assert suite_name == "mvp-curated-v2"
     assert len(cases) == 6
     assert [case.case_id for case in cases] == sorted(case.case_id for case in cases)
-    assert {
-        case.expected_classification for case in cases
-    } == {"DEPENDENCY", "TEST", "TYPECHECK", "INFRA"}
+    assert {case.expected_classification for case in cases} == {
+        "DEPENDENCY",
+        "TEST",
+        "TYPECHECK",
+        "INFRA",
+    }
 
 
 def test_load_benchmark_suite_rejects_duplicate_case_ids(tmp_path: Path) -> None:

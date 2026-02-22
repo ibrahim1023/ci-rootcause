@@ -50,9 +50,7 @@ def test_reporter_writes_json_and_markdown_snapshots(tmp_path: Path) -> None:
     expected_json = Path("fixtures/contracts/ci-rca.reporter.snapshot.json").read_text(
         encoding="utf-8"
     )
-    expected_md = Path("fixtures/contracts/ci-rca.reporter.snapshot.md").read_text(
-        encoding="utf-8"
-    )
+    expected_md = Path("fixtures/contracts/ci-rca.reporter.snapshot.md").read_text(encoding="utf-8")
 
     assert json_text == expected_json
     assert md_text == expected_md

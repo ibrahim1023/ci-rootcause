@@ -135,9 +135,7 @@ def _load_historical_runs(path: Path | None) -> list[dict[str, Any]]:
             raise ActionInputError("Each historical run must be a JSON object")
         failure_events = item.get("failure_events", [])
         if failure_events is not None and not isinstance(failure_events, list):
-            raise ActionInputError(
-                "Each historical run field 'failure_events' must be a JSON list"
-            )
+            raise ActionInputError("Each historical run field 'failure_events' must be a JSON list")
         normalized.append(dict(item))
     return normalized
 
