@@ -6,6 +6,10 @@ from dataclasses import dataclass
 from src.contracts.models import FailureClass
 
 FILE_REF_PATTERN = re.compile(r"(?P<path>[A-Za-z0-9_./-]+\.[A-Za-z0-9_]+)")
+CREATE_PATTERN = re.compile(r"\b(create|add)\b")
+DELETE_PATTERN = re.compile(r"\b(delete|remove)\b")
+RENAME_PATTERN = re.compile(r"\brename\b")
+ALLOWED_PATCH_OPERATIONS = ("modify", "create", "delete", "rename")
 
 
 PROMPT_TEMPLATE = (
@@ -106,6 +110,17 @@ def _validate_no_speculative_references(steps: list[FixStep], allowed_files: set
                 )
 
 
+def _infer_patch_operation(instruction: str) -> str:
+    lowered = instruction.lower()
+    if RENAME_PATTERN.search(lowered):
+        return "rename"
+    if DELETE_PATTERN.search(lowered):
+        return "delete"
+    if CREATE_PATTERN.search(lowered):
+        return "create"
+    return "modify"
+
+
 def _template_steps(classification: FailureClass, file_path: str, title: str) -> list[FixStep]:
     if classification == FailureClass.TYPECHECK:
         return [
@@ -153,14 +168,43 @@ def _template_steps(classification: FailureClass, file_path: str, title: str) ->
 
 
 def _to_patch_plan(steps: list[FixStep]) -> list[dict]:
-    return [
-        {
-            "file": step.file,
-            "operation": "modify",
-            "summary": step.instruction,
-        }
-        for step in steps
-    ]
+    grouped: dict[str, dict[str, list[str] | str]] = {}
+    for step in steps:
+        operation = _infer_patch_operation(step.instruction)
+        entry = grouped.setdefault(
+            step.file,
+            {
+                "operations": [],
+                "summaries": [],
+            },
+        )
+        operations = entry["operations"]
+        summaries = entry["summaries"]
+        if operation not in operations:
+            operations.append(operation)
+        if step.instruction not in summaries:
+            summaries.append(step.instruction)
+
+    patch_plan: list[dict] = []
+    for file_path in sorted(grouped):
+        operations = list(grouped[file_path]["operations"])
+        summaries = list(grouped[file_path]["summaries"])
+        if len(operations) > 1:
+            raise ValueError(
+                "Conflicting patch operations for file "
+                f"{file_path}: {', '.join(sorted(operations))}"
+            )
+        operation = operations[0] if operations else "modify"
+        if operation not in ALLOWED_PATCH_OPERATIONS:
+            raise ValueError(f"Unsupported patch operation inferred: {operation}")
+        patch_plan.append(
+            {
+                "file": file_path,
+                "operation": operation,
+                "summary": "; ".join(summaries),
+            }
+        )
+    return patch_plan
 
 
 def run_fix_planner(payload: dict) -> dict:

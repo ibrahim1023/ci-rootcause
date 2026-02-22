@@ -10,6 +10,7 @@ Deterministic multi-agent CI root-cause analysis engine for failed CI runs.
 - Deterministic root-cause ranking
 - Deterministic confidence score
 - Evidence-backed fix plan
+- Deterministic patch plan operations (`modify/create/delete/rename`)
 - Optional guarded fix PR (never auto-merged)
 - `ci-rca.json` and `ci-rca.md` artifacts
 

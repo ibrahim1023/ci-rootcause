@@ -130,11 +130,52 @@ def test_fix_planner_patch_plan_order_is_deterministic() -> None:
     assert first == second
     assert [item["file"] for item in first["patch_plan"]] == [
         "src/core/alpha.py",
-        "src/core/alpha.py",
         "src/core/zeta.py",
     ]
     assert [item["summary"] for item in first["patch_plan"]] == [
-        "First step",
-        "Second step",
+        "First step; Second step",
         "Last step",
     ]
+
+
+def test_fix_planner_patch_plan_infers_operation_types() -> None:
+    payload = _base_payload()
+    payload["candidate_fix_steps"] = [
+        {
+            "file": "src/core/new_file.py",
+            "instruction": "Create file with deterministic helper implementation",
+            "reason": "r1",
+        }
+    ]
+    payload["primary_root_cause"]["evidence"] = [
+        {"file": "src/core/new_file.py", "line": 1},
+    ]
+
+    output = run_fix_planner(payload)
+
+    assert output["patch_plan"] == [
+        {
+            "file": "src/core/new_file.py",
+            "operation": "create",
+            "summary": "Create file with deterministic helper implementation",
+        }
+    ]
+
+
+def test_fix_planner_patch_plan_rejects_conflicting_file_operations() -> None:
+    payload = _base_payload()
+    payload["candidate_fix_steps"] = [
+        {
+            "file": "src/core/math.py",
+            "instruction": "Delete obsolete function implementation",
+            "reason": "r1",
+        },
+        {
+            "file": "src/core/math.py",
+            "instruction": "Update callsites to use new signature",
+            "reason": "r2",
+        },
+    ]
+
+    with pytest.raises(ValueError, match="Conflicting patch operations for file"):
+        run_fix_planner(payload)
