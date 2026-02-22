@@ -20,7 +20,7 @@ def _read_env(environ: Mapping[str, str], key: str) -> str:
 def resolve_provider_defaults(
     environ: Mapping[str, str] | None = None,
 ) -> ProviderResolution:
-    env = environ or os.environ
+    env = os.environ if environ is None else environ
 
     if _read_env(env, "GITLAB_CI").lower() == "true":
         return ProviderResolution(

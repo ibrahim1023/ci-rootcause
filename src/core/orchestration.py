@@ -25,6 +25,13 @@ class OrchestrationError(RuntimeError):
 AgentHandler = Callable[["PipelineState"], dict[str, Any]]
 
 
+def _module_exists(module_name: str) -> bool:
+    try:
+        return find_spec(module_name) is not None
+    except ModuleNotFoundError:
+        return False
+
+
 @dataclass(frozen=True)
 class AgentRegistration:
     name: str
@@ -84,7 +91,7 @@ class ADKRuntimeScaffold:
 
     @property
     def backend(self) -> str:
-        return "google-adk" if find_spec("google.adk") else "google-adk-scaffold"
+        return "google-adk" if _module_exists("google.adk") else "google-adk-scaffold"
 
     def manifest(self) -> list[dict[str, Any]]:
         return [
@@ -453,7 +460,7 @@ def run_pipeline(
 ) -> PipelineState:
     use_adk_runtime = request.use_adk_runtime
     if use_adk_runtime is None:
-        use_adk_runtime = bool(find_spec("google.adk"))
+        use_adk_runtime = _module_exists("google.adk")
 
     if use_adk_runtime and not request.fail_fast:
         try:

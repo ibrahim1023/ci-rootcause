@@ -25,6 +25,7 @@ coverage/
 # Runtime artifacts
 runs/
 *.log
+!fixtures/ci-logs/*.log
 
 # Env
 .env
