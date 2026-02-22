@@ -12,10 +12,12 @@ SUITE_PATH = "fixtures/benchmarks/mvp-suite.json"
 def test_load_benchmark_suite_returns_sorted_cases() -> None:
     suite_name, cases = load_benchmark_suite(SUITE_PATH)
 
-    assert suite_name == "mvp-curated-v1"
-    assert len(cases) == 4
+    assert suite_name == "mvp-curated-v2"
+    assert len(cases) == 6
     assert [case.case_id for case in cases] == sorted(case.case_id for case in cases)
-    assert all(case.expected_primary_root_cause_contains == "AssertionError" for case in cases)
+    assert {
+        case.expected_classification for case in cases
+    } == {"DEPENDENCY", "TEST", "TYPECHECK", "INFRA"}
 
 
 def test_load_benchmark_suite_rejects_duplicate_case_ids(tmp_path: Path) -> None:

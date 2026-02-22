@@ -16,15 +16,21 @@ def test_run_benchmark_suite_executes_curated_cases(tmp_path: Path) -> None:
         use_adk_runtime=False,
     )
 
-    assert result["suite_name"] == "mvp-curated-v1"
-    assert result["total_cases"] == 4
-    assert result["completed_cases"] == 4
-    assert result["classification_matches"] == 4
-    assert result["primary_root_cause_matches"] == 4
+    assert result["suite_name"] == "mvp-curated-v2"
+    assert result["total_cases"] == 6
+    assert result["completed_cases"] == 6
+    assert result["completion_rate"] == 1.0
+    assert result["classification_matches"] == 6
+    assert result["classification_match_rate"] == 1.0
+    assert result["primary_root_cause_matches"] == 6
     assert result["primary_root_cause_accuracy"] == 1.0
-    assert result["confidence_reproducible_cases"] == 4
+    assert result["confidence_reproducible_cases"] == 6
     assert result["confidence_reproducibility"] == 1.0
+    assert result["artifact_hash_reproducible_cases"] == 6
+    assert result["artifact_hash_reproducibility"] == 1.0
     assert result["mean_time_to_diagnosis_ms"] >= 0.0
+    assert result["median_time_to_diagnosis_ms"] >= 0.0
+    assert result["p95_time_to_diagnosis_ms"] >= 0.0
 
     case_ids = [item["case_id"] for item in result["cases"]]
     assert case_ids == sorted(case_ids)
@@ -34,10 +40,16 @@ def test_run_benchmark_suite_executes_curated_cases(tmp_path: Path) -> None:
         assert item["classification"] == item["expected_classification"]
         assert item["primary_root_cause_title"]
         assert item["primary_root_cause_match"] is True
-        assert item["expected_primary_root_cause_contains"] == "AssertionError"
+        assert item["expected_primary_root_cause_contains"] is not None
         assert item["confidence_is_reproducible"] is True
         assert len(item["confidence_values"]) == 2
         assert item["confidence_values"][0] == item["confidence_values"][1]
+        assert len(item["status_values"]) == 2
+        assert all(status == "completed" for status in item["status_values"])
+        assert item["artifact_hash_is_reproducible"] is True
+        assert len(item["artifact_json_hash_values"]) == 2
+        assert len(item["artifact_md_hash_values"]) == 2
+        assert item["timing_spread_ms"] >= 0.0
         assert len(item["trace_id"]) == 24
         assert item["pipeline_timing_ms"] >= 0.0
         assert len(item["ci_rca_json_sha256"]) == 64

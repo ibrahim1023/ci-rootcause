@@ -39,6 +39,24 @@ def _sha256_file(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def _median(values: list[float]) -> float:
+    if not values:
+        return 0.0
+    ordered = sorted(values)
+    middle = len(ordered) // 2
+    if len(ordered) % 2 == 1:
+        return ordered[middle]
+    return (ordered[middle - 1] + ordered[middle]) / 2.0
+
+
+def _p95(values: list[float]) -> float:
+    if not values:
+        return 0.0
+    ordered = sorted(values)
+    index = max(0, int((len(ordered) - 1) * 0.95))
+    return ordered[index]
+
+
 def load_benchmark_suite(suite_path: str) -> tuple[str, list[BenchmarkCase]]:
     path = Path(suite_path)
     try:
@@ -106,6 +124,7 @@ def run_benchmark_suite(
 
     case_results: list[dict[str, Any]] = []
     confidence_reproducible_count = 0
+    artifact_hash_reproducible_count = 0
     for case in cases:
         log_path = Path(case.log_path)
         diff_path = Path(case.diff_path)
@@ -117,6 +136,10 @@ def run_benchmark_suite(
 
         case_output_dir = output_root_path / case.case_id
         confidence_values: list[float] = []
+        timing_values: list[float] = []
+        status_values: list[str] = []
+        json_hash_values: list[str] = []
+        md_hash_values: list[str] = []
         first_state: Any = None
         for _ in range(repeat_runs):
             request = PipelineRequest(
@@ -132,8 +155,15 @@ def run_benchmark_suite(
                 use_adk_runtime=use_adk_runtime,
             )
             state = run_pipeline(request=request)
+            reporter_output = state.agent_outputs.get("reporter", {})
             ranker_output = state.agent_outputs.get("root_cause_ranker", {})
+            json_path = Path(str(reporter_output.get("ci_rca_json_path", "")))
+            md_path = Path(str(reporter_output.get("ci_rca_md_path", "")))
             confidence_values.append(float(ranker_output.get("confidence", 0.0)))
+            timing_values.append(float(state.pipeline_timing_ms))
+            status_values.append(str(state.pipeline_status))
+            json_hash_values.append(_sha256_file(json_path) if json_path.exists() else "")
+            md_hash_values.append(_sha256_file(md_path) if md_path.exists() else "")
             if first_state is None:
                 first_state = state
 
@@ -159,6 +189,14 @@ def run_benchmark_suite(
         confidence_is_reproducible = len(set(confidence_values)) == 1
         if confidence_is_reproducible:
             confidence_reproducible_count += 1
+        artifact_hash_is_reproducible = (
+            len(set(json_hash_values)) == 1
+            and len(set(md_hash_values)) == 1
+            and bool(json_hash_values[0])
+            and bool(md_hash_values[0])
+        )
+        if artifact_hash_is_reproducible:
+            artifact_hash_reproducible_count += 1
 
         case_results.append(
             {
@@ -173,6 +211,14 @@ def run_benchmark_suite(
                 "confidence": float(ranker_output.get("confidence", 0.0)),
                 "confidence_values": confidence_values,
                 "confidence_is_reproducible": confidence_is_reproducible,
+                "timing_values_ms": timing_values,
+                "timing_spread_ms": (
+                    round(max(timing_values) - min(timing_values), 3) if timing_values else 0.0
+                ),
+                "status_values": status_values,
+                "artifact_json_hash_values": json_hash_values,
+                "artifact_md_hash_values": md_hash_values,
+                "artifact_hash_is_reproducible": artifact_hash_is_reproducible,
                 "primary_root_cause_title": primary_root_cause_title,
                 "trace_id": state.trace_id,
                 "pipeline_timing_ms": state.pipeline_timing_ms,
@@ -186,12 +232,15 @@ def run_benchmark_suite(
     root_cause_matched = sum(1 for item in case_results if item["primary_root_cause_match"])
     total_cases = len(case_results)
     total_timing = sum(float(item["pipeline_timing_ms"]) for item in case_results)
+    timing_samples = [float(item["pipeline_timing_ms"]) for item in case_results]
     mean_time_to_diagnosis_ms = round(total_timing / total_cases, 3) if total_cases else 0.0
     return {
         "suite_name": suite_name,
         "total_cases": total_cases,
         "completed_cases": completed,
+        "completion_rate": round(completed / total_cases, 4) if total_cases else 0.0,
         "classification_matches": matched,
+        "classification_match_rate": round(matched / total_cases, 4) if total_cases else 0.0,
         "primary_root_cause_matches": root_cause_matched,
         "primary_root_cause_accuracy": (
             round(root_cause_matched / total_cases, 4) if total_cases else 0.0
@@ -200,6 +249,12 @@ def run_benchmark_suite(
         "confidence_reproducibility": (
             round(confidence_reproducible_count / total_cases, 4) if total_cases else 0.0
         ),
+        "artifact_hash_reproducible_cases": artifact_hash_reproducible_count,
+        "artifact_hash_reproducibility": (
+            round(artifact_hash_reproducible_count / total_cases, 4) if total_cases else 0.0
+        ),
         "mean_time_to_diagnosis_ms": mean_time_to_diagnosis_ms,
+        "median_time_to_diagnosis_ms": round(_median(timing_samples), 3),
+        "p95_time_to_diagnosis_ms": round(_p95(timing_samples), 3),
         "cases": case_results,
     }

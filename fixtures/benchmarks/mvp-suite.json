@@ -1,5 +1,5 @@
 {
-  "suite_name": "mvp-curated-v1",
+  "suite_name": "mvp-curated-v2",
   "cases": [
     {
       "case_id": "case-node-mixed-lock",
@@ -52,6 +52,32 @@
       "head_commit": "abc123",
       "expected_classification": "TEST",
       "expected_primary_root_cause_contains": "AssertionError"
+    },
+    {
+      "case_id": "case-typecheck-ts2345",
+      "description": "TypeScript TS2345 failure with refactor-only diff",
+      "log_path": "fixtures/ci-logs/github-actions-typecheck-failure.log",
+      "diff_path": "fixtures/diffs/refactor-only.diff",
+      "timestamp": "2026-02-22T00:00:00Z",
+      "commit": "def123",
+      "run_id": "bench_005",
+      "base_commit": "def122",
+      "head_commit": "def123",
+      "expected_classification": "TYPECHECK",
+      "expected_primary_root_cause_contains": "TS2345"
+    },
+    {
+      "case_id": "case-infra-timeout",
+      "description": "Infrastructure timeout/reset failure with refactor-only diff",
+      "log_path": "fixtures/ci-logs/github-actions-infra-timeout.log",
+      "diff_path": "fixtures/diffs/refactor-only.diff",
+      "timestamp": "2026-02-22T00:00:00Z",
+      "commit": "ghi123",
+      "run_id": "bench_006",
+      "base_commit": "ghi122",
+      "head_commit": "ghi123",
+      "expected_classification": "INFRA",
+      "expected_primary_root_cause_contains": "connection reset"
     }
   ]
 }
