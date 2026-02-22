@@ -88,6 +88,16 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--repository", default="", help="Repository in owner/repo format.")
     parser.add_argument("--target-branch", default="main", help="Target base branch.")
     parser.add_argument(
+        "--ci-provider",
+        default=None,
+        help="Optional CI provider override (for example: github-actions, gitlab-ci).",
+    )
+    parser.add_argument(
+        "--provider-adapter",
+        default=None,
+        help="Optional provider adapter override (for example: github, gitlab).",
+    )
+    parser.add_argument(
         "--validated-changes-path",
         default=None,
         help="Optional JSON file containing validated changes for guarded PR creation.",
@@ -209,6 +219,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             fail_fast=bool(args.fail_fast),
             historical_runs=historical_runs,
             min_pr_confidence=float(args.min_pr_confidence),
+            ci_provider=str(args.ci_provider).strip() or None,
+            provider_adapter=str(args.provider_adapter).strip() or None,
         )
         state = run_pipeline(request=request)
     except Exception as exc:

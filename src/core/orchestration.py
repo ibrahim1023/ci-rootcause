@@ -15,6 +15,7 @@ from src.agents.log_ingest import run_log_ingest
 from src.agents.pr_creation import run_pr_creation
 from src.agents.reporter import run_reporter
 from src.agents.root_cause_ranker import run_root_cause_ranker
+from src.core.provider_adapters import resolve_provider_defaults
 
 
 class OrchestrationError(RuntimeError):
@@ -144,6 +145,8 @@ class PipelineRequest:
     fail_fast: bool = False
     historical_runs: list[dict[str, Any]] = field(default_factory=list)
     min_pr_confidence: float = 0.75
+    ci_provider: str | None = None
+    provider_adapter: str | None = None
     config: PipelineConfig | None = None
     use_adk_runtime: bool | None = None
 
@@ -337,12 +340,18 @@ def resolve_pipeline_config(request: PipelineRequest) -> PipelineConfig:
     if request.config is not None:
         return request.config
 
+    provider_defaults = resolve_provider_defaults()
+    ci_provider = str(request.ci_provider or provider_defaults.ci_provider).strip()
+    provider_adapter = str(request.provider_adapter or provider_defaults.provider_adapter).strip()
+    repository = str(request.repository or provider_defaults.repository).strip()
+    target_branch = str(request.target_branch or provider_defaults.target_branch).strip() or "main"
+
     return PipelineConfig(
-        ci_provider="github-actions",
-        provider_adapter="github",
+        ci_provider=ci_provider,
+        provider_adapter=provider_adapter,
         repo=RepoContext(
-            repository=request.repository or "",
-            target_branch=request.target_branch or "main",
+            repository=repository,
+            target_branch=target_branch,
         ),
         commit=CommitContext(
             commit=request.commit,

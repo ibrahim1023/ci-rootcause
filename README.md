@@ -15,6 +15,7 @@ Deterministic multi-agent CI root-cause analysis engine for failed CI runs.
 - `ci-rca.json` and `ci-rca.md` artifacts
 
 Primary runtime target is GitHub Actions.
+Provider adapter defaults support GitHub Actions and GitLab CI metadata resolution.
 
 ## Architecture Overview
 
@@ -125,6 +126,7 @@ Inputs:
 - `config_path` (default `.ci-rootcause.yml`)
 - `max_fix_files` (default `5`)
 - `min_pr_confidence` (default `0.75`)
+- Local/adapter detection supports GitHub Actions and GitLab CI context fields
 
 Outputs:
 

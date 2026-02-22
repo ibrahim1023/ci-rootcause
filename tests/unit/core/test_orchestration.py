@@ -389,3 +389,56 @@ def test_run_pipeline_uses_explicit_pipeline_config(tmp_path: Path) -> None:
     assert result.config == config
     assert result.agent_outputs["reporter"]["ci_rca_payload"]["meta"]["run_id"] == "gha_4002"
     assert result.agent_outputs["reporter"]["ci_rca_payload"]["meta"]["commit"] == "abc123"
+
+
+def test_resolve_pipeline_config_detects_gitlab_ci_environment(monkeypatch) -> None:
+    monkeypatch.setenv("GITLAB_CI", "true")
+    monkeypatch.setenv("CI_PROJECT_PATH", "acme/ci-rootcause")
+    monkeypatch.setenv("CI_MERGE_REQUEST_TARGET_BRANCH_NAME", "develop")
+
+    request = PipelineRequest(
+        raw_log="",
+        raw_diff="",
+        timestamp="2026-02-22T12:00:00Z",
+        commit="abc123",
+        run_id="gl_4003",
+        base_commit="abc122",
+        head_commit="abc123",
+        output_dir=".",
+        repository=None,
+        target_branch=None,
+    )
+
+    config = resolve_pipeline_config(request)
+
+    assert config.ci_provider == "gitlab-ci"
+    assert config.provider_adapter == "gitlab"
+    assert config.repo.repository == "acme/ci-rootcause"
+    assert config.repo.target_branch == "develop"
+
+
+def test_resolve_pipeline_config_request_overrides_detected_provider(monkeypatch) -> None:
+    monkeypatch.setenv("GITLAB_CI", "true")
+    monkeypatch.setenv("CI_PROJECT_PATH", "acme/gitlab-repo")
+
+    request = PipelineRequest(
+        raw_log="",
+        raw_diff="",
+        timestamp="2026-02-22T12:00:00Z",
+        commit="abc123",
+        run_id="custom_4004",
+        base_commit="abc122",
+        head_commit="abc123",
+        output_dir=".",
+        ci_provider="custom-ci",
+        provider_adapter="custom",
+        repository="acme/custom-repo",
+        target_branch="release",
+    )
+
+    config = resolve_pipeline_config(request)
+
+    assert config.ci_provider == "custom-ci"
+    assert config.provider_adapter == "custom"
+    assert config.repo.repository == "acme/custom-repo"
+    assert config.repo.target_branch == "release"
