@@ -167,6 +167,21 @@ def test_run_pr_creation_skips_when_confidence_is_below_threshold() -> None:
     assert result["failure_reason"] == "confidence_below_threshold:0.6000<0.7500"
 
 
+def test_run_pr_creation_skips_when_offline_only_mode_is_enabled() -> None:
+    result = run_pr_creation(
+        payload={
+            "create_fix_pr": True,
+            "offline_only": True,
+            "confidence": 0.95,
+            "min_pr_confidence": 0.75,
+        }
+    )
+
+    assert result["pr_created"] is False
+    assert result["pr_branch"] is None
+    assert result["failure_reason"] == "offline_only=true"
+
+
 def test_build_pull_request_request_includes_summary_and_confidence() -> None:
     payload = {
         "repository": "acme/ci-rootcause",

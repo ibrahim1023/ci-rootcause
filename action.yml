@@ -10,6 +10,10 @@ inputs:
     description: Whether to open a guarded fix PR.
     required: false
     default: "false"
+  offline_only:
+    description: Whether to force offline-only mode (skip remote PR creation).
+    required: false
+    default: "false"
   post_pr_comment:
     description: Whether to post RCA summary comment.
     required: false

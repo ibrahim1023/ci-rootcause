@@ -145,6 +145,7 @@ class PipelineRequest:
     fail_fast: bool = False
     historical_runs: list[dict[str, Any]] = field(default_factory=list)
     min_pr_confidence: float = 0.75
+    offline_only: bool = False
     ci_provider: str | None = None
     provider_adapter: str | None = None
     config: PipelineConfig | None = None
@@ -252,6 +253,7 @@ def _run_pr_creation_agent(state: PipelineState) -> dict[str, Any]:
     payload = {
         "create_fix_pr": state.request.create_fix_pr,
         "min_pr_confidence": state.request.min_pr_confidence,
+        "offline_only": state.request.offline_only,
         "dry_run": state.request.dry_run,
         "github_token": state.request.github_token or "",
         "repository": state.config.repo.repository,

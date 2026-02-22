@@ -495,6 +495,14 @@ def run_pr_creation(
             "pr_branch": None,
             "failure_reason": "create_fix_pr=false",
         }
+    if bool(payload.get("offline_only", False)):
+        return {
+            "pr_created": False,
+            "pr_url": None,
+            "pr_number": None,
+            "pr_branch": None,
+            "failure_reason": "offline_only=true",
+        }
 
     _enforce_pr_guardrails(payload)
     min_pr_confidence = _resolve_min_pr_confidence(payload)

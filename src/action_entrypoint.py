@@ -252,6 +252,10 @@ def main() -> int:
             _get_input("create_fix_pr", default="false"),
             name="create_fix_pr",
         )
+        offline_only = _parse_bool(
+            _get_input("offline_only", default="false"),
+            name="offline_only",
+        )
         _parse_bool(_get_input("post_pr_comment", default="true"), name="post_pr_comment")
         base_ref_input = _get_input("base_ref", default="")
         head_ref_input = _get_input("head_ref", default="")
@@ -314,6 +318,7 @@ def main() -> int:
             head_commit=head_ref or commit,
             output_dir=output_dir,
             create_fix_pr=create_fix_pr,
+            offline_only=offline_only,
             dry_run=False,
             github_token=github_token,
             repository=repository or None,

@@ -271,3 +271,34 @@ def test_cli_rejects_using_stdin_for_both_log_and_diff(tmp_path: Path, monkeypat
 
     assert exit_code == 2
     assert "Only one of --log-path/--diff-path may use '-' stdin input" in capsys.readouterr().out
+
+
+def test_cli_config_can_enable_offline_only_mode(tmp_path: Path, capsys) -> None:
+    log_path = tmp_path / "ci.log"
+    diff_path = tmp_path / "change.diff"
+    out_dir = tmp_path / "artifacts"
+    config_path = tmp_path / "ci-rootcause.yml"
+    log_path.write_text(_sample_log(), encoding="utf-8")
+    diff_path.write_text(_sample_diff(), encoding="utf-8")
+    config_path.write_text(
+        "\n".join(
+            [
+                f"log_path: {log_path}",
+                f"diff_path: {diff_path}",
+                f"output_dir: {out_dir}",
+                "timestamp: 2026-02-24T00:00:00Z",
+                "commit: abc123",
+                "run_id: gha_cfg_2",
+                "base_commit: abc122",
+                "head_commit: abc123",
+                "offline_only: true",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    exit_code = main(["--config-path", str(config_path), "--create-fix-pr"])
+
+    assert exit_code == 0
+    payload = json.loads(capsys.readouterr().out.strip())
+    assert payload["pr_created"] is False

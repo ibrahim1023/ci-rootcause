@@ -391,6 +391,28 @@ def test_run_pipeline_uses_explicit_pipeline_config(tmp_path: Path) -> None:
     assert result.agent_outputs["reporter"]["ci_rca_payload"]["meta"]["commit"] == "abc123"
 
 
+def test_run_pipeline_honors_offline_only_mode_for_pr_creation(tmp_path: Path) -> None:
+    request = PipelineRequest(
+        raw_log=_sample_log(),
+        raw_diff=_sample_diff(),
+        timestamp="2026-02-24T00:00:00Z",
+        commit="abc123",
+        run_id="gha_offline_1",
+        base_commit="abc122",
+        head_commit="abc123",
+        output_dir=str(tmp_path),
+        create_fix_pr=True,
+        offline_only=True,
+        use_adk_runtime=False,
+    )
+
+    result = run_pipeline(request=request)
+
+    assert result.pipeline_status == "completed"
+    assert result.agent_outputs["pr_creation"]["pr_created"] is False
+    assert result.agent_outputs["pr_creation"]["failure_reason"] == "offline_only=true"
+
+
 def test_resolve_pipeline_config_detects_gitlab_ci_environment(monkeypatch) -> None:
     monkeypatch.setenv("GITLAB_CI", "true")
     monkeypatch.setenv("CI_PROJECT_PATH", "acme/ci-rootcause")

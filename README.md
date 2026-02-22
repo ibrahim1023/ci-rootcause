@@ -107,6 +107,7 @@ CLI behavior:
 - Exits `0` for `completed`/`partial` analysis runs, `2` for runtime/input errors
 - Supports optional deterministic flaky-test detection via `--historical-runs-path`
 - Supports local `--config-path` (simple `key: value`) and single-stream stdin input via `-`
+- Supports `--offline-only` to force no remote PR creation/network calls
 
 Runtime mode:
 
@@ -127,6 +128,7 @@ Inputs:
 - `config_path` (default `.ci-rootcause.yml`)
 - `max_fix_files` (default `5`)
 - `min_pr_confidence` (default `0.75`)
+- `offline_only` (default `false`)
 - Local/adapter detection supports GitHub Actions and GitLab CI context fields
 
 Outputs:

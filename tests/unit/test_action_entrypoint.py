@@ -211,3 +211,43 @@ def test_action_entrypoint_rejects_invalid_min_pr_confidence(
     payload = _parse_github_output(output_file)
     assert payload["classification"] == "UNKNOWN"
     assert payload["pr_created"] == "false"
+
+
+def test_action_entrypoint_offline_only_skips_pr_creation(tmp_path: Path, monkeypatch) -> None:
+    output_file = tmp_path / "github_output.txt"
+    artifact_dir = tmp_path / "artifacts"
+    config_path = tmp_path / "ci-rootcause.yml"
+
+    config_path.write_text(
+        "\n".join(
+            [
+                f"log_path: {Path('fixtures/ci-logs/github-actions-python-failure.log').resolve()}",
+                f"diff_path: {Path('fixtures/diffs/refactor-only.diff').resolve()}",
+                f"output_dir: {artifact_dir}",
+                "timestamp: 2026-02-24T00:00:00Z",
+                "run_id: gha_8005",
+                "commit: abc123",
+                "base_commit: abc122",
+                "head_commit: abc123",
+                "repository: acme/ci-rootcause",
+                "target_branch: main",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setenv("GITHUB_OUTPUT", str(output_file))
+    monkeypatch.setenv("INPUT_GITHUB_TOKEN", "dummy-token")
+    monkeypatch.setenv("INPUT_CREATE_FIX_PR", "true")
+    monkeypatch.setenv("INPUT_OFFLINE_ONLY", "true")
+    monkeypatch.setenv("INPUT_POST_PR_COMMENT", "true")
+    monkeypatch.setenv("INPUT_BASE_REF", "")
+    monkeypatch.setenv("INPUT_HEAD_REF", "")
+    monkeypatch.setenv("INPUT_CONFIG_PATH", str(config_path))
+    monkeypatch.setenv("INPUT_MAX_FIX_FILES", "5")
+
+    exit_code = main()
+
+    assert exit_code == 0
+    payload = _parse_github_output(output_file)
+    assert payload["pr_created"] == "false"

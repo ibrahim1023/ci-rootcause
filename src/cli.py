@@ -66,6 +66,15 @@ def _read_input_text(path_value: str, *, input_name: str) -> str:
     return _read_text(Path(path_value))
 
 
+def _parse_bool(value: str, *, name: str) -> bool:
+    normalized = value.strip().lower()
+    if normalized in {"true", "1", "yes"}:
+        return True
+    if normalized in {"false", "0", "no"}:
+        return False
+    raise CLIError(f"Invalid boolean value for {name}: '{value}'")
+
+
 def _load_validated_changes(path: Path | None) -> list[dict[str, str]]:
     if path is None:
         return []
@@ -226,6 +235,11 @@ def _build_parser() -> argparse.ArgumentParser:
             "Default: 0.75."
         ),
     )
+    parser.add_argument(
+        "--offline-only",
+        action="store_true",
+        help="Enable offline-only mode (skip any remote PR creation/network calls).",
+    )
 
     return parser
 
@@ -291,6 +305,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         head_commit = _coalesce(args.head_commit, config.get("head_commit"))
         repository = _coalesce(args.repository, config.get("repository"))
         target_branch = _coalesce(args.target_branch, config.get("target_branch")) or "main"
+        offline_only = bool(args.offline_only)
+        if not offline_only and "offline_only" in config:
+            offline_only = _parse_bool(str(config.get("offline_only", "")), name="offline_only")
 
         required_fields = {
             "log_path": log_path,
@@ -338,6 +355,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             fail_fast=bool(args.fail_fast),
             historical_runs=historical_runs,
             min_pr_confidence=float(args.min_pr_confidence),
+            offline_only=offline_only,
             ci_provider=str(args.ci_provider).strip() or None,
             provider_adapter=str(args.provider_adapter).strip() or None,
         )
