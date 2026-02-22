@@ -59,7 +59,8 @@ def _base_payload() -> dict:
         "target_branch": "main",
         "summary": "Type mismatch in math module",
         "classification": "TYPECHECK",
-        "confidence": 0.73,
+        "confidence": 0.83,
+        "min_pr_confidence": 0.75,
         "primary_root_cause": {"title": "Invalid return type in src/core/math.py"},
         "meta": {
             "base_commit": "abc123deadbeef",

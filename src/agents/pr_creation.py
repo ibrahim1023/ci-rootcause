@@ -295,6 +295,19 @@ def _enforce_pr_guardrails(payload: dict[str, Any]) -> None:
         raise GuardrailViolationError("branch protection bypass is prohibited for ci-rootcause PRs")
 
 
+def _resolve_min_pr_confidence(payload: dict[str, Any]) -> float:
+    raw = payload.get("min_pr_confidence", 0.75)
+    try:
+        value = float(raw)
+    except (TypeError, ValueError) as exc:
+        raise GuardrailViolationError(
+            "min_pr_confidence must be a float between 0.0 and 1.0"
+        ) from exc
+    if not (0.0 <= value <= 1.0):
+        raise GuardrailViolationError("min_pr_confidence must be between 0.0 and 1.0")
+    return value
+
+
 def checkout_fix_branch(
     plan: BranchCreationPlan,
     repo_path: str,
@@ -484,6 +497,18 @@ def run_pr_creation(
         }
 
     _enforce_pr_guardrails(payload)
+    min_pr_confidence = _resolve_min_pr_confidence(payload)
+    confidence = float(payload.get("confidence", 0.0))
+    if confidence < min_pr_confidence:
+        return {
+            "pr_created": False,
+            "pr_url": None,
+            "pr_number": None,
+            "pr_branch": None,
+            "failure_reason": (
+                f"confidence_below_threshold:{confidence:.4f}<{min_pr_confidence:.4f}"
+            ),
+        }
 
     plan = build_branch_creation_plan(payload)
 

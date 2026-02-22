@@ -123,6 +123,7 @@ Inputs:
 - `base_ref`, `head_ref`
 - `config_path` (default `.ci-rootcause.yml`)
 - `max_fix_files` (default `5`)
+- `min_pr_confidence` (default `0.75`)
 
 Outputs:
 

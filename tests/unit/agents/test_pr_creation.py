@@ -153,6 +153,20 @@ def test_run_pr_creation_returns_skip_when_disabled() -> None:
     }
 
 
+def test_run_pr_creation_skips_when_confidence_is_below_threshold() -> None:
+    result = run_pr_creation(
+        payload={
+            "create_fix_pr": True,
+            "confidence": 0.6,
+            "min_pr_confidence": 0.75,
+        }
+    )
+
+    assert result["pr_created"] is False
+    assert result["pr_branch"] is None
+    assert result["failure_reason"] == "confidence_below_threshold:0.6000<0.7500"
+
+
 def test_build_pull_request_request_includes_summary_and_confidence() -> None:
     payload = {
         "repository": "acme/ci-rootcause",
@@ -181,6 +195,20 @@ def test_build_pull_request_request_includes_summary_and_confidence() -> None:
     assert "Classification: `TYPECHECK`" in request_payload.body
     assert "Confidence: `0.8200`" in request_payload.body
     assert "`src/core/math.py`" in request_payload.body
+
+
+def test_run_pr_creation_rejects_out_of_range_confidence_threshold() -> None:
+    with pytest.raises(
+        GuardrailViolationError,
+        match="min_pr_confidence must be between 0.0 and 1.0",
+    ):
+        run_pr_creation(
+            payload={
+                "create_fix_pr": True,
+                "confidence": 0.9,
+                "min_pr_confidence": 1.2,
+            }
+        )
 
 
 def test_create_or_reuse_pull_request_returns_existing_pr_when_present() -> None:
@@ -261,6 +289,7 @@ def test_commit_evidence_backed_changes_uses_only_given_files(tmp_path: Path) ->
 def test_run_pr_creation_rejects_non_evidence_file(tmp_path: Path) -> None:
     payload = {
         "create_fix_pr": True,
+        "confidence": 0.9,
         "base_ref": "abc123deadbeef",
         "head_ref": "def456feedface",
         "allowed_files": ["src/evidence.py"],
@@ -288,6 +317,7 @@ def test_run_pr_creation_rejects_auto_merge_guardrail(tmp_path: Path) -> None:
 def test_run_pr_creation_rejects_empty_change_path(tmp_path: Path) -> None:
     payload = {
         "create_fix_pr": True,
+        "confidence": 0.9,
         "base_ref": "abc123deadbeef",
         "head_ref": "def456feedface",
         "allowed_files": ["src/evidence.py"],
@@ -307,6 +337,7 @@ def test_run_pr_creation_applies_changes_and_commits(tmp_path: Path) -> None:
     payload = {
         "create_fix_pr": True,
         "dry_run": True,
+        "confidence": 0.9,
         "meta": {
             "base_commit": "abc123deadbeef",
             "head_commit": "def456feedface",
@@ -337,6 +368,7 @@ def test_run_pr_creation_dry_run_skips_pr_open(tmp_path: Path) -> None:
     payload = {
         "create_fix_pr": True,
         "dry_run": True,
+        "confidence": 0.9,
         "meta": {
             "base_commit": "abc123deadbeef",
             "head_commit": "def456feedface",
@@ -405,6 +437,7 @@ def test_run_pr_creation_short_circuits_when_open_pr_exists(tmp_path: Path) -> N
         "create_fix_pr": True,
         "repository": "acme/repo",
         "target_branch": "main",
+        "confidence": 0.9,
         "meta": {
             "base_commit": "abc123deadbeef",
             "head_commit": "def456feedface",

@@ -143,6 +143,7 @@ class PipelineRequest:
     validated_changes: list[dict[str, str]] = field(default_factory=list)
     fail_fast: bool = False
     historical_runs: list[dict[str, Any]] = field(default_factory=list)
+    min_pr_confidence: float = 0.75
     config: PipelineConfig | None = None
     use_adk_runtime: bool | None = None
 
@@ -247,6 +248,7 @@ def _run_pr_creation_agent(state: PipelineState) -> dict[str, Any]:
     allowed_files = sorted({step["file"] for step in fix_output["fix_steps"] if step.get("file")})
     payload = {
         "create_fix_pr": state.request.create_fix_pr,
+        "min_pr_confidence": state.request.min_pr_confidence,
         "dry_run": state.request.dry_run,
         "github_token": state.request.github_token or "",
         "repository": state.config.repo.repository,

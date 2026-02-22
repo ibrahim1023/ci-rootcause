@@ -28,6 +28,10 @@ inputs:
     description: Maximum files allowed in generated fix patch.
     required: false
     default: "5"
+  min_pr_confidence:
+    description: Minimum confidence required before creating a fix PR.
+    required: false
+    default: "0.75"
 
 outputs:
   classification:

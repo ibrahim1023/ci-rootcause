@@ -45,6 +45,16 @@ def _parse_positive_int(value: str, *, name: str) -> int:
     return parsed
 
 
+def _parse_confidence_threshold(value: str, *, name: str) -> float:
+    try:
+        parsed = float(value)
+    except ValueError as exc:
+        raise ActionInputError(f"Invalid float value for {name}: '{value}'") from exc
+    if not (0.0 <= parsed <= 1.0):
+        raise ActionInputError(f"{name} must be between 0.0 and 1.0")
+    return parsed
+
+
 def _load_simple_config(path: Path) -> dict[str, str]:
     if not path.exists():
         return {}
@@ -250,6 +260,10 @@ def main() -> int:
             _get_input("max_fix_files", default="5"),
             name="max_fix_files",
         )
+        min_pr_confidence = _parse_confidence_threshold(
+            _get_input("min_pr_confidence", default="0.75"),
+            name="min_pr_confidence",
+        )
 
         config = _load_simple_config(Path(config_path_value))
         output_dir = config.get("output_dir", "artifacts")
@@ -307,6 +321,7 @@ def main() -> int:
             validated_changes=validated_changes,
             fail_fast=False,
             historical_runs=historical_runs,
+            min_pr_confidence=min_pr_confidence,
         )
 
         state = run_pipeline(request=request)

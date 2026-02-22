@@ -121,6 +121,14 @@ def _build_parser() -> argparse.ArgumentParser:
         default=None,
         help="GitHub token for remote PR operations when create-fix-pr is enabled.",
     )
+    parser.add_argument(
+        "--min-pr-confidence",
+        default="0.75",
+        help=(
+            "Minimum confidence (0.0-1.0) required to allow guarded fix PR creation. "
+            "Default: 0.75."
+        ),
+    )
 
     return parser
 
@@ -200,6 +208,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             validated_changes=validated_changes,
             fail_fast=bool(args.fail_fast),
             historical_runs=historical_runs,
+            min_pr_confidence=float(args.min_pr_confidence),
         )
         state = run_pipeline(request=request)
     except Exception as exc:

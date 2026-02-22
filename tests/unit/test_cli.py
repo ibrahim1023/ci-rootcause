@@ -141,3 +141,38 @@ def test_cli_returns_error_for_invalid_historical_runs_payload(tmp_path: Path, c
     assert exit_code == 2
     captured = capsys.readouterr()
     assert "Historical runs payload must be a JSON list" in captured.out
+
+
+def test_cli_returns_error_for_invalid_min_pr_confidence(tmp_path: Path, capsys) -> None:
+    log_path = tmp_path / "ci.log"
+    diff_path = tmp_path / "change.diff"
+
+    log_path.write_text(_sample_log(), encoding="utf-8")
+    diff_path.write_text(_sample_diff(), encoding="utf-8")
+
+    exit_code = main(
+        [
+            "--log-path",
+            str(log_path),
+            "--diff-path",
+            str(diff_path),
+            "--output-dir",
+            str(tmp_path / "artifacts"),
+            "--timestamp",
+            "2026-02-20T00:00:00Z",
+            "--commit",
+            "abc123",
+            "--run-id",
+            "gha_5004",
+            "--base-commit",
+            "abc123",
+            "--head-commit",
+            "def456",
+            "--min-pr-confidence",
+            "invalid",
+        ]
+    )
+
+    assert exit_code == 2
+    captured = capsys.readouterr()
+    assert "could not convert string to float: 'invalid'" in captured.out
