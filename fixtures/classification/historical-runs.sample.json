@@ -1,0 +1,20 @@
+[
+  {
+    "run_id": "gha_hist_1001",
+    "failure_events": [
+      {
+        "error_signature": "AssertionError in tests/test_api.py::test_retry",
+        "log_excerpt": "tests/test_api.py::test_retry failed"
+      }
+    ]
+  },
+  {
+    "run_id": "gha_hist_1002",
+    "failure_events": [
+      {
+        "error_signature": "TimeoutError in tests/test_api.py::test_retry",
+        "log_excerpt": "tests/test_api.py::test_retry timed out"
+      }
+    ]
+  }
+]

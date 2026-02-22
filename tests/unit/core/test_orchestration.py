@@ -126,6 +126,7 @@ def test_run_pipeline_wires_shared_context_and_outputs(tmp_path: Path) -> None:
     assert result.trace_id
     assert result.input_hashes["raw_log_sha256"]
     assert result.input_hashes["raw_diff_sha256"]
+    assert result.input_hashes["historical_runs_sha256"]
     assert result.input_hashes["config_sha256"]
     assert result.pipeline_timing_ms >= 0.0
     assert "timing_metrics" in result.nondeterministic_components
@@ -133,6 +134,7 @@ def test_run_pipeline_wires_shared_context_and_outputs(tmp_path: Path) -> None:
     assert all(duration >= 0.0 for duration in result.agent_timing_ms.values())
     assert result.structured_logs[0]["event"] == "pipeline_started"
     assert result.structured_logs[-1]["event"] == "pipeline_completed"
+    assert "flaky_test_detection" in result.agent_outputs["failure_classification"]
 
     json_path = Path(result.agent_outputs["reporter"]["ci_rca_json_path"])
     md_path = Path(result.agent_outputs["reporter"]["ci_rca_md_path"])

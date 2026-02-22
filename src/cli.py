@@ -46,6 +46,30 @@ def _load_validated_changes(path: Path | None) -> list[dict[str, str]]:
     return normalized
 
 
+def _load_historical_runs(path: Path | None) -> list[dict[str, Any]]:
+    if path is None:
+        return []
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except OSError as exc:
+        raise CLIError(f"Unable to read historical runs file '{path}': {exc}") from exc
+    except json.JSONDecodeError as exc:
+        raise CLIError(f"Invalid JSON in historical runs file '{path}': {exc}") from exc
+
+    if not isinstance(raw, list):
+        raise CLIError("Historical runs payload must be a JSON list")
+
+    normalized: list[dict[str, Any]] = []
+    for item in raw:
+        if not isinstance(item, dict):
+            raise CLIError("Each historical run must be a JSON object")
+        failure_events = item.get("failure_events", [])
+        if failure_events is not None and not isinstance(failure_events, list):
+            raise CLIError("Each historical run field 'failure_events' must be a JSON list")
+        normalized.append(dict(item))
+    return normalized
+
+
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="ci-rootcause",
@@ -67,6 +91,14 @@ def _build_parser() -> argparse.ArgumentParser:
         "--validated-changes-path",
         default=None,
         help="Optional JSON file containing validated changes for guarded PR creation.",
+    )
+    parser.add_argument(
+        "--historical-runs-path",
+        default=None,
+        help=(
+            "Optional JSON file containing historical failed run events for deterministic flaky "
+            "test detection."
+        ),
     )
 
     parser.add_argument(
@@ -147,6 +179,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         validated_changes = _load_validated_changes(
             Path(args.validated_changes_path) if args.validated_changes_path else None
         )
+        historical_runs = _load_historical_runs(
+            Path(args.historical_runs_path) if args.historical_runs_path else None
+        )
 
         request = PipelineRequest(
             raw_log=raw_log,
@@ -164,6 +199,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             target_branch=str(args.target_branch) or None,
             validated_changes=validated_changes,
             fail_fast=bool(args.fail_fast),
+            historical_runs=historical_runs,
         )
         state = run_pipeline(request=request)
     except Exception as exc:

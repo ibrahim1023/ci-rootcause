@@ -106,6 +106,32 @@ def _load_validated_changes(path: Path | None) -> list[dict[str, str]]:
     return normalized
 
 
+def _load_historical_runs(path: Path | None) -> list[dict[str, Any]]:
+    if path is None:
+        return []
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except OSError as exc:
+        raise ActionInputError(f"Unable to read historical runs file '{path}': {exc}") from exc
+    except json.JSONDecodeError as exc:
+        raise ActionInputError(f"Invalid JSON in historical runs file '{path}': {exc}") from exc
+
+    if not isinstance(raw, list):
+        raise ActionInputError("historical_runs_path must point to a JSON list")
+
+    normalized: list[dict[str, Any]] = []
+    for item in raw:
+        if not isinstance(item, dict):
+            raise ActionInputError("Each historical run must be a JSON object")
+        failure_events = item.get("failure_events", [])
+        if failure_events is not None and not isinstance(failure_events, list):
+            raise ActionInputError(
+                "Each historical run field 'failure_events' must be a JSON list"
+            )
+        normalized.append(dict(item))
+    return normalized
+
+
 def _build_diff_from_git(base_ref: str, head_ref: str) -> str:
     if not base_ref or not head_ref:
         return ""
@@ -251,6 +277,10 @@ def main() -> int:
         validated_changes = _load_validated_changes(
             Path(validated_changes_path) if validated_changes_path else None
         )
+        historical_runs_path = config.get("historical_runs_path", "").strip()
+        historical_runs = _load_historical_runs(
+            Path(historical_runs_path) if historical_runs_path else None
+        )
 
         if create_fix_pr:
             file_count = len({change["file"] for change in validated_changes})
@@ -276,6 +306,7 @@ def main() -> int:
             target_branch=target_branch or None,
             validated_changes=validated_changes,
             fail_fast=False,
+            historical_runs=historical_runs,
         )
 
         state = run_pipeline(request=request)

@@ -104,3 +104,40 @@ def test_cli_returns_error_for_missing_log_file(tmp_path: Path, capsys) -> None:
     assert exit_code == 2
     captured = capsys.readouterr()
     assert "ci-rootcause CLI error:" in captured.out
+
+
+def test_cli_returns_error_for_invalid_historical_runs_payload(tmp_path: Path, capsys) -> None:
+    log_path = tmp_path / "ci.log"
+    diff_path = tmp_path / "change.diff"
+    historical_path = tmp_path / "historical.json"
+
+    log_path.write_text(_sample_log(), encoding="utf-8")
+    diff_path.write_text(_sample_diff(), encoding="utf-8")
+    historical_path.write_text('{"invalid": true}', encoding="utf-8")
+
+    exit_code = main(
+        [
+            "--log-path",
+            str(log_path),
+            "--diff-path",
+            str(diff_path),
+            "--output-dir",
+            str(tmp_path / "artifacts"),
+            "--timestamp",
+            "2026-02-20T00:00:00Z",
+            "--commit",
+            "abc123",
+            "--run-id",
+            "gha_5003",
+            "--base-commit",
+            "abc123",
+            "--head-commit",
+            "def456",
+            "--historical-runs-path",
+            str(historical_path),
+        ]
+    )
+
+    assert exit_code == 2
+    captured = capsys.readouterr()
+    assert "Historical runs payload must be a JSON list" in captured.out

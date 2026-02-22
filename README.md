@@ -88,6 +88,7 @@ Run end-to-end deterministic analysis locally:
 ci-rootcause \
   --log-path fixtures/ci-logs/github-actions-python-failure.log \
   --diff-path fixtures/diffs/refactor-only.diff \
+  --historical-runs-path fixtures/classification/historical-runs.sample.json \
   --output-dir artifacts \
   --timestamp 2026-02-20T00:00:00Z \
   --commit abc123 \
@@ -102,6 +103,7 @@ CLI behavior:
 - Writes `ci-rca.json` and `ci-rca.md` into `--output-dir`
 - Prints a machine-readable JSON summary to stdout
 - Exits `0` for `completed`/`partial` analysis runs, `2` for runtime/input errors
+- Supports optional deterministic flaky-test detection via `--historical-runs-path`
 
 Runtime mode:
 

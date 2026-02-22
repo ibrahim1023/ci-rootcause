@@ -2,6 +2,23 @@
 
 This document describes the current MVP contract models in `src/contracts/models.py`.
 
+## Failure Classification Agent Output
+
+`run_failure_classification(...)` returns:
+
+- `classification` (`FailureClass` value)
+- `signals` (deterministic matched signals)
+- `flaky_test_detection` (deterministic historical pattern result)
+
+`flaky_test_detection` includes:
+
+- `detected` (boolean)
+- `score` (`0.0` to `1.0`)
+- `matched_test_ids`
+- `matched_failure_runs`
+- `unique_failure_signatures`
+- `history_window_size`
+
 ## Failure Graph
 
 `FailureGraph` is a list of `FailureNode` objects.

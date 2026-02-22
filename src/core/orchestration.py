@@ -142,6 +142,7 @@ class PipelineRequest:
     target_branch: str | None = None
     validated_changes: list[dict[str, str]] = field(default_factory=list)
     fail_fast: bool = False
+    historical_runs: list[dict[str, Any]] = field(default_factory=list)
     config: PipelineConfig | None = None
     use_adk_runtime: bool | None = None
 
@@ -178,6 +179,7 @@ def _run_failure_classification_agent(state: PipelineState) -> dict[str, Any]:
     return run_failure_classification(
         failure_events=log_output["failure_events"],
         dependency_change_flags=diff_output["dependency_change_flags"],
+        historical_runs=state.request.historical_runs,
     )
 
 
@@ -381,9 +383,15 @@ def _config_hash(config: PipelineConfig) -> str:
 
 
 def _compute_input_hashes(request: PipelineRequest, config: PipelineConfig) -> dict[str, str]:
+    historical_runs_payload = json.dumps(
+        request.historical_runs,
+        sort_keys=True,
+        separators=(",", ":"),
+    )
     return {
         "raw_log_sha256": _sha256_text(request.raw_log),
         "raw_diff_sha256": _sha256_text(request.raw_diff),
+        "historical_runs_sha256": _sha256_text(historical_runs_payload),
         "config_sha256": _config_hash(config),
     }
 
