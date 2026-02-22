@@ -176,3 +176,98 @@ def test_cli_returns_error_for_invalid_min_pr_confidence(tmp_path: Path, capsys)
     assert exit_code == 2
     captured = capsys.readouterr()
     assert "could not convert string to float: 'invalid'" in captured.out
+
+
+def test_cli_supports_config_path_for_required_inputs(tmp_path: Path, capsys) -> None:
+    log_path = tmp_path / "ci.log"
+    diff_path = tmp_path / "change.diff"
+    out_dir = tmp_path / "artifacts"
+    config_path = tmp_path / "ci-rootcause.yml"
+    log_path.write_text(_sample_log(), encoding="utf-8")
+    diff_path.write_text(_sample_diff(), encoding="utf-8")
+    config_path.write_text(
+        "\n".join(
+            [
+                f"log_path: {log_path}",
+                f"diff_path: {diff_path}",
+                f"output_dir: {out_dir}",
+                "timestamp: 2026-02-23T00:00:00Z",
+                "commit: abc123",
+                "run_id: gha_cfg_1",
+                "base_commit: abc122",
+                "head_commit: abc123",
+                "repository: acme/ci-rootcause",
+                "target_branch: main",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    exit_code = main(["--config-path", str(config_path)])
+
+    assert exit_code == 0
+    payload = json.loads(capsys.readouterr().out.strip())
+    assert payload["pipeline_status"] == "completed"
+    assert payload["classification"] == "TEST"
+    assert (out_dir / "ci-rca.json").exists()
+    assert (out_dir / "ci-rca.md").exists()
+
+
+def test_cli_supports_stdin_for_log_input(tmp_path: Path, monkeypatch, capsys) -> None:
+    diff_path = tmp_path / "change.diff"
+    out_dir = tmp_path / "artifacts"
+    diff_path.write_text(_sample_diff(), encoding="utf-8")
+    monkeypatch.setattr("sys.stdin.read", lambda: _sample_log())
+
+    exit_code = main(
+        [
+            "--log-path",
+            "-",
+            "--diff-path",
+            str(diff_path),
+            "--output-dir",
+            str(out_dir),
+            "--timestamp",
+            "2026-02-23T00:00:00Z",
+            "--commit",
+            "abc123",
+            "--run-id",
+            "gha_stdin_1",
+            "--base-commit",
+            "abc122",
+            "--head-commit",
+            "abc123",
+        ]
+    )
+
+    assert exit_code == 0
+    payload = json.loads(capsys.readouterr().out.strip())
+    assert payload["classification"] == "TEST"
+
+
+def test_cli_rejects_using_stdin_for_both_log_and_diff(tmp_path: Path, monkeypatch, capsys) -> None:
+    monkeypatch.setattr("sys.stdin.read", lambda: _sample_log())
+
+    exit_code = main(
+        [
+            "--log-path",
+            "-",
+            "--diff-path",
+            "-",
+            "--output-dir",
+            str(tmp_path / "artifacts"),
+            "--timestamp",
+            "2026-02-23T00:00:00Z",
+            "--commit",
+            "abc123",
+            "--run-id",
+            "gha_stdin_2",
+            "--base-commit",
+            "abc122",
+            "--head-commit",
+            "abc123",
+        ]
+    )
+
+    assert exit_code == 2
+    assert "Only one of --log-path/--diff-path may use '-' stdin input" in capsys.readouterr().out

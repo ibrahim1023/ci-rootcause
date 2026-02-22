@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from pathlib import Path
 from typing import Any, Sequence
 
@@ -17,6 +18,52 @@ def _read_text(path: Path) -> str:
         return path.read_text(encoding="utf-8")
     except OSError as exc:
         raise CLIError(f"Unable to read file '{path}': {exc}") from exc
+
+
+def _load_simple_config(path: Path | None) -> dict[str, str]:
+    if path is None:
+        return {}
+    if not path.exists():
+        raise CLIError(f"config_path does not exist: '{path}'")
+
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except OSError as exc:
+        raise CLIError(f"Unable to read config_path '{path}': {exc}") from exc
+
+    config: dict[str, str] = {}
+    for index, raw in enumerate(lines, start=1):
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+        if ":" not in line:
+            raise CLIError(f"Invalid config line {index} in '{path}': expected key: value")
+        key, value = line.split(":", maxsplit=1)
+        key = key.strip()
+        value = value.strip()
+        if not key:
+            raise CLIError(f"Invalid config line {index} in '{path}': empty key")
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in {"'", '"'}:
+            value = value[1:-1]
+        config[key] = value
+    return config
+
+
+def _coalesce(primary: str | None, fallback: str | None = None) -> str:
+    if primary is not None and str(primary).strip():
+        return str(primary).strip()
+    if fallback is not None and str(fallback).strip():
+        return str(fallback).strip()
+    return ""
+
+
+def _read_input_text(path_value: str, *, input_name: str) -> str:
+    if path_value == "-":
+        data = sys.stdin.read()
+        if not data.strip():
+            raise CLIError(f"stdin for {input_name} is empty")
+        return data
+    return _read_text(Path(path_value))
 
 
 def _load_validated_changes(path: Path | None) -> list[dict[str, str]]:
@@ -75,18 +122,58 @@ def _build_parser() -> argparse.ArgumentParser:
         prog="ci-rootcause",
         description="Deterministic CI root-cause analysis runner.",
     )
-    parser.add_argument("--log-path", required=True, help="Path to CI log text input.")
-    parser.add_argument("--diff-path", required=True, help="Path to git diff text input.")
-    parser.add_argument("--output-dir", required=True, help="Directory for RCA artifacts.")
+    parser.add_argument(
+        "--config-path",
+        default=None,
+        help="Optional simple config file (key: value) for local CLI execution.",
+    )
+    parser.add_argument(
+        "--log-path",
+        required=False,
+        default=None,
+        help="Path to CI log text input. Use '-' to read from stdin.",
+    )
+    parser.add_argument(
+        "--diff-path",
+        required=False,
+        default=None,
+        help="Path to git diff text input. Use '-' to read from stdin.",
+    )
+    parser.add_argument(
+        "--output-dir",
+        required=False,
+        default=None,
+        help="Directory for RCA artifacts.",
+    )
 
-    parser.add_argument("--timestamp", required=True, help="Run timestamp (ISO-8601).")
-    parser.add_argument("--commit", required=True, help="Head commit SHA for analyzed run.")
-    parser.add_argument("--run-id", required=True, help="CI run identifier.")
-    parser.add_argument("--base-commit", required=True, help="Diff base commit SHA/ref.")
-    parser.add_argument("--head-commit", required=True, help="Diff head commit SHA/ref.")
+    parser.add_argument(
+        "--timestamp",
+        required=False,
+        default=None,
+        help="Run timestamp (ISO-8601).",
+    )
+    parser.add_argument(
+        "--commit",
+        required=False,
+        default=None,
+        help="Head commit SHA for analyzed run.",
+    )
+    parser.add_argument("--run-id", required=False, default=None, help="CI run identifier.")
+    parser.add_argument(
+        "--base-commit",
+        required=False,
+        default=None,
+        help="Diff base commit SHA/ref.",
+    )
+    parser.add_argument(
+        "--head-commit",
+        required=False,
+        default=None,
+        help="Diff head commit SHA/ref.",
+    )
 
-    parser.add_argument("--repository", default="", help="Repository in owner/repo format.")
-    parser.add_argument("--target-branch", default="main", help="Target base branch.")
+    parser.add_argument("--repository", default=None, help="Repository in owner/repo format.")
+    parser.add_argument("--target-branch", default=None, help="Target base branch.")
     parser.add_argument(
         "--ci-provider",
         default=None,
@@ -192,8 +279,40 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     try:
-        raw_log = _read_text(Path(args.log_path))
-        raw_diff = _read_text(Path(args.diff_path))
+        config = _load_simple_config(Path(args.config_path) if args.config_path else None)
+
+        log_path = _coalesce(args.log_path, config.get("log_path"))
+        diff_path = _coalesce(args.diff_path, config.get("diff_path"))
+        output_dir = _coalesce(args.output_dir, config.get("output_dir"))
+        timestamp = _coalesce(args.timestamp, config.get("timestamp"))
+        commit = _coalesce(args.commit, config.get("commit"))
+        run_id = _coalesce(args.run_id, config.get("run_id"))
+        base_commit = _coalesce(args.base_commit, config.get("base_commit"))
+        head_commit = _coalesce(args.head_commit, config.get("head_commit"))
+        repository = _coalesce(args.repository, config.get("repository"))
+        target_branch = _coalesce(args.target_branch, config.get("target_branch")) or "main"
+
+        required_fields = {
+            "log_path": log_path,
+            "diff_path": diff_path,
+            "output_dir": output_dir,
+            "timestamp": timestamp,
+            "commit": commit,
+            "run_id": run_id,
+            "base_commit": base_commit,
+            "head_commit": head_commit,
+        }
+        missing = [name for name, value in required_fields.items() if not value]
+        if missing:
+            raise CLIError(
+                "Missing required CLI inputs (provide flags or config_path values): "
+                + ", ".join(sorted(missing))
+            )
+        if log_path == "-" and diff_path == "-":
+            raise CLIError("Only one of --log-path/--diff-path may use '-' stdin input")
+
+        raw_log = _read_input_text(log_path, input_name="log_path")
+        raw_diff = _read_input_text(diff_path, input_name="diff_path")
         validated_changes = _load_validated_changes(
             Path(args.validated_changes_path) if args.validated_changes_path else None
         )
@@ -204,17 +323,17 @@ def main(argv: Sequence[str] | None = None) -> int:
         request = PipelineRequest(
             raw_log=raw_log,
             raw_diff=raw_diff,
-            timestamp=str(args.timestamp),
-            commit=str(args.commit),
-            run_id=str(args.run_id),
-            base_commit=str(args.base_commit),
-            head_commit=str(args.head_commit),
-            output_dir=str(args.output_dir),
+            timestamp=timestamp,
+            commit=commit,
+            run_id=run_id,
+            base_commit=base_commit,
+            head_commit=head_commit,
+            output_dir=output_dir,
             create_fix_pr=bool(args.create_fix_pr),
             dry_run=bool(args.dry_run),
             github_token=str(args.github_token) if args.github_token else None,
-            repository=str(args.repository) or None,
-            target_branch=str(args.target_branch) or None,
+            repository=repository or None,
+            target_branch=target_branch or None,
             validated_changes=validated_changes,
             fail_fast=bool(args.fail_fast),
             historical_runs=historical_runs,

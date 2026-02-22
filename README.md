@@ -106,6 +106,7 @@ CLI behavior:
 - Prints a machine-readable JSON summary to stdout
 - Exits `0` for `completed`/`partial` analysis runs, `2` for runtime/input errors
 - Supports optional deterministic flaky-test detection via `--historical-runs-path`
+- Supports local `--config-path` (simple `key: value`) and single-stream stdin input via `-`
 
 Runtime mode:
 
