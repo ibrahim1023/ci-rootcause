@@ -1,6 +1,9 @@
 name: ci-rootcause
 description: Deterministic CI root cause analysis with optional guarded fix PR creation.
 author: ci-rootcause
+branding:
+  icon: alert-triangle
+  color: yellow
 
 inputs:
   github_token:
