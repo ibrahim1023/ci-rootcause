@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import subprocess
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterable, Protocol
@@ -22,6 +23,18 @@ class PatchApplicationError(RuntimeError):
 
 class GuardrailViolationError(RuntimeError):
     """Raised when PR creation guardrails are violated."""
+
+
+class GitHubAPIError(ProviderAdapterError):
+    """Base class for typed GitHub API failures."""
+
+
+class GitHubRateLimitError(GitHubAPIError):
+    """Raised when GitHub API rate limits are encountered."""
+
+
+class GitHubTransientError(GitHubAPIError):
+    """Raised when a transient GitHub API/network error is encountered."""
 
 
 class GitCommandRunner(Protocol):
@@ -321,6 +334,21 @@ def checkout_fix_branch(
         ) from exc
 
 
+def push_fix_branch(
+    plan: BranchCreationPlan,
+    repo_path: str,
+    git_runner: GitCommandRunner | None = None,
+) -> None:
+    runner = git_runner or SubprocessGitRunner()
+    cwd = Path(repo_path)
+    try:
+        runner.run(["git", "push", "-u", "origin", plan.pr_branch], cwd=cwd)
+    except ProviderAdapterError as exc:
+        raise BranchCreationError(
+            f"Unable to push fix branch '{plan.pr_branch}' to origin: {exc}"
+        ) from exc
+
+
 def commit_evidence_backed_changes(
     plan: BranchCreationPlan,
     payload: dict[str, Any],
@@ -345,13 +373,53 @@ def commit_evidence_backed_changes(
 
 
 class GitHubRESTClient:
-    def __init__(self, token: str, api_base: str = "https://api.github.com") -> None:
+    def __init__(
+        self,
+        token: str,
+        api_base: str = "https://api.github.com",
+        max_retries: int = 3,
+        backoff_seconds: float = 0.5,
+    ) -> None:
         self._token = token.strip()
         if not self._token:
             raise GuardrailViolationError("github_token is required to create PRs")
         self._api_base = api_base.rstrip("/")
+        if max_retries < 0:
+            raise GuardrailViolationError("max_retries must be >= 0")
+        if backoff_seconds < 0.0:
+            raise GuardrailViolationError("backoff_seconds must be >= 0.0")
+        self._max_retries = max_retries
+        self._backoff_seconds = backoff_seconds
 
-    def _request(
+    def _compute_retry_delay(self, attempt: int, retry_after: float | None = None) -> float:
+        if retry_after is not None and retry_after >= 0.0:
+            return retry_after
+        return self._backoff_seconds * float(2**attempt)
+
+    def _rate_limit_retry_after(self, exc: error.HTTPError) -> float | None:
+        retry_after_header = exc.headers.get("Retry-After")
+        if retry_after_header:
+            try:
+                return max(0.0, float(retry_after_header))
+            except ValueError:
+                return 0.0
+
+        reset_epoch = exc.headers.get("X-RateLimit-Reset")
+        if not reset_epoch:
+            return None
+        try:
+            reset_ts = float(reset_epoch)
+        except ValueError:
+            return 0.0
+        return max(0.0, reset_ts - time.time())
+
+    def _is_rate_limited(self, exc: error.HTTPError, message: str) -> bool:
+        if exc.code == 429:
+            return True
+        lowered = message.lower()
+        return exc.code == 403 and "rate limit" in lowered
+
+    def _request_once(
         self,
         method: str,
         path: str,
@@ -372,18 +440,55 @@ class GitHubRESTClient:
             headers["Content-Type"] = "application/json"
 
         req = request.Request(url=url, method=method, headers=headers, data=body)
-        try:
-            with request.urlopen(req, timeout=15) as response:
-                return json.loads(response.read().decode("utf-8"))
-        except error.HTTPError as exc:
-            message = exc.read().decode("utf-8", errors="replace")
-            raise ProviderAdapterError(
-                f"GitHub API request failed ({method} {path}): {message}"
-            ) from exc
-        except error.URLError as exc:
-            raise ProviderAdapterError(
-                f"GitHub API network error ({method} {path}): {exc}"
-            ) from exc
+        with request.urlopen(req, timeout=15) as response:
+            return json.loads(response.read().decode("utf-8"))
+
+    def _request(
+        self,
+        method: str,
+        path: str,
+        query: dict[str, str] | None = None,
+        payload: dict[str, Any] | None = None,
+    ) -> Any:
+        attempts = self._max_retries + 1
+        for attempt in range(attempts):
+            try:
+                return self._request_once(method=method, path=path, query=query, payload=payload)
+            except error.HTTPError as exc:
+                message = exc.read().decode("utf-8", errors="replace")
+                is_last_attempt = attempt >= self._max_retries
+
+                if self._is_rate_limited(exc=exc, message=message):
+                    retry_after = self._rate_limit_retry_after(exc)
+                    if is_last_attempt:
+                        raise GitHubRateLimitError(
+                            f"GitHub API rate limit ({method} {path}): {message}"
+                        ) from exc
+                    time.sleep(self._compute_retry_delay(attempt=attempt, retry_after=retry_after))
+                    continue
+
+                if exc.code in {500, 502, 503, 504}:
+                    if is_last_attempt:
+                        raise GitHubTransientError(
+                            f"GitHub API transient failure ({method} {path}): {message}"
+                        ) from exc
+                    time.sleep(self._compute_retry_delay(attempt=attempt))
+                    continue
+
+                raise GitHubAPIError(
+                    f"GitHub API request failed ({method} {path}): {message}"
+                ) from exc
+            except error.URLError as exc:
+                is_last_attempt = attempt >= self._max_retries
+                if is_last_attempt:
+                    raise GitHubTransientError(
+                        f"GitHub API network error ({method} {path}): {exc}"
+                    ) from exc
+                time.sleep(self._compute_retry_delay(attempt=attempt))
+
+        raise GitHubTransientError(
+            f"GitHub API transient failure ({method} {path}) exceeded retries"
+        )
 
     def find_open_pull_request(
         self,
@@ -563,6 +668,7 @@ def run_pr_creation(
             "commit_message": commit_message,
         }
 
+    push_fix_branch(plan=plan, repo_path=repo_path, git_runner=git_runner)
     pr_payload = create_or_reuse_pull_request(
         payload=payload,
         pr_branch=created_branch,

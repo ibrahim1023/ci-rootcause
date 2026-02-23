@@ -13,6 +13,9 @@ class CLIError(RuntimeError):
     """Raised when CLI input validation fails."""
 
 
+SAFE_ROLLOUT_PROFILE = "safe-github-rollout"
+
+
 def _read_text(path: Path) -> str:
     try:
         return path.read_text(encoding="utf-8")
@@ -75,6 +78,16 @@ def _parse_bool(value: str, *, name: str) -> bool:
     raise CLIError(f"Invalid boolean value for {name}: '{value}'")
 
 
+def _parse_confidence_threshold(value: str, *, name: str) -> float:
+    try:
+        parsed = float(value)
+    except ValueError as exc:
+        raise CLIError(f"Invalid float value for {name}: '{value}'") from exc
+    if not (0.0 <= parsed <= 1.0):
+        raise CLIError(f"{name} must be between 0.0 and 1.0")
+    return parsed
+
+
 def _load_validated_changes(path: Path | None) -> list[dict[str, str]]:
     if path is None:
         return []
@@ -135,6 +148,14 @@ def _build_parser() -> argparse.ArgumentParser:
         "--config-path",
         default=None,
         help="Optional simple config file (key: value) for local CLI execution.",
+    )
+    parser.add_argument(
+        "--profile",
+        default=None,
+        help=(
+            "Optional rollout profile. Supported values: "
+            f"'{SAFE_ROLLOUT_PROFILE}'."
+        ),
     )
     parser.add_argument(
         "--log-path",
@@ -229,7 +250,7 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--min-pr-confidence",
-        default="0.75",
+        default=None,
         help=(
             "Minimum confidence (0.0-1.0) required to allow guarded fix PR creation. Default: 0.75."
         ),
@@ -304,6 +325,27 @@ def main(argv: Sequence[str] | None = None) -> int:
         head_commit = _coalesce(args.head_commit, config.get("head_commit"))
         repository = _coalesce(args.repository, config.get("repository"))
         target_branch = _coalesce(args.target_branch, config.get("target_branch")) or "main"
+        profile = _coalesce(args.profile, config.get("profile"))
+        if profile and profile != SAFE_ROLLOUT_PROFILE:
+            raise CLIError(
+                f"Unsupported profile '{profile}'. Expected '{SAFE_ROLLOUT_PROFILE}'."
+            )
+
+        create_fix_pr = bool(args.create_fix_pr)
+        if not create_fix_pr and "create_fix_pr" in config:
+            create_fix_pr = _parse_bool(str(config.get("create_fix_pr", "")), name="create_fix_pr")
+
+        min_pr_confidence_raw = _coalesce(
+            args.min_pr_confidence,
+            config.get("min_pr_confidence"),
+        ) or "0.75"
+        min_pr_confidence = _parse_confidence_threshold(
+            min_pr_confidence_raw,
+            name="min_pr_confidence",
+        )
+        if profile == SAFE_ROLLOUT_PROFILE and min_pr_confidence < 0.9:
+            min_pr_confidence = 0.9
+
         offline_only = bool(args.offline_only)
         if not offline_only and "offline_only" in config:
             offline_only = _parse_bool(str(config.get("offline_only", "")), name="offline_only")
@@ -345,7 +387,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             base_commit=base_commit,
             head_commit=head_commit,
             output_dir=output_dir,
-            create_fix_pr=bool(args.create_fix_pr),
+            create_fix_pr=create_fix_pr,
             dry_run=bool(args.dry_run),
             github_token=str(args.github_token) if args.github_token else None,
             repository=repository or None,
@@ -353,7 +395,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             validated_changes=validated_changes,
             fail_fast=bool(args.fail_fast),
             historical_runs=historical_runs,
-            min_pr_confidence=float(args.min_pr_confidence),
+            min_pr_confidence=min_pr_confidence,
             offline_only=offline_only,
             ci_provider=str(args.ci_provider).strip() or None,
             provider_adapter=str(args.provider_adapter).strip() or None,

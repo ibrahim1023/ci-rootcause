@@ -13,6 +13,9 @@ class ActionInputError(RuntimeError):
     """Raised when GitHub Action inputs are invalid."""
 
 
+SAFE_ROLLOUT_PROFILE = "safe-github-rollout"
+
+
 def _input_key(name: str) -> str:
     return f"INPUT_{name.upper()}"
 
@@ -268,6 +271,18 @@ def main() -> int:
         )
 
         config = _load_simple_config(Path(config_path_value))
+        rollout_profile = (
+            _get_input("rollout_profile", default="").strip() or config.get("profile", "").strip()
+        )
+        if rollout_profile:
+            if rollout_profile != SAFE_ROLLOUT_PROFILE:
+                raise ActionInputError(
+                    "Unsupported rollout_profile "
+                    f"'{rollout_profile}'. Expected '{SAFE_ROLLOUT_PROFILE}'."
+                )
+            if min_pr_confidence < 0.9:
+                min_pr_confidence = 0.9
+
         output_dir = config.get("output_dir", "artifacts")
 
         base_ref = (

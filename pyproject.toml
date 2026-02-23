@@ -20,6 +20,7 @@ addopts = "-q"
 testpaths = ["tests/unit", "tests/integration"]
 markers = [
   "nondeterministic: marks tests that are intentionally non-deterministic",
+  "live_github: marks tests that hit the real GitHub API and require explicit opt-in credentials",
 ]
 
 [tool.ruff]

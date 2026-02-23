@@ -38,3 +38,27 @@ def test_log_ingest_integration_with_fixture() -> None:
     assert len(output["failure_graph"]["nodes"]) >= 1
     assert output["failure_graph"]["nodes"][0]["stage"] == "Run pytest"
     assert sum(1 for node in output["failure_graph"]["nodes"] if node["is_first_failure"]) == 1
+
+
+def test_log_ingest_supports_matrix_fixture() -> None:
+    raw_log = Path("fixtures/ci-logs/github-actions-matrix-mixed-failure.log").read_text(
+        encoding="utf-8"
+    )
+    output = run_log_ingest(raw_log, timestamp="2026-02-23T00:00:00Z")
+
+    assert output["first_failure_event"] is not None
+    assert output["first_failure_event"]["stage"] == "Run pytest (ubuntu-latest, python-3.11)"
+    assert len(output["failure_graph"]["nodes"]) >= 2
+
+
+def test_log_ingest_supports_cancelled_partial_fixture() -> None:
+    raw_log = Path("fixtures/ci-logs/github-actions-cancelled-partial.log").read_text(
+        encoding="utf-8"
+    )
+    output = run_log_ingest(raw_log, timestamp="2026-02-23T00:00:00Z")
+
+    assert output["first_failure_event"] is not None
+    assert any(
+        "timed out and was canceled" in event["error_signature"].lower()
+        for event in output["failure_events"]
+    )

@@ -1,0 +1,49 @@
+{
+  "agent_status_counts": {
+    "completed": 2,
+    "failed": 1,
+    "skipped": 1
+  },
+  "ci_provider": "github-actions",
+  "failure_taxonomy": {
+    "by_agent": {
+      "crash": 1
+    },
+    "by_error_type": {
+      "ValueError": 1
+    },
+    "failures": [
+      {
+        "agent": "crash",
+        "error_type": "ValueError",
+        "message": "boom"
+      }
+    ],
+    "total_failures": 1
+  },
+  "nondeterministic_components": [
+    "timing_metrics"
+  ],
+  "pipeline_status": "partial",
+  "provider_adapter": "github",
+  "repository": "",
+  "run_id": "gha_3001",
+  "structured_log_event_counts": {
+    "agent_completed": 2,
+    "agent_failed": 1,
+    "agent_skipped": 1,
+    "agent_started": 4,
+    "pipeline_completed": 1,
+    "pipeline_started": 1
+  },
+  "timing_ms": {
+    "agents": {
+      "after_crash": 0.002,
+      "crash": 0.004,
+      "first": 0.004,
+      "independent": 0.002
+    },
+    "pipeline": 0.318
+  },
+  "trace_id": "7ab1381f1f96f6bff28e3b04"
+}

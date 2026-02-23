@@ -175,7 +175,7 @@ def test_cli_returns_error_for_invalid_min_pr_confidence(tmp_path: Path, capsys)
 
     assert exit_code == 2
     captured = capsys.readouterr()
-    assert "could not convert string to float: 'invalid'" in captured.out
+    assert "Invalid float value for min_pr_confidence: 'invalid'" in captured.out
 
 
 def test_cli_supports_config_path_for_required_inputs(tmp_path: Path, capsys) -> None:
@@ -298,6 +298,69 @@ def test_cli_config_can_enable_offline_only_mode(tmp_path: Path, capsys) -> None
     )
 
     exit_code = main(["--config-path", str(config_path), "--create-fix-pr"])
+
+    assert exit_code == 0
+    payload = json.loads(capsys.readouterr().out.strip())
+    assert payload["pr_created"] is False
+
+
+def test_cli_rejects_unknown_rollout_profile(tmp_path: Path, capsys) -> None:
+    log_path = tmp_path / "ci.log"
+    diff_path = tmp_path / "change.diff"
+    out_dir = tmp_path / "artifacts"
+    config_path = tmp_path / "ci-rootcause.yml"
+    log_path.write_text(_sample_log(), encoding="utf-8")
+    diff_path.write_text(_sample_diff(), encoding="utf-8")
+    config_path.write_text(
+        "\n".join(
+            [
+                f"log_path: {log_path}",
+                f"diff_path: {diff_path}",
+                f"output_dir: {out_dir}",
+                "timestamp: 2026-02-24T00:00:00Z",
+                "commit: abc123",
+                "run_id: gha_cfg_unknown_profile",
+                "base_commit: abc122",
+                "head_commit: abc123",
+                "profile: unknown-profile",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    exit_code = main(["--config-path", str(config_path)])
+
+    assert exit_code == 2
+    assert "Unsupported profile 'unknown-profile'" in capsys.readouterr().out
+
+
+def test_cli_safe_rollout_profile_clamps_min_pr_confidence(tmp_path: Path, capsys) -> None:
+    log_path = tmp_path / "ci.log"
+    diff_path = tmp_path / "change.diff"
+    out_dir = tmp_path / "artifacts"
+    config_path = tmp_path / "ci-rootcause.yml"
+    log_path.write_text(_sample_log(), encoding="utf-8")
+    diff_path.write_text(_sample_diff(), encoding="utf-8")
+    config_path.write_text(
+        "\n".join(
+            [
+                f"log_path: {log_path}",
+                f"diff_path: {diff_path}",
+                f"output_dir: {out_dir}",
+                "timestamp: 2026-02-24T00:00:00Z",
+                "commit: abc123",
+                "run_id: gha_cfg_safe_profile",
+                "base_commit: abc122",
+                "head_commit: abc123",
+                "profile: safe-github-rollout",
+                "create_fix_pr: true",
+                "min_pr_confidence: 0.80",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    exit_code = main(["--config-path", str(config_path)])
 
     assert exit_code == 0
     payload = json.loads(capsys.readouterr().out.strip())

@@ -1,12 +1,19 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from io import BytesIO
 from pathlib import Path
+from urllib import error
+from urllib import request as urllib_request
 
 import pytest
 
 from src.agents.pr_creation import (
     BranchCreationPlan,
+    GitHubAPIError,
+    GitHubRateLimitError,
+    GitHubRESTClient,
+    GitHubTransientError,
     GuardrailViolationError,
     PatchApplicationError,
     ProviderAdapterError,
@@ -20,6 +27,7 @@ from src.agents.pr_creation import (
     create_fix_branch,
     create_or_reuse_pull_request,
     find_existing_pull_request,
+    push_fix_branch,
     run_pr_creation,
 )
 
@@ -139,6 +147,19 @@ def test_create_fix_branch_is_idempotent_when_branch_exists(tmp_path: Path) -> N
             "refs/heads/ci-rootcause/fix/abc123deadbe-def456feedfa",
         ],
     ]
+
+
+def test_push_fix_branch_runs_expected_git_command(tmp_path: Path) -> None:
+    runner = FakeGitRunner(fail_on=set(), seen=[])
+    plan = BranchCreationPlan(
+        base_ref="abc123deadbeef",
+        head_ref="def456feedface",
+        pr_branch="ci-rootcause/fix/abc123deadbe-def456feedfa",
+    )
+
+    push_fix_branch(plan=plan, repo_path=str(tmp_path), git_runner=runner)
+
+    assert runner.seen == [["git", "push", "-u", "origin", plan.pr_branch]]
 
 
 def test_run_pr_creation_returns_skip_when_disabled() -> None:
@@ -440,6 +461,13 @@ def test_run_pr_creation_opens_pr_via_client(tmp_path: Path) -> None:
     assert result["pr_url"] == "https://github.com/acme/repo/pull/12"
     assert result["pr_number"] == 12
     assert result["failure_reason"] is None
+    assert [
+        "git",
+        "push",
+        "-u",
+        "origin",
+        "ci-rootcause/fix/abc123deadbe-def456feedfa",
+    ] in runner.seen
 
 
 def test_run_pr_creation_short_circuits_when_open_pr_exists(tmp_path: Path) -> None:
@@ -477,3 +505,146 @@ def test_run_pr_creation_short_circuits_when_open_pr_exists(tmp_path: Path) -> N
     assert result["pr_number"] == 18
     assert result["commit_message"] is None
     assert runner.seen == []
+
+
+class _HTTPResponse:
+    def __init__(self, payload: bytes) -> None:
+        self._payload = payload
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, tb) -> None:
+        del exc_type, exc, tb
+        return None
+
+    def read(self) -> bytes:
+        return self._payload
+
+
+def _http_error(
+    *,
+    code: int,
+    message: str,
+    body: str,
+    headers: dict[str, str] | None = None,
+) -> error.HTTPError:
+    return error.HTTPError(
+        url="https://api.github.test/failure",
+        code=code,
+        msg=message,
+        hdrs=headers or {},
+        fp=BytesIO(body.encode("utf-8")),
+    )
+
+
+def test_github_rest_client_retries_transient_http_errors(monkeypatch) -> None:
+    calls = {"count": 0}
+    sleeps: list[float] = []
+
+    def fake_urlopen(req: urllib_request.Request, timeout: int):
+        del req, timeout
+        calls["count"] += 1
+        if calls["count"] < 3:
+            raise _http_error(code=503, message="Service Unavailable", body='{"message":"retry"}')
+        return _HTTPResponse(b"[]")
+
+    def fake_sleep(seconds: float) -> None:
+        sleeps.append(seconds)
+
+    monkeypatch.setattr(urllib_request, "urlopen", fake_urlopen)
+    monkeypatch.setattr("src.agents.pr_creation.time.sleep", fake_sleep)
+
+    client = GitHubRESTClient(token="token", api_base="https://api.github.test", max_retries=3)
+    payload = client.find_open_pull_request(
+        owner="acme",
+        repo="repo",
+        head_branch="feature/x",
+        base_branch="main",
+    )
+
+    assert payload is None
+    assert calls["count"] == 3
+    assert sleeps == [0.5, 1.0]
+
+
+def test_github_rest_client_raises_typed_rate_limit_after_retries(monkeypatch) -> None:
+    sleeps: list[float] = []
+
+    def fake_urlopen(req: urllib_request.Request, timeout: int):
+        del req, timeout
+        raise _http_error(
+            code=429,
+            message="Too Many Requests",
+            body='{"message":"rate limit"}',
+            headers={"Retry-After": "2"},
+        )
+
+    def fake_sleep(seconds: float) -> None:
+        sleeps.append(seconds)
+
+    monkeypatch.setattr(urllib_request, "urlopen", fake_urlopen)
+    monkeypatch.setattr("src.agents.pr_creation.time.sleep", fake_sleep)
+
+    client = GitHubRESTClient(
+        token="token",
+        api_base="https://api.github.test",
+        max_retries=2,
+        backoff_seconds=0.25,
+    )
+    with pytest.raises(GitHubRateLimitError):
+        client.find_open_pull_request(
+            owner="acme",
+            repo="repo",
+            head_branch="feature/x",
+            base_branch="main",
+        )
+
+    assert sleeps == [2.0, 2.0]
+
+
+def test_github_rest_client_raises_typed_transient_on_network_exhaustion(monkeypatch) -> None:
+    sleeps: list[float] = []
+
+    def fake_urlopen(req: urllib_request.Request, timeout: int):
+        del req, timeout
+        raise error.URLError("temporary failure")
+
+    def fake_sleep(seconds: float) -> None:
+        sleeps.append(seconds)
+
+    monkeypatch.setattr(urllib_request, "urlopen", fake_urlopen)
+    monkeypatch.setattr("src.agents.pr_creation.time.sleep", fake_sleep)
+
+    client = GitHubRESTClient(
+        token="token",
+        api_base="https://api.github.test",
+        max_retries=1,
+        backoff_seconds=0.2,
+    )
+    with pytest.raises(GitHubTransientError):
+        client.find_open_pull_request(
+            owner="acme",
+            repo="repo",
+            head_branch="feature/x",
+            base_branch="main",
+        )
+
+    assert sleeps == [0.2]
+
+
+def test_github_rest_client_raises_non_retryable_api_error(monkeypatch) -> None:
+    def fake_urlopen(req: urllib_request.Request, timeout: int):
+        del req, timeout
+        raise _http_error(code=422, message="Unprocessable Entity", body='{"message":"invalid"}')
+
+    monkeypatch.setattr(urllib_request, "urlopen", fake_urlopen)
+
+    client = GitHubRESTClient(token="token", api_base="https://api.github.test", max_retries=3)
+    with pytest.raises(GitHubAPIError):
+        client.find_open_pull_request(
+            owner="acme",
+            repo="repo",
+            head_branch="feature/x",
+            base_branch="main",
+        )

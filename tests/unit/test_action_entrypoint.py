@@ -249,3 +249,38 @@ def test_action_entrypoint_offline_only_skips_pr_creation(tmp_path: Path, monkey
     assert exit_code == 0
     payload = _parse_github_output(output_file)
     assert payload["pr_created"] == "false"
+
+
+def test_action_entrypoint_rejects_unknown_rollout_profile(tmp_path: Path, monkeypatch) -> None:
+    output_file = tmp_path / "github_output.txt"
+    config_path = tmp_path / "ci-rootcause.yml"
+    config_path.write_text(
+        "\n".join(
+            [
+                "raw_log: pytest failed",
+                "raw_diff: diff --git a/a.py b/a.py",
+                f"output_dir: {tmp_path / 'artifacts'}",
+                "timestamp: 2026-02-24T00:00:00Z",
+                "run_id: gha_8006",
+                "commit: abc123",
+                "base_commit: abc122",
+                "head_commit: abc123",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setenv("GITHUB_OUTPUT", str(output_file))
+    monkeypatch.setenv("INPUT_GITHUB_TOKEN", "dummy-token")
+    monkeypatch.setenv("INPUT_CREATE_FIX_PR", "false")
+    monkeypatch.setenv("INPUT_POST_PR_COMMENT", "true")
+    monkeypatch.setenv("INPUT_CONFIG_PATH", str(config_path))
+    monkeypatch.setenv("INPUT_MAX_FIX_FILES", "5")
+    monkeypatch.setenv("INPUT_ROLLOUT_PROFILE", "unknown-profile")
+
+    exit_code = main()
+
+    assert exit_code == 2
+    payload = _parse_github_output(output_file)
+    assert payload["classification"] == "UNKNOWN"
+    assert payload["pr_created"] == "false"

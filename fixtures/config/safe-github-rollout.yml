@@ -1,0 +1,5 @@
+# Conservative rollout profile for GitHub deployments.
+profile: safe-github-rollout
+create_fix_pr: false
+min_pr_confidence: 0.90
+offline_only: false

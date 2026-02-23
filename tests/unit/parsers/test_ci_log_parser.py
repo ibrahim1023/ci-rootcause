@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from src.parsers.ci_log_parser import parse_ci_log
 
 
@@ -42,3 +44,29 @@ All checks passed
 
     assert result.stages == ["global", "Run lint"]
     assert result.failure_events == []
+
+
+def test_parse_ci_log_handles_matrix_style_groups() -> None:
+    raw_log = Path("fixtures/ci-logs/github-actions-matrix-mixed-failure.log").read_text(
+        encoding="utf-8"
+    )
+
+    result = parse_ci_log(raw_log)
+
+    assert "Run pytest (ubuntu-latest, python-3.11)" in result.stages
+    assert "Run pytest (ubuntu-latest, python-3.12)" in result.stages
+    assert any("TS2345" in event.error_signature for event in result.failure_events)
+
+
+def test_parse_ci_log_handles_cancelled_partial_runs() -> None:
+    raw_log = Path("fixtures/ci-logs/github-actions-cancelled-partial.log").read_text(
+        encoding="utf-8"
+    )
+
+    result = parse_ci_log(raw_log)
+
+    assert len(result.failure_events) >= 1
+    assert any(
+        "timed out and was canceled" in event.error_signature.lower()
+        for event in result.failure_events
+    )

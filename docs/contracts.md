@@ -87,3 +87,13 @@ Validation rules:
 - `pr_result_from_agent_output(payload)`
 
 These helpers convert raw agent payloads to typed contract models and validate them.
+
+## Compatibility Matrix Fixtures
+
+Versioned compatibility fixtures are tracked under `fixtures/contracts/compat/`.
+
+- RCA: `ci-rca.v*.json`
+- PR result: `pr-result.v*.json`
+
+`tests/unit/contracts/test_schema_compatibility_matrix.py` validates that current converters
+accept these snapshots and preserve canonical contract semantics.

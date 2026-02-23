@@ -6,6 +6,7 @@ import time
 from copy import deepcopy
 from dataclasses import dataclass, field
 from importlib.util import find_spec
+from pathlib import Path
 from typing import Any, Callable
 
 from src.agents.diff_analysis import run_diff_analysis
@@ -454,6 +455,58 @@ def _elapsed_ms(start_ns: int, end_ns: int) -> float:
     return round((end_ns - start_ns) / 1_000_000.0, 3)
 
 
+def _count_values(items: list[str]) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for item in items:
+        counts[item] = counts.get(item, 0) + 1
+    return {key: counts[key] for key in sorted(counts)}
+
+
+def _write_observability_artifact(state: PipelineState) -> None:
+    try:
+        output_root = Path(state.request.output_dir)
+        output_root.mkdir(parents=True, exist_ok=True)
+        path = output_root / "ci-rca-observability.json"
+
+        failure_agents = [str(item.get("agent", "unknown")) for item in state.failures]
+        failure_error_types = [str(item.get("error_type", "unknown")) for item in state.failures]
+        log_events = [str(item.get("event", "")) for item in state.structured_logs]
+        status_values = list(state.agent_status.values())
+        observability_payload = {
+            "trace_id": state.trace_id,
+            "run_id": state.config.run.run_id if state.config else state.request.run_id,
+            "pipeline_status": state.pipeline_status,
+            "ci_provider": state.config.ci_provider if state.config else "",
+            "provider_adapter": state.config.provider_adapter if state.config else "",
+            "repository": state.config.repo.repository if state.config else "",
+            "agent_status_counts": _count_values(status_values),
+            "failure_taxonomy": {
+                "total_failures": len(state.failures),
+                "by_agent": _count_values(failure_agents),
+                "by_error_type": _count_values(failure_error_types),
+                "failures": state.failures,
+            },
+            "timing_ms": {
+                "pipeline": state.pipeline_timing_ms,
+                "agents": {
+                    name: state.agent_timing_ms[name] for name in sorted(state.agent_timing_ms)
+                },
+            },
+            "structured_log_event_counts": _count_values(log_events),
+            "nondeterministic_components": list(state.nondeterministic_components),
+        }
+        path.write_text(
+            json.dumps(observability_payload, sort_keys=True, indent=2) + "\n",
+            encoding="utf-8",
+        )
+    except OSError as exc:
+        _append_structured_log(
+            state,
+            "observability_write_failed",
+            details={"error_type": type(exc).__name__, "message": str(exc)},
+        )
+
+
 def run_pipeline(
     request: PipelineRequest,
     registry: DeterministicAgentRegistry | None = None,
@@ -579,6 +632,7 @@ def _run_pipeline_local(
             "duration_ms": state.pipeline_timing_ms,
         },
     )
+    _write_observability_artifact(state)
 
     return state
 
@@ -863,5 +917,6 @@ def _run_pipeline_with_adk(
             "duration_ms": state.pipeline_timing_ms,
         },
     )
+    _write_observability_artifact(state)
 
     return state

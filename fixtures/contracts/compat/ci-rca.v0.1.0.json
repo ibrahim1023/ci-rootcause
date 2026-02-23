@@ -1,0 +1,37 @@
+{
+  "summary": "Type error in changed module",
+  "classification": "TYPECHECK",
+  "primary_root_cause": {
+    "title": "Invalid return type in src/core/math.py",
+    "evidence": [
+      {
+        "file": "src/core/math.py",
+        "line": 42,
+        "excerpt": "Incompatible return type",
+        "signal": "mypy"
+      }
+    ],
+    "confidence": 0.82
+  },
+  "ranked_alternatives": [
+    {
+      "title": "Outdated lockfile",
+      "evidence": [
+        {
+          "file": "poetry.lock",
+          "line": null,
+          "excerpt": "Dependency mismatch",
+          "signal": "lockfile"
+        }
+      ],
+      "score": 0.29
+    }
+  ],
+  "suggested_fix": [
+    "Update return type annotation in src/core/math.py"
+  ],
+  "meta": {
+    "commit": "abc123",
+    "run_id": "gha_001"
+  }
+}

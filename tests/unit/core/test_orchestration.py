@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from dataclasses import replace
 from pathlib import Path
 
@@ -138,8 +139,15 @@ def test_run_pipeline_wires_shared_context_and_outputs(tmp_path: Path) -> None:
 
     json_path = Path(result.agent_outputs["reporter"]["ci_rca_json_path"])
     md_path = Path(result.agent_outputs["reporter"]["ci_rca_md_path"])
+    obs_path = tmp_path / "ci-rca-observability.json"
     assert json_path.exists()
     assert md_path.exists()
+    assert obs_path.exists()
+    obs_payload = json.loads(obs_path.read_text(encoding="utf-8"))
+    assert obs_payload["trace_id"] == result.trace_id
+    assert obs_payload["pipeline_status"] == "completed"
+    assert obs_payload["failure_taxonomy"]["total_failures"] == 0
+    assert obs_payload["agent_status_counts"]["completed"] == len(result.execution_order)
 
 
 def test_run_pipeline_adk_mode_matches_local_outputs(tmp_path: Path) -> None:
@@ -206,7 +214,7 @@ def test_trace_id_and_structured_logs_are_deterministic(tmp_path: Path) -> None:
     ]
 
 
-def test_timing_metrics_are_recorded_for_partial_runs() -> None:
+def test_timing_metrics_are_recorded_for_partial_runs(tmp_path: Path) -> None:
     registry = DeterministicAgentRegistry()
     registry.register(AgentRegistration(name="ok", depends_on=(), handler=lambda _: {"ok": True}))
 
@@ -228,7 +236,7 @@ def test_timing_metrics_are_recorded_for_partial_runs() -> None:
         run_id="gha_3111",
         base_commit="abc123",
         head_commit="def456",
-        output_dir=".",
+        output_dir=str(tmp_path),
         fail_fast=False,
         use_adk_runtime=False,
     )
@@ -238,6 +246,10 @@ def test_timing_metrics_are_recorded_for_partial_runs() -> None:
     assert result.pipeline_timing_ms >= 0.0
     assert sorted(result.agent_timing_ms) == ["after_crash", "crash", "ok"]
     assert all(duration >= 0.0 for duration in result.agent_timing_ms.values())
+    observability = json.loads((tmp_path / "ci-rca-observability.json").read_text(encoding="utf-8"))
+    assert observability["failure_taxonomy"]["total_failures"] == 1
+    assert observability["failure_taxonomy"]["by_agent"]["crash"] == 1
+    assert observability["failure_taxonomy"]["by_error_type"]["ValueError"] == 1
 
 
 def test_run_pipeline_returns_partial_results_when_fail_fast_is_disabled() -> None:
@@ -306,6 +318,32 @@ def test_run_pipeline_returns_partial_results_when_fail_fast_is_disabled() -> No
         "reason": "dependency_failed",
         "blocked_by": ["crash"],
     }
+
+
+def test_observability_artifact_failure_does_not_fail_pipeline(tmp_path: Path) -> None:
+    blocked_output = tmp_path / "occupied-path"
+    blocked_output.write_text("not-a-directory", encoding="utf-8")
+
+    registry = DeterministicAgentRegistry()
+    registry.register(AgentRegistration(name="only", depends_on=(), handler=lambda _: {"ok": True}))
+
+    request = PipelineRequest(
+        raw_log="",
+        raw_diff="",
+        timestamp="2026-02-23T00:00:00Z",
+        commit="abc123",
+        run_id="gha_obs_fail_1",
+        base_commit="abc122",
+        head_commit="abc123",
+        output_dir=str(blocked_output),
+        fail_fast=False,
+        use_adk_runtime=False,
+    )
+
+    result = run_pipeline(request=request, registry=registry)
+
+    assert result.pipeline_status == "completed"
+    assert any(log["event"] == "observability_write_failed" for log in result.structured_logs)
 
 
 def test_run_pipeline_fail_fast_raises_orchestration_error() -> None:

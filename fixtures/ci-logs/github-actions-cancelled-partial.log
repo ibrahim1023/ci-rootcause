@@ -1,0 +1,10 @@
+##[group]Run integration tests
+Starting integration suite
+Traceback (most recent call last):
+  File "tests/test_integration.py", line 88, in <module>
+    run()
+Error: The operation timed out and was canceled.
+##[endgroup]
+##[group]Post job cleanup
+Cleaning workspace
+Error: Process completed with exit code 1.
