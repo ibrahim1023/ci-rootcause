@@ -176,18 +176,18 @@ Runtime behavior:
 Live PR creation/idempotency validation is available as an opt-in integration test:
 
 ```bash
-CI_ROOTCAUSE_LIVE_GITHUB=1 \
-CI_ROOTCAUSE_LIVE_REPO_PATH=/path/to/disposable/repo \
-CI_ROOTCAUSE_LIVE_REPOSITORY=owner/repo \
-CI_ROOTCAUSE_LIVE_GITHUB_TOKEN=ghp_xxx \
-CI_ROOTCAUSE_LIVE_TARGET_BRANCH=main \
-pytest tests/integration/test_pr_creation_live_github.py -q
+scripts/run_live_github_test.sh \
+  --repo-path /path/to/disposable/repo \
+  --repository owner/repo \
+  --token ghp_xxx \
+  --target-branch main
 ```
 
 Notes:
 
 - Test is skipped unless `CI_ROOTCAUSE_LIVE_GITHUB=1`.
 - Use a disposable repository with push + PR permissions.
+- Script prints a cleanup checklist after the test run.
 
 ## MVP Metrics And Release Artifacts
 
