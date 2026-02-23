@@ -152,10 +152,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--profile",
         default=None,
-        help=(
-            "Optional rollout profile. Supported values: "
-            f"'{SAFE_ROLLOUT_PROFILE}'."
-        ),
+        help=(f"Optional rollout profile. Supported values: '{SAFE_ROLLOUT_PROFILE}'."),
     )
     parser.add_argument(
         "--log-path",
@@ -327,18 +324,19 @@ def main(argv: Sequence[str] | None = None) -> int:
         target_branch = _coalesce(args.target_branch, config.get("target_branch")) or "main"
         profile = _coalesce(args.profile, config.get("profile"))
         if profile and profile != SAFE_ROLLOUT_PROFILE:
-            raise CLIError(
-                f"Unsupported profile '{profile}'. Expected '{SAFE_ROLLOUT_PROFILE}'."
-            )
+            raise CLIError(f"Unsupported profile '{profile}'. Expected '{SAFE_ROLLOUT_PROFILE}'.")
 
         create_fix_pr = bool(args.create_fix_pr)
         if not create_fix_pr and "create_fix_pr" in config:
             create_fix_pr = _parse_bool(str(config.get("create_fix_pr", "")), name="create_fix_pr")
 
-        min_pr_confidence_raw = _coalesce(
-            args.min_pr_confidence,
-            config.get("min_pr_confidence"),
-        ) or "0.75"
+        min_pr_confidence_raw = (
+            _coalesce(
+                args.min_pr_confidence,
+                config.get("min_pr_confidence"),
+            )
+            or "0.75"
+        )
         min_pr_confidence = _parse_confidence_threshold(
             min_pr_confidence_raw,
             name="min_pr_confidence",

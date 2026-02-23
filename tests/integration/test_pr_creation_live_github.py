@@ -24,23 +24,19 @@ def _git(repo_path: Path, *args: str) -> str:
 @pytest.mark.live_github
 def test_live_github_pr_creation_and_idempotency() -> None:
     if os.getenv("CI_ROOTCAUSE_LIVE_GITHUB") != "1":
-        pytest.skip(
-            "set CI_ROOTCAUSE_LIVE_GITHUB=1 to run live GitHub integration test")
+        pytest.skip("set CI_ROOTCAUSE_LIVE_GITHUB=1 to run live GitHub integration test")
 
     repo_path_raw = os.getenv("CI_ROOTCAUSE_LIVE_REPO_PATH", "").strip()
     repository = os.getenv("CI_ROOTCAUSE_LIVE_REPOSITORY", "").strip()
     github_token = os.getenv("CI_ROOTCAUSE_LIVE_GITHUB_TOKEN", "").strip()
-    target_branch = os.getenv(
-        "CI_ROOTCAUSE_LIVE_TARGET_BRANCH", "main").strip()
+    target_branch = os.getenv("CI_ROOTCAUSE_LIVE_TARGET_BRANCH", "main").strip()
 
     if not repo_path_raw:
-        pytest.skip(
-            "CI_ROOTCAUSE_LIVE_REPO_PATH is required for live GitHub test")
+        pytest.skip("CI_ROOTCAUSE_LIVE_REPO_PATH is required for live GitHub test")
     if not repository or "/" not in repository:
         pytest.skip("CI_ROOTCAUSE_LIVE_REPOSITORY must be owner/repo")
     if not github_token:
-        pytest.skip(
-            "CI_ROOTCAUSE_LIVE_GITHUB_TOKEN is required for live GitHub test")
+        pytest.skip("CI_ROOTCAUSE_LIVE_GITHUB_TOKEN is required for live GitHub test")
 
     repo_path = Path(repo_path_raw).resolve()
     if not repo_path.exists():
