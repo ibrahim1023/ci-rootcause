@@ -1,6 +1,68 @@
 {
+  "artifact_hash_reproducibility": 1.0,
+  "artifact_hash_reproducible_cases": 6,
+  "baseline_classification_match_rate": 0.6667,
+  "baseline_classification_matches": 4,
+  "baseline_primary_root_cause_accuracy": 1.0,
+  "baseline_primary_root_cause_matches": 6,
   "cases": [
     {
+      "artifact_hash_is_reproducible": true,
+      "artifact_json_hash_values": [
+        "3c8134bb82c7d061b9cdf01438632dde056a9de9a5b80dcc0768ec414cd45f33",
+        "3c8134bb82c7d061b9cdf01438632dde056a9de9a5b80dcc0768ec414cd45f33"
+      ],
+      "artifact_md_hash_values": [
+        "a22b894881b07802096be9859eedf970d62191f61d925fff40649a5ca9800f3a",
+        "a22b894881b07802096be9859eedf970d62191f61d925fff40649a5ca9800f3a"
+      ],
+      "baseline_classification": "INFRA",
+      "baseline_classification_match": true,
+      "baseline_primary_root_cause_match": true,
+      "baseline_primary_root_cause_title": "ERROR: connection reset by peer while contacting package mirror",
+      "case_id": "case-infra-timeout",
+      "ci_rca_json_sha256": "3c8134bb82c7d061b9cdf01438632dde056a9de9a5b80dcc0768ec414cd45f33",
+      "ci_rca_md_sha256": "a22b894881b07802096be9859eedf970d62191f61d925fff40649a5ca9800f3a",
+      "classification": "INFRA",
+      "classification_match": true,
+      "confidence": 0.54,
+      "confidence_is_reproducible": true,
+      "confidence_values": [
+        0.54,
+        0.54
+      ],
+      "description": "Infrastructure timeout/reset failure with refactor-only diff",
+      "expected_classification": "INFRA",
+      "expected_primary_root_cause_contains": "connection reset",
+      "pipeline_status": "completed",
+      "pipeline_timing_ms": 0.473,
+      "primary_root_cause_match": true,
+      "primary_root_cause_title": "ERROR: connection reset by peer while contacting package mirror at unknown file",
+      "status_values": [
+        "completed",
+        "completed"
+      ],
+      "timing_spread_ms": 0.21,
+      "timing_values_ms": [
+        0.473,
+        0.263
+      ],
+      "trace_id": "904bf3d1391825e78cd7f91a"
+    },
+    {
+      "artifact_hash_is_reproducible": true,
+      "artifact_json_hash_values": [
+        "3f32b8911794368018ac8cdd60a185a49f7a64c3f437f62879cb22a61e5b1ee9",
+        "3f32b8911794368018ac8cdd60a185a49f7a64c3f437f62879cb22a61e5b1ee9"
+      ],
+      "artifact_md_hash_values": [
+        "ad9e8007da8f2097aa58ab5c19c68e69187523be6fb1959de09cd51e74027926",
+        "ad9e8007da8f2097aa58ab5c19c68e69187523be6fb1959de09cd51e74027926"
+      ],
+      "baseline_classification": "TEST",
+      "baseline_classification_match": false,
+      "baseline_primary_root_cause_match": true,
+      "baseline_primary_root_cause_title": "E AssertionError: assert 3 == 4",
       "case_id": "case-node-mixed-lock",
       "ci_rca_json_sha256": "3f32b8911794368018ac8cdd60a185a49f7a64c3f437f62879cb22a61e5b1ee9",
       "ci_rca_md_sha256": "ad9e8007da8f2097aa58ab5c19c68e69187523be6fb1959de09cd51e74027926",
@@ -16,12 +78,34 @@
       "expected_classification": "DEPENDENCY",
       "expected_primary_root_cause_contains": "AssertionError",
       "pipeline_status": "completed",
-      "pipeline_timing_ms": 0.601,
+      "pipeline_timing_ms": 0.572,
       "primary_root_cause_match": true,
       "primary_root_cause_title": "E AssertionError: assert 3 == 4 at unknown file",
+      "status_values": [
+        "completed",
+        "completed"
+      ],
+      "timing_spread_ms": 0.216,
+      "timing_values_ms": [
+        0.572,
+        0.356
+      ],
       "trace_id": "a2462f19dd843a6f109a0a71"
     },
     {
+      "artifact_hash_is_reproducible": true,
+      "artifact_json_hash_values": [
+        "6eeaf2c8e6a78e06ca677e58f1d37071dfb7e9447457a2040fac3381912ed3fb",
+        "6eeaf2c8e6a78e06ca677e58f1d37071dfb7e9447457a2040fac3381912ed3fb"
+      ],
+      "artifact_md_hash_values": [
+        "a62a2baafa4854031cf2e388f4ca36b66f74001fcfeb7aa0806b6c0e8945b330",
+        "a62a2baafa4854031cf2e388f4ca36b66f74001fcfeb7aa0806b6c0e8945b330"
+      ],
+      "baseline_classification": "TEST",
+      "baseline_classification_match": false,
+      "baseline_primary_root_cause_match": true,
+      "baseline_primary_root_cause_title": "E AssertionError: assert 3 == 4",
       "case_id": "case-python-lock-only",
       "ci_rca_json_sha256": "6eeaf2c8e6a78e06ca677e58f1d37071dfb7e9447457a2040fac3381912ed3fb",
       "ci_rca_md_sha256": "a62a2baafa4854031cf2e388f4ca36b66f74001fcfeb7aa0806b6c0e8945b330",
@@ -37,12 +121,34 @@
       "expected_classification": "DEPENDENCY",
       "expected_primary_root_cause_contains": "AssertionError",
       "pipeline_status": "completed",
-      "pipeline_timing_ms": 0.372,
+      "pipeline_timing_ms": 0.425,
       "primary_root_cause_match": true,
       "primary_root_cause_title": "E AssertionError: assert 3 == 4 at unknown file",
+      "status_values": [
+        "completed",
+        "completed"
+      ],
+      "timing_spread_ms": 0.175,
+      "timing_values_ms": [
+        0.425,
+        0.25
+      ],
       "trace_id": "1de275596c257cdae90195d0"
     },
     {
+      "artifact_hash_is_reproducible": true,
+      "artifact_json_hash_values": [
+        "12aa6d1254b0c2dea5b4e30b340a6b60f06236d3cce822732720e21a02f74ead",
+        "12aa6d1254b0c2dea5b4e30b340a6b60f06236d3cce822732720e21a02f74ead"
+      ],
+      "artifact_md_hash_values": [
+        "f92814c49b2891923331ecc4fdaa569de3f510c840880aee23dd048fa44adfef",
+        "f92814c49b2891923331ecc4fdaa569de3f510c840880aee23dd048fa44adfef"
+      ],
+      "baseline_classification": "TEST",
+      "baseline_classification_match": true,
+      "baseline_primary_root_cause_match": true,
+      "baseline_primary_root_cause_title": "E AssertionError: assert 3 == 4",
       "case_id": "case-refactor-only",
       "ci_rca_json_sha256": "12aa6d1254b0c2dea5b4e30b340a6b60f06236d3cce822732720e21a02f74ead",
       "ci_rca_md_sha256": "f92814c49b2891923331ecc4fdaa569de3f510c840880aee23dd048fa44adfef",
@@ -58,12 +164,34 @@
       "expected_classification": "TEST",
       "expected_primary_root_cause_contains": "AssertionError",
       "pipeline_status": "completed",
-      "pipeline_timing_ms": 0.29,
+      "pipeline_timing_ms": 0.264,
       "primary_root_cause_match": true,
       "primary_root_cause_title": "E AssertionError: assert 3 == 4 at unknown file",
+      "status_values": [
+        "completed",
+        "completed"
+      ],
+      "timing_spread_ms": 0.026,
+      "timing_values_ms": [
+        0.264,
+        0.238
+      ],
       "trace_id": "af93bac269091d44b115ed0c"
     },
     {
+      "artifact_hash_is_reproducible": true,
+      "artifact_json_hash_values": [
+        "80aaf7b9234ade2ab875a0b7b709622ecebc2a9a846915e4b071b099d8a07d7a",
+        "80aaf7b9234ade2ab875a0b7b709622ecebc2a9a846915e4b071b099d8a07d7a"
+      ],
+      "artifact_md_hash_values": [
+        "446e66fefc391fb6fdc522ac50b9d2026b75b62d4435ae1706d093260b049f84",
+        "446e66fefc391fb6fdc522ac50b9d2026b75b62d4435ae1706d093260b049f84"
+      ],
+      "baseline_classification": "TEST",
+      "baseline_classification_match": true,
+      "baseline_primary_root_cause_match": true,
+      "baseline_primary_root_cause_title": "E AssertionError: assert 3 == 4",
       "case_id": "case-rename-and-modify",
       "ci_rca_json_sha256": "80aaf7b9234ade2ab875a0b7b709622ecebc2a9a846915e4b071b099d8a07d7a",
       "ci_rca_md_sha256": "446e66fefc391fb6fdc522ac50b9d2026b75b62d4435ae1706d093260b049f84",
@@ -79,19 +207,77 @@
       "expected_classification": "TEST",
       "expected_primary_root_cause_contains": "AssertionError",
       "pipeline_status": "completed",
-      "pipeline_timing_ms": 0.295,
+      "pipeline_timing_ms": 0.271,
       "primary_root_cause_match": true,
       "primary_root_cause_title": "E AssertionError: assert 3 == 4 at unknown file",
+      "status_values": [
+        "completed",
+        "completed"
+      ],
+      "timing_spread_ms": 0.032,
+      "timing_values_ms": [
+        0.271,
+        0.239
+      ],
       "trace_id": "5407d28ed2bf660b33148710"
+    },
+    {
+      "artifact_hash_is_reproducible": true,
+      "artifact_json_hash_values": [
+        "1f7f12dbba9470453b74ad4ae465a725b8935aa94d8f87f8a81db672ea95350a",
+        "1f7f12dbba9470453b74ad4ae465a725b8935aa94d8f87f8a81db672ea95350a"
+      ],
+      "artifact_md_hash_values": [
+        "7b47cb9ce48932b4a59d8f1070f00aeb5c5e500c07d636c7d44956ca38d62974",
+        "7b47cb9ce48932b4a59d8f1070f00aeb5c5e500c07d636c7d44956ca38d62974"
+      ],
+      "baseline_classification": "TYPECHECK",
+      "baseline_classification_match": true,
+      "baseline_primary_root_cause_match": true,
+      "baseline_primary_root_cause_title": "src/app.ts(14,5): error TS2345: Argument of type 'number' is not assignable to parameter of type 'string'.",
+      "case_id": "case-typecheck-ts2345",
+      "ci_rca_json_sha256": "1f7f12dbba9470453b74ad4ae465a725b8935aa94d8f87f8a81db672ea95350a",
+      "ci_rca_md_sha256": "7b47cb9ce48932b4a59d8f1070f00aeb5c5e500c07d636c7d44956ca38d62974",
+      "classification": "TYPECHECK",
+      "classification_match": true,
+      "confidence": 0.54,
+      "confidence_is_reproducible": true,
+      "confidence_values": [
+        0.54,
+        0.54
+      ],
+      "description": "TypeScript TS2345 failure with refactor-only diff",
+      "expected_classification": "TYPECHECK",
+      "expected_primary_root_cause_contains": "TS2345",
+      "pipeline_status": "completed",
+      "pipeline_timing_ms": 0.309,
+      "primary_root_cause_match": true,
+      "primary_root_cause_title": "src/app.ts(14,5): error TS2345: Argument of type 'number' is not assignable to parameter of type 'string'. at unknown file",
+      "status_values": [
+        "completed",
+        "completed"
+      ],
+      "timing_spread_ms": 0.049,
+      "timing_values_ms": [
+        0.309,
+        0.26
+      ],
+      "trace_id": "0f4168382133e1074a12830d"
     }
   ],
-  "classification_matches": 4,
-  "completed_cases": 4,
+  "classification_match_lift": 0.3333,
+  "classification_match_rate": 1.0,
+  "classification_matches": 6,
+  "completed_cases": 6,
+  "completion_rate": 1.0,
   "confidence_reproducibility": 1.0,
-  "confidence_reproducible_cases": 4,
-  "mean_time_to_diagnosis_ms": 0.389,
+  "confidence_reproducible_cases": 6,
+  "mean_time_to_diagnosis_ms": 0.386,
+  "median_time_to_diagnosis_ms": 0.367,
+  "p95_time_to_diagnosis_ms": 0.473,
   "primary_root_cause_accuracy": 1.0,
-  "primary_root_cause_matches": 4,
-  "suite_name": "mvp-curated-v1",
-  "total_cases": 4
+  "primary_root_cause_accuracy_lift": 0.0,
+  "primary_root_cause_matches": 6,
+  "suite_name": "mvp-curated-v2",
+  "total_cases": 6
 }

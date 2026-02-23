@@ -22,8 +22,14 @@ def test_run_benchmark_suite_executes_curated_cases(tmp_path: Path) -> None:
     assert result["completion_rate"] == 1.0
     assert result["classification_matches"] == 6
     assert result["classification_match_rate"] == 1.0
+    assert result["baseline_classification_matches"] == 4
+    assert result["baseline_classification_match_rate"] == 0.6667
+    assert result["classification_match_lift"] == 0.3333
     assert result["primary_root_cause_matches"] == 6
     assert result["primary_root_cause_accuracy"] == 1.0
+    assert result["baseline_primary_root_cause_matches"] == 6
+    assert result["baseline_primary_root_cause_accuracy"] == 1.0
+    assert result["primary_root_cause_accuracy_lift"] == 0.0
     assert result["confidence_reproducible_cases"] == 6
     assert result["confidence_reproducibility"] == 1.0
     assert result["artifact_hash_reproducible_cases"] == 6
@@ -38,8 +44,12 @@ def test_run_benchmark_suite_executes_curated_cases(tmp_path: Path) -> None:
     for item in result["cases"]:
         assert item["pipeline_status"] == "completed"
         assert item["classification"] == item["expected_classification"]
+        assert item["baseline_classification"]
+        assert isinstance(item["baseline_classification_match"], bool)
         assert item["primary_root_cause_title"]
         assert item["primary_root_cause_match"] is True
+        assert item["baseline_primary_root_cause_title"]
+        assert isinstance(item["baseline_primary_root_cause_match"], bool)
         assert item["expected_primary_root_cause_contains"] is not None
         assert item["confidence_is_reproducible"] is True
         assert len(item["confidence_values"]) == 2

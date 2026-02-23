@@ -166,7 +166,8 @@ Runtime behavior:
 - Benchmark report JSON: `docs/reports/mvp-benchmark-report.json`
 - Benchmark report summary: `docs/reports/mvp-benchmark-report.md`
 - Benchmark metrics include classification/primary RCA accuracy, confidence reproducibility,
-  artifact-hash reproducibility, and timing distribution (`mean`/`median`/`p95`).
+  artifact-hash reproducibility, timing distribution (`mean`/`median`/`p95`), and
+  deterministic lift against `basic-log-summarizer-v1` baseline classification accuracy.
 - Release notes: `docs/release-notes-v0.1.0.md`
 - Known limitations: `docs/limitations.md`
 

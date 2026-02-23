@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -55,6 +56,49 @@ def _p95(values: list[float]) -> float:
     ordered = sorted(values)
     index = max(0, int((len(ordered) - 1) * 0.95))
     return ordered[index]
+
+
+def _basic_log_baseline_classification(first_failure_event: dict[str, Any]) -> str:
+    text = " ".join(
+        [
+            str(first_failure_event.get("error_signature", "")),
+            str(first_failure_event.get("log_excerpt", "")),
+            str(first_failure_event.get("stage", "")),
+        ]
+    ).lower()
+
+    if any(
+        token in text
+        for token in (
+            "timed out",
+            "timeout",
+            "connection reset",
+            "network is unreachable",
+            "runner lost",
+        )
+    ):
+        return "INFRA"
+    if re.search(r"\bts\d{4}\b", text) or "typescript" in text or "type error" in text:
+        return "TYPECHECK"
+    if any(token in text for token in ("ruff", "flake8", "eslint", "lint")):
+        return "LINT"
+    if any(token in text for token in ("build failed", "cannot compile", "compilation failed")):
+        return "BUILD"
+    if any(
+        token in text for token in ("assertionerror", "test failed", "pytest", "jest", "failed:")
+    ):
+        return "TEST"
+    return "UNKNOWN"
+
+
+def _basic_log_baseline_root_cause(first_failure_event: dict[str, Any]) -> str:
+    signature = str(first_failure_event.get("error_signature", "")).strip()
+    excerpt = str(first_failure_event.get("log_excerpt", "")).strip()
+    if signature:
+        return signature
+    if excerpt:
+        return excerpt
+    return "unknown failure"
 
 
 def load_benchmark_suite(suite_path: str) -> tuple[str, list[BenchmarkCase]]:
@@ -168,20 +212,31 @@ def run_benchmark_suite(
                 first_state = state
 
         state = first_state
+        log_output = state.agent_outputs.get("log_ingest", {})
         classification_output = state.agent_outputs.get("failure_classification", {})
         ranker_output = state.agent_outputs.get("root_cause_ranker", {})
         reporter_output = state.agent_outputs.get("reporter", {})
+        first_failure_event = log_output.get("first_failure_event", {})
+        if not isinstance(first_failure_event, dict):
+            first_failure_event = {}
 
         actual_classification = str(classification_output.get("classification", "UNKNOWN"))
         primary_root_cause_title = str(
             (ranker_output.get("primary_root_cause") or {}).get("title", "")
         )
+        baseline_classification = _basic_log_baseline_classification(first_failure_event)
+        baseline_root_cause_title = _basic_log_baseline_root_cause(first_failure_event)
         expected = case.expected_classification
         classification_match = expected is None or expected == actual_classification
+        baseline_classification_match = expected is None or expected == baseline_classification
         expected_primary_contains = case.expected_primary_root_cause_contains
         primary_root_cause_match = (
             expected_primary_contains is None
             or expected_primary_contains.lower() in primary_root_cause_title.lower()
+        )
+        baseline_primary_root_cause_match = (
+            expected_primary_contains is None
+            or expected_primary_contains.lower() in baseline_root_cause_title.lower()
         )
 
         json_path = Path(str(reporter_output.get("ci_rca_json_path", "")))
@@ -206,8 +261,12 @@ def run_benchmark_suite(
                 "classification": actual_classification,
                 "expected_classification": expected,
                 "classification_match": classification_match,
+                "baseline_classification": baseline_classification,
+                "baseline_classification_match": baseline_classification_match,
                 "expected_primary_root_cause_contains": expected_primary_contains,
                 "primary_root_cause_match": primary_root_cause_match,
+                "baseline_primary_root_cause_title": baseline_root_cause_title,
+                "baseline_primary_root_cause_match": baseline_primary_root_cause_match,
                 "confidence": float(ranker_output.get("confidence", 0.0)),
                 "confidence_values": confidence_values,
                 "confidence_is_reproducible": confidence_is_reproducible,
@@ -229,7 +288,11 @@ def run_benchmark_suite(
 
     completed = sum(1 for item in case_results if item["pipeline_status"] == "completed")
     matched = sum(1 for item in case_results if item["classification_match"])
+    baseline_matched = sum(1 for item in case_results if item["baseline_classification_match"])
     root_cause_matched = sum(1 for item in case_results if item["primary_root_cause_match"])
+    baseline_root_cause_matched = sum(
+        1 for item in case_results if item["baseline_primary_root_cause_match"]
+    )
     total_cases = len(case_results)
     total_timing = sum(float(item["pipeline_timing_ms"]) for item in case_results)
     timing_samples = [float(item["pipeline_timing_ms"]) for item in case_results]
@@ -241,9 +304,25 @@ def run_benchmark_suite(
         "completion_rate": round(completed / total_cases, 4) if total_cases else 0.0,
         "classification_matches": matched,
         "classification_match_rate": round(matched / total_cases, 4) if total_cases else 0.0,
+        "baseline_classification_matches": baseline_matched,
+        "baseline_classification_match_rate": (
+            round(baseline_matched / total_cases, 4) if total_cases else 0.0
+        ),
+        "classification_match_lift": (
+            round((matched - baseline_matched) / total_cases, 4) if total_cases else 0.0
+        ),
         "primary_root_cause_matches": root_cause_matched,
         "primary_root_cause_accuracy": (
             round(root_cause_matched / total_cases, 4) if total_cases else 0.0
+        ),
+        "baseline_primary_root_cause_matches": baseline_root_cause_matched,
+        "baseline_primary_root_cause_accuracy": (
+            round(baseline_root_cause_matched / total_cases, 4) if total_cases else 0.0
+        ),
+        "primary_root_cause_accuracy_lift": (
+            round((root_cause_matched - baseline_root_cause_matched) / total_cases, 4)
+            if total_cases
+            else 0.0
         ),
         "confidence_reproducible_cases": confidence_reproducible_count,
         "confidence_reproducibility": (
