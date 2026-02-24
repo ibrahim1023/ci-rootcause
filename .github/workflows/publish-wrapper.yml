@@ -52,6 +52,7 @@ jobs:
           fi
 
           TAG="${{ steps.tag.outputs.tag }}"
+          export TAG
           git config --global user.name "ci-rootcause release bot"
           git config --global user.email "ci-rootcause-release-bot@users.noreply.github.com"
 
@@ -76,3 +77,51 @@ jobs:
           git tag -f v0 "$TAG"
           git push origin "refs/tags/$TAG" --force
           git push origin refs/tags/v0 --force
+
+      - name: Create or update wrapper release
+        env:
+          WRAPPER_TOKEN: ${{ secrets.CI_ROOTCAUSE_ACTION_REPO_TOKEN }}
+        run: |
+          if [ -z "$WRAPPER_TOKEN" ]; then
+            echo "Missing required secret: CI_ROOTCAUSE_ACTION_REPO_TOKEN"
+            exit 1
+          fi
+
+          TAG="${{ steps.tag.outputs.tag }}"
+          export TAG
+          API_URL="https://api.github.com/repos/${WRAPPER_REPO}"
+          AUTH_HEADER="Authorization: Bearer ${WRAPPER_TOKEN}"
+          ACCEPT_HEADER="Accept: application/vnd.github+json"
+          VERSION_HEADER="X-GitHub-Api-Version: 2022-11-28"
+
+          STATUS="$(curl -sS -o release.json -w "%{http_code}" \
+            -H "$AUTH_HEADER" \
+            -H "$ACCEPT_HEADER" \
+            -H "$VERSION_HEADER" \
+            "${API_URL}/releases/tags/${TAG}")"
+
+          if [ "$STATUS" = "200" ]; then
+            RELEASE_ID="$(python -c "import json;print(json.load(open('release.json', encoding='utf-8'))['id'])")"
+
+            curl -sS -X PATCH \
+              -H "$AUTH_HEADER" \
+              -H "$ACCEPT_HEADER" \
+              -H "$VERSION_HEADER" \
+              -H "Content-Type: application/json" \
+              "${API_URL}/releases/${RELEASE_ID}" \
+              -d "$(python -c "import json,os;tag=os.environ['TAG'];print(json.dumps({'tag_name':tag,'name':tag,'draft':False,'prerelease':False,'generate_release_notes':True}))")"
+            echo "Updated wrapper release for ${TAG}"
+          elif [ "$STATUS" = "404" ]; then
+            curl -sS -X POST \
+              -H "$AUTH_HEADER" \
+              -H "$ACCEPT_HEADER" \
+              -H "$VERSION_HEADER" \
+              -H "Content-Type: application/json" \
+              "${API_URL}/releases" \
+              -d "$(python -c "import json,os;tag=os.environ['TAG'];print(json.dumps({'tag_name':tag,'name':tag,'draft':False,'prerelease':False,'generate_release_notes':True}))")"
+            echo "Created wrapper release for ${TAG}"
+          else
+            echo "Unexpected response while looking up wrapper release (status=${STATUS})"
+            cat release.json
+            exit 1
+          fi
