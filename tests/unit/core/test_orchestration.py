@@ -489,7 +489,7 @@ def test_pr_creation_synthesizes_typecheck_validated_changes(tmp_path: Path) -> 
 def test_pr_creation_synthesizes_semantic_int_literal_fix_when_safe(tmp_path: Path) -> None:
     target = tmp_path / "typecheck_target.py"
     target.write_text(
-        "def sentinel_value() -> int:\n    value: int = \"7\"\n    return value\n",
+        'def sentinel_value() -> int:\n    value: int = "7"\n    return value\n',
         encoding="utf-8",
     )
 
