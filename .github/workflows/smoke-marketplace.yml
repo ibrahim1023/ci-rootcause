@@ -1,0 +1,72 @@
+name: Smoke Test Marketplace Action
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  actions: read
+
+jobs:
+  smoke-marketplace:
+    runs-on: ubuntu-latest
+    env:
+      PYTHONHASHSEED: "0"
+      TZ: UTC
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Configure git identity for action-created commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Run published ci-rootcause action
+        id: rca
+        uses: ibrahim1023/ci-rootcause-action@v0.1.4
+        env:
+          CI_ROOTCAUSE_RAW_LOG: |
+            ##[group]Run mypy
+              File "fixtures/canary/typecheck_target.py", line 5, in sentinel_value
+            TypeError: incompatible types in assignment (ts2345)
+            ##[endgroup]
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          create_fix_pr: "true"
+          post_pr_comment: "false"
+          base_ref: ${{ github.sha }}
+          head_ref: ${{ github.run_id }}-marketplace-smoke
+          min_pr_confidence: "0.0"
+
+      - name: Assert PR was created or reused
+        run: |
+          echo "classification=${{ steps.rca.outputs.classification }}"
+          echo "confidence=${{ steps.rca.outputs.confidence }}"
+          echo "pr_created=${{ steps.rca.outputs.pr_created }}"
+          echo "pr_url=${{ steps.rca.outputs.pr_url }}"
+          if [ "${{ steps.rca.outputs.pr_created }}" != "true" ]; then
+            echo "Expected published action to create or reuse a fix PR."
+            exit 1
+          fi
+          if [ -z "${{ steps.rca.outputs.pr_url }}" ]; then
+            echo "Expected non-empty pr_url when pr_created=true."
+            exit 1
+          fi
+
+      - name: Upload RCA artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-rootcause-marketplace-smoke-artifacts
+          path: |
+            artifacts/ci-rca.json
+            artifacts/ci-rca.md
+            artifacts/ci-rca-observability.json

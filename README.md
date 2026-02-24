@@ -206,20 +206,17 @@ Notes:
 - Use a disposable repository with push + PR permissions.
 - Script prints a cleanup checklist after the test run.
 
-## Repository Self-Test Workflow
+## Marketplace Smoke Test Workflow
 
 You can run a manual in-repo smoke test of the GitHub Action from the Actions tab:
 
-- Workflow: `Self Test ci-rootcause Action`
+- Workflow: `Smoke Test Marketplace Action`
 - Trigger: `workflow_dispatch`
 - Behavior:
-  - runs `self-test-local` using `uses: ./` (current branch source action)
-  - runs `self-test-published` using `uses: ibrahim1023/ci-rootcause-action@v0.1.4`
-  - each job runs `mypy` against a known-bad canary file and captures the real failing output log
-  - each job runs action with `create_fix_pr=true`
-  - each job asserts `pr_created=true` (new PR or reused existing PR)
-  - each job uploads RCA artifacts (`ci-rca.json`, `ci-rca.md`, `ci-rca-observability.json`)
-  - self-test uses `GITHUB_TOKEN` for same-repo PR creation
+  - runs `uses: ibrahim1023/ci-rootcause-action@v0.1.4` only
+  - uses a deterministic typecheck-style log signal and `create_fix_pr=true`
+  - asserts `pr_created=true` and non-empty `pr_url`
+  - uploads RCA artifacts (`ci-rca.json`, `ci-rca.md`, `ci-rca-observability.json`)
 
 This workflow is isolated from default CI and is intended only for manual validation.
 
