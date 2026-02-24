@@ -95,7 +95,7 @@ jobs:
 
       - name: Run published ci-rootcause action
         id: rca
-        uses: ibrahim1023/ci-rootcause-action@v0.1.6
+        uses: ibrahim1023/ci-rootcause-action@v0.1.7
         env:
           INPUT_GITHUB_TOKEN: ${{ github.token }}
           INPUT_CREATE_FIX_PR: ${{ env.SMOKE_CREATE_FIX_PR }}
