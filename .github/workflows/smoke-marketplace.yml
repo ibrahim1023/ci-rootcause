@@ -90,6 +90,8 @@ jobs:
         uses: ibrahim1023/ci-rootcause-action@v0.1.5
         env:
           INPUT_GITHUB_TOKEN: ${{ github.token }}
+          CI_ROOTCAUSE_LOG_PATH: ci-rootcause-smoke.log
+          CI_ROOTCAUSE_DIFF_PATH: ci-rootcause-smoke.diff
           CI_ROOTCAUSE_RAW_LOG: |
             ##[group]Run mypy
             fixtures/canary/typecheck_target.py:2: error: Incompatible types in assignment (ts2345)
