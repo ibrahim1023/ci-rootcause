@@ -30,6 +30,24 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
+      - name: Write canary file for fix synthesis
+        run: |
+          mkdir -p fixtures/canary
+          cat > fixtures/canary/typecheck_target.py <<'EOF'
+          def sentinel_value() -> int:
+              value: int = "7"
+              return value
+          EOF
+
+      - name: Write deterministic typecheck failure log
+        run: |
+          cat > ci-rootcause-smoke.log <<'EOF'
+          ##[group]Run mypy
+            File "fixtures/canary/typecheck_target.py", line 2, in sentinel_value
+          TypeError: incompatible types in assignment (ts2345)
+          ##[endgroup]
+          EOF
+
       - name: Write smoke config
         run: |
           cat > .ci-rootcause-smoke.yml <<EOF
@@ -37,6 +55,7 @@ jobs:
           target_branch: ${{ github.ref_name }}
           run_id: marketplace-smoke-${{ github.run_id }}
           output_dir: artifacts
+          log_path: ci-rootcause-smoke.log
           EOF
 
       - name: Run published ci-rootcause action
@@ -44,11 +63,6 @@ jobs:
         uses: ibrahim1023/ci-rootcause-action@v0.1.5
         env:
           INPUT_GITHUB_TOKEN: ${{ github.token }}
-          CI_ROOTCAUSE_RAW_LOG: |
-            ##[group]Run mypy
-              File "fixtures/canary/typecheck_target.py", line 5, in sentinel_value
-            TypeError: incompatible types in assignment (ts2345)
-            ##[endgroup]
         with:
           github_token: ${{ github.token }}
           create_fix_pr: "true"
