@@ -1,0 +1,78 @@
+name: Publish Marketplace Wrapper
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Tag to publish to wrapper (for example: v0.1.3)"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  sync-wrapper:
+    runs-on: ubuntu-latest
+    env:
+      WRAPPER_REPO: ibrahim1023/ci-rootcause-action
+    steps:
+      - name: Checkout source repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve release tag
+        id: tag
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TAG="${{ inputs.release_tag }}"
+          else
+            TAG="${GITHUB_REF_NAME}"
+          fi
+          case "$TAG" in
+            v*) ;;
+            *)
+              echo "release_tag must start with 'v' (received: $TAG)"
+              exit 1
+              ;;
+          esac
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Sync wrapper repository
+        env:
+          WRAPPER_TOKEN: ${{ secrets.CI_ROOTCAUSE_ACTION_REPO_TOKEN }}
+        run: |
+          if [ -z "$WRAPPER_TOKEN" ]; then
+            echo "Missing required secret: CI_ROOTCAUSE_ACTION_REPO_TOKEN"
+            exit 1
+          fi
+
+          TAG="${{ steps.tag.outputs.tag }}"
+          git config --global user.name "ci-rootcause release bot"
+          git config --global user.email "ci-rootcause-release-bot@users.noreply.github.com"
+
+          WORKDIR="$(mktemp -d)"
+          git clone "https://x-access-token:${WRAPPER_TOKEN}@github.com/${WRAPPER_REPO}.git" "$WORKDIR/wrapper"
+
+          rsync -av --delete src/ "$WORKDIR/wrapper/src/"
+          rsync -av action.yml README.md requirements.txt "$WORKDIR/wrapper/"
+
+          rm -rf "$WORKDIR/wrapper/.github/workflows"
+
+          cd "$WORKDIR/wrapper"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No wrapper file changes detected."
+          else
+            git commit -m "release(wrapper): sync from ci-rootcause ${TAG}"
+            git push origin main
+          fi
+
+          git tag -f "$TAG"
+          git tag -f v0 "$TAG"
+          git push origin "refs/tags/$TAG" --force
+          git push origin refs/tags/v0 --force

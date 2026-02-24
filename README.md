@@ -159,6 +159,16 @@ Required workflow permissions:
 - `pull-requests: write`
 - `actions: read`
 
+Marketplace wrapper sync automation:
+
+- Source repo keeps development workflows; Marketplace wrapper is
+  `ibrahim1023/ci-rootcause-action`.
+- Release tags (`v*`) trigger `.github/workflows/publish-wrapper.yml` to sync
+  `src/`, `action.yml`, `README.md`, and `requirements.txt` into the wrapper repo.
+- Wrapper tags are updated to the same release tag and major alias `v0`.
+- Required repository secret in source repo: `CI_ROOTCAUSE_ACTION_REPO_TOKEN`
+  (PAT with write access to `ibrahim1023/ci-rootcause-action`).
+
 ## Architecture Details
 
 Execution order is deterministic and fixed:
