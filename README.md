@@ -206,6 +206,21 @@ Notes:
 - Use a disposable repository with push + PR permissions.
 - Script prints a cleanup checklist after the test run.
 
+## Repository Self-Test Workflow
+
+You can run a manual in-repo smoke test of the GitHub Action from the Actions tab:
+
+- Workflow: `Self Test ci-rootcause Action`
+- Trigger: `workflow_dispatch`
+- Behavior:
+  - writes an intentional typecheck-like failure log
+  - executes an intentional failing probe step
+  - runs the local `./` action with `create_fix_pr=true`
+  - asserts `pr_created=true` (new PR or reused existing PR)
+  - uploads RCA artifacts (`ci-rca.json`, `ci-rca.md`, `ci-rca-observability.json`)
+
+This workflow is isolated from default CI and is intended only for manual validation.
+
 ## MVP Metrics And Release Artifacts
 
 - Benchmark report JSON: `docs/reports/mvp-benchmark-report.json`
