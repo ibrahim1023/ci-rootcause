@@ -32,8 +32,7 @@ jobs:
 
       - name: Write canary file for fix synthesis
         run: |
-          mkdir -p fixtures/canary
-          cat > fixtures/canary/typecheck_target.py <<'EOF'
+          cat > typecheck_target.py <<'EOF'
           def sentinel_value() -> int:
               value: int = "7"
               return value
@@ -44,7 +43,7 @@ jobs:
           cat > validated-changes.json <<'EOF'
           [
             {
-              "file": "fixtures/canary/typecheck_target.py",
+              "file": "typecheck_target.py",
               "content": "def sentinel_value() -> int:\n    value: int = 7\n    return value\n"
             }
           ]
@@ -54,7 +53,7 @@ jobs:
         run: |
           cat > ci-rootcause-smoke.log <<'EOF'
           ##[group]Run mypy
-          fixtures/canary/typecheck_target.py:2: error: Incompatible types in assignment (ts2345)
+          typecheck_target.py:2: error: Incompatible types in assignment (ts2345)
           Found 1 error in 1 file (checked 1 source file)
           ##[endgroup]
           EOF
@@ -62,10 +61,10 @@ jobs:
       - name: Write deterministic diff for ranker proximity
         run: |
           cat > ci-rootcause-smoke.diff <<'EOF'
-          diff --git a/fixtures/canary/typecheck_target.py b/fixtures/canary/typecheck_target.py
+          diff --git a/typecheck_target.py b/typecheck_target.py
           index 1111111..2222222 100644
-          --- a/fixtures/canary/typecheck_target.py
-          +++ b/fixtures/canary/typecheck_target.py
+          --- a/typecheck_target.py
+          +++ b/typecheck_target.py
           @@ -1,3 +1,3 @@
            def sentinel_value() -> int:
           -    value: int = "7"
@@ -94,7 +93,7 @@ jobs:
           CI_ROOTCAUSE_DIFF_PATH: ci-rootcause-smoke.diff
           CI_ROOTCAUSE_RAW_LOG: |
             ##[group]Run mypy
-            fixtures/canary/typecheck_target.py:2: error: Incompatible types in assignment (ts2345)
+            typecheck_target.py:2: error: Incompatible types in assignment (ts2345)
             Found 1 error in 1 file (checked 1 source file)
             ##[endgroup]
         with:
