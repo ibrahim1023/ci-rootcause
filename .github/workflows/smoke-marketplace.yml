@@ -14,6 +14,7 @@ jobs:
     env:
       PYTHONHASHSEED: "0"
       TZ: UTC
+      SMOKE_CREATE_FIX_PR: "true"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -84,11 +85,20 @@ jobs:
           validated_changes_path: validated-changes.json
           EOF
 
+      - name: Preflight action input contract
+        run: |
+          echo "SMOKE_CREATE_FIX_PR=${SMOKE_CREATE_FIX_PR}"
+          if [ "${SMOKE_CREATE_FIX_PR}" != "true" ]; then
+            echo "Expected SMOKE_CREATE_FIX_PR=true before running action."
+            exit 1
+          fi
+
       - name: Run published ci-rootcause action
         id: rca
         uses: ibrahim1023/ci-rootcause-action@v0.1.6
         env:
           INPUT_GITHUB_TOKEN: ${{ github.token }}
+          INPUT_CREATE_FIX_PR: ${{ env.SMOKE_CREATE_FIX_PR }}
           CI_ROOTCAUSE_LOG_PATH: ci-rootcause-smoke.log
           CI_ROOTCAUSE_DIFF_PATH: ci-rootcause-smoke.diff
           CI_ROOTCAUSE_RAW_LOG: |
@@ -98,7 +108,7 @@ jobs:
             ##[endgroup]
         with:
           github_token: ${{ github.token }}
-          create_fix_pr: "true"
+          create_fix_pr: ${{ env.SMOKE_CREATE_FIX_PR }}
           post_pr_comment: "false"
           config_path: .ci-rootcause-smoke.yml
           base_ref: ${{ github.sha }}
