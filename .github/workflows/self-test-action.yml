@@ -65,11 +65,11 @@ jobs:
         env:
           CI_ROOTCAUSE_LOG_PATH: ci-rootcause-self-test.log
         with:
-          github_token: ${{ secrets.CI_ROOTCAUSE_ACTION_REPO_TOKEN != '' && secrets.CI_ROOTCAUSE_ACTION_REPO_TOKEN || secrets.GITHUB_TOKEN }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
           create_fix_pr: "true"
           post_pr_comment: "false"
           base_ref: ${{ github.sha }}
-          head_ref: self-test-local-${{ github.run_id }}
+          head_ref: ${{ github.run_id }}-self-test-local
           min_pr_confidence: "0.0"
 
       - name: Assert fix PR was created or reused
@@ -149,11 +149,11 @@ jobs:
         env:
           CI_ROOTCAUSE_LOG_PATH: ci-rootcause-self-test.log
         with:
-          github_token: ${{ secrets.CI_ROOTCAUSE_ACTION_REPO_TOKEN != '' && secrets.CI_ROOTCAUSE_ACTION_REPO_TOKEN || secrets.GITHUB_TOKEN }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
           create_fix_pr: "true"
           post_pr_comment: "false"
           base_ref: ${{ github.sha }}
-          head_ref: self-test-published-${{ github.run_id }}
+          head_ref: ${{ github.run_id }}-self-test-published
           min_pr_confidence: "0.0"
 
       - name: Assert fix PR was created or reused
