@@ -46,6 +46,20 @@ All checks passed
     assert result.failure_events == []
 
 
+def test_parse_ci_log_extracts_mypy_file_and_line() -> None:
+    raw_log = """##[group]Run mypy
+fixtures/canary/typecheck_target.py:5: error: Incompatible types in assignment
+Found 1 error in 1 file (checked 1 source file)
+##[endgroup]"""
+
+    result = parse_ci_log(raw_log)
+
+    event = result.failure_events[0]
+    assert event.file == "fixtures/canary/typecheck_target.py"
+    assert event.line == 5
+    assert "fixtures/canary/typecheck_target.py:5" in event.stack_frames
+
+
 def test_parse_ci_log_handles_matrix_style_groups() -> None:
     raw_log = Path("fixtures/ci-logs/github-actions-matrix-mixed-failure.log").read_text(
         encoding="utf-8"

@@ -215,13 +215,11 @@ You can run a manual in-repo smoke test of the GitHub Action from the Actions ta
 - Behavior:
   - runs `self-test-local` using `uses: ./` (current branch source action)
   - runs `self-test-published` using `uses: ibrahim1023/ci-rootcause-action@v0.1.4`
-  - each job writes an intentional typecheck-like failure log
-  - each job executes an intentional failing probe step
+  - each job runs `mypy` against a known-bad canary file and captures the real failing output log
   - each job runs action with `create_fix_pr=true`
   - each job asserts `pr_created=true` (new PR or reused existing PR)
   - each job uploads RCA artifacts (`ci-rca.json`, `ci-rca.md`, `ci-rca-observability.json`)
-  - self-test prefers `CI_ROOTCAUSE_ACTION_REPO_TOKEN` when configured, otherwise uses
-    `GITHUB_TOKEN`
+  - self-test uses `GITHUB_TOKEN` for same-repo PR creation
 
 This workflow is isolated from default CI and is intended only for manual validation.
 

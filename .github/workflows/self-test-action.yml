@@ -30,28 +30,19 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
+          pip install mypy
 
-      - name: Write intentional TYPECHECK failure log
-        run: |
-          cat > ci-rootcause-self-test.log <<'EOF'
-          ##[group]typecheck
-          Running static type checks
-            File "fixtures/canary/typecheck_target.py", line 5, in sentinel_value
-          TypeError: incompatible types in assignment (ts2345)
-          ##[endgroup]
-          EOF
-
-      - name: Intentional failure probe
-        id: intentional_failure
+      - name: Run mypy intentional failure
+        id: mypy_failure
         continue-on-error: true
         run: |
-          echo "Intentional CI failure to validate ci-rootcause self-test path."
-          exit 1
+          mypy fixtures/canary/typecheck_target.py > ci-rootcause-self-test.log 2>&1
 
-      - name: Ensure failure probe actually failed
-        if: steps.intentional_failure.outcome != 'failure'
+      - name: Ensure mypy step actually failed
+        if: steps.mypy_failure.outcome != 'failure'
         run: |
-          echo "Expected intentional failure probe to fail."
+          echo "Expected mypy intentional failure step to fail."
+          cat ci-rootcause-self-test.log
           exit 1
 
       - name: Configure git identity for action-created commit
@@ -80,6 +71,10 @@ jobs:
           echo "pr_url=${{ steps.rca.outputs.pr_url }}"
           if [ "${{ steps.rca.outputs.pr_created }}" != "true" ]; then
             echo "Expected ci-rootcause to create or reuse a fix PR."
+            exit 1
+          fi
+          if [ -z "${{ steps.rca.outputs.pr_url }}" ]; then
+            echo "Expected non-empty pr_url when pr_created=true."
             exit 1
           fi
 
@@ -114,28 +109,19 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
+          pip install mypy
 
-      - name: Write intentional TYPECHECK failure log
-        run: |
-          cat > ci-rootcause-self-test.log <<'EOF'
-          ##[group]typecheck
-          Running static type checks
-            File "fixtures/canary/typecheck_target.py", line 5, in sentinel_value
-          TypeError: incompatible types in assignment (ts2345)
-          ##[endgroup]
-          EOF
-
-      - name: Intentional failure probe
-        id: intentional_failure
+      - name: Run mypy intentional failure
+        id: mypy_failure
         continue-on-error: true
         run: |
-          echo "Intentional CI failure to validate ci-rootcause published self-test path."
-          exit 1
+          mypy fixtures/canary/typecheck_target.py > ci-rootcause-self-test.log 2>&1
 
-      - name: Ensure failure probe actually failed
-        if: steps.intentional_failure.outcome != 'failure'
+      - name: Ensure mypy step actually failed
+        if: steps.mypy_failure.outcome != 'failure'
         run: |
-          echo "Expected intentional failure probe to fail."
+          echo "Expected mypy intentional failure step to fail."
+          cat ci-rootcause-self-test.log
           exit 1
 
       - name: Configure git identity for action-created commit
@@ -164,6 +150,10 @@ jobs:
           echo "pr_url=${{ steps.rca.outputs.pr_url }}"
           if [ "${{ steps.rca.outputs.pr_created }}" != "true" ]; then
             echo "Expected published wrapper action to create or reuse a fix PR."
+            exit 1
+          fi
+          if [ -z "${{ steps.rca.outputs.pr_url }}" ]; then
+            echo "Expected non-empty pr_url when pr_created=true."
             exit 1
           fi
 
