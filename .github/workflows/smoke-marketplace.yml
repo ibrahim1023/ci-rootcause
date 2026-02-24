@@ -43,13 +43,14 @@ jobs:
         id: rca
         uses: ibrahim1023/ci-rootcause-action@v0.1.5
         env:
+          INPUT_GITHUB_TOKEN: ${{ github.token }}
           CI_ROOTCAUSE_RAW_LOG: |
             ##[group]Run mypy
               File "fixtures/canary/typecheck_target.py", line 5, in sentinel_value
             TypeError: incompatible types in assignment (ts2345)
             ##[endgroup]
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+          github_token: ${{ github.token }}
           create_fix_pr: "true"
           post_pr_comment: "false"
           config_path: .ci-rootcause-smoke.yml
