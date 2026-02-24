@@ -39,11 +39,11 @@
   "timing_ms": {
     "agents": {
       "after_crash": 0.002,
-      "crash": 0.005,
-      "first": 0.005,
-      "independent": 0.003
+      "crash": 0.004,
+      "first": 0.004,
+      "independent": 0.002
     },
-    "pipeline": 0.446
+    "pipeline": 1.035
   },
   "trace_id": "7ab1381f1f96f6bff28e3b04"
 }

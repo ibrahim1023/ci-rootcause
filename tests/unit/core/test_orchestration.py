@@ -486,6 +486,33 @@ def test_pr_creation_synthesizes_typecheck_validated_changes(tmp_path: Path) -> 
     assert "type: ignore[assignment]" in resolved[0]["content"]
 
 
+def test_pr_creation_synthesizes_semantic_int_literal_fix_when_safe(tmp_path: Path) -> None:
+    target = tmp_path / "typecheck_target.py"
+    target.write_text(
+        "def sentinel_value() -> int:\n    value: int = \"7\"\n    return value\n",
+        encoding="utf-8",
+    )
+
+    current = Path.cwd()
+    try:
+        os.chdir(tmp_path)
+        resolved = _resolve_validated_changes_for_pr_creation(
+            request_validated_changes=[],
+            classification="TYPECHECK",
+            primary_root_cause={
+                "evidence": [{"file": "typecheck_target.py", "line": 2}],
+            },
+            fix_output={"fix_steps": [{"file": "typecheck_target.py"}]},
+        )
+    finally:
+        os.chdir(current)
+
+    assert len(resolved) == 1
+    assert resolved[0]["file"] == "typecheck_target.py"
+    assert "value: int = 7" in resolved[0]["content"]
+    assert "type: ignore[assignment]" not in resolved[0]["content"]
+
+
 def test_pr_creation_does_not_synthesize_for_non_typecheck() -> None:
     resolved = _resolve_validated_changes_for_pr_creation(
         request_validated_changes=[],
