@@ -140,6 +140,12 @@ Outputs:
 - `rca_json_path`, `rca_md_path`
 - `pr_created`, `pr_url`, `pr_number`
 
+Autonomous PR note:
+
+- If `create_fix_pr=true` and explicit `validated_changes` are not provided, the pipeline can
+  synthesize deterministic evidence-backed changes for `TYPECHECK` cases.
+- For non-`TYPECHECK` cases, explicit validated changes are still required for PR creation.
+
 Safe rollout profile:
 
 - `safe-github-rollout` keeps guarded PR flow conservative during rollout

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 from dataclasses import replace
 from pathlib import Path
 
@@ -16,6 +17,7 @@ from src.core.orchestration import (
     PipelineRequest,
     RepoContext,
     RunContext,
+    _resolve_validated_changes_for_pr_creation,
     build_default_registry,
     resolve_pipeline_config,
     run_pipeline,
@@ -444,6 +446,57 @@ def test_run_pipeline_honors_offline_only_mode_for_pr_creation(tmp_path: Path) -
     assert result.pipeline_status == "completed"
     assert result.agent_outputs["pr_creation"]["pr_created"] is False
     assert result.agent_outputs["pr_creation"]["failure_reason"] == "offline_only=true"
+
+
+def test_pr_creation_prefers_request_validated_changes_over_synthesis() -> None:
+    explicit = [{"file": "src/core/math.py", "content": "explicit\n"}]
+    resolved = _resolve_validated_changes_for_pr_creation(
+        request_validated_changes=explicit,
+        classification="TYPECHECK",
+        primary_root_cause={
+            "evidence": [{"file": "src/core/math.py", "line": 3}],
+        },
+        fix_output={"fix_steps": [{"file": "src/core/math.py"}]},
+    )
+
+    assert resolved == explicit
+
+
+def test_pr_creation_synthesizes_typecheck_validated_changes(tmp_path: Path) -> None:
+    target = tmp_path / "src" / "core" / "math.py"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text("def calc(x: int) -> str:\n    return x\n", encoding="utf-8")
+
+    current = Path.cwd()
+    try:
+        os.chdir(tmp_path)
+        resolved = _resolve_validated_changes_for_pr_creation(
+            request_validated_changes=[],
+            classification="TYPECHECK",
+            primary_root_cause={
+                "evidence": [{"file": "src/core/math.py", "line": 2}],
+            },
+            fix_output={"fix_steps": [{"file": "src/core/math.py"}]},
+        )
+    finally:
+        os.chdir(current)
+
+    assert len(resolved) == 1
+    assert resolved[0]["file"] == "src/core/math.py"
+    assert "type: ignore[assignment]" in resolved[0]["content"]
+
+
+def test_pr_creation_does_not_synthesize_for_non_typecheck() -> None:
+    resolved = _resolve_validated_changes_for_pr_creation(
+        request_validated_changes=[],
+        classification="TEST",
+        primary_root_cause={
+            "evidence": [{"file": "src/core/math.py", "line": 3}],
+        },
+        fix_output={"fix_steps": [{"file": "src/core/math.py"}]},
+    )
+
+    assert resolved == []
 
 
 def test_resolve_pipeline_config_detects_gitlab_ci_environment(monkeypatch) -> None:

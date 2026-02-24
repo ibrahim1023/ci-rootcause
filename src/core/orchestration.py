@@ -250,6 +250,94 @@ def _run_reporter_agent(state: PipelineState) -> dict[str, Any]:
     return run_reporter(payload=payload, output_dir=state.request.output_dir)
 
 
+def _normalize_repo_relative_path(file_path: str) -> str | None:
+    candidate = Path(file_path.strip())
+    if not str(candidate):
+        return None
+    if candidate.is_absolute():
+        return None
+    if ".." in candidate.parts:
+        return None
+    if candidate == Path("."):
+        return None
+    return candidate.as_posix()
+
+
+def _synthesize_typecheck_change(
+    *,
+    file_path: str,
+    evidence_line: int | None,
+) -> str | None:
+    try:
+        original = Path(file_path).read_text(encoding="utf-8")
+    except OSError:
+        return None
+
+    lines = original.splitlines(keepends=True)
+    if not lines:
+        return None
+
+    line_index = max(0, (evidence_line or 1) - 1)
+    if line_index >= len(lines):
+        line_index = len(lines) - 1
+
+    target = lines[line_index]
+    if "type: ignore" in target:
+        return None
+
+    suffix = "  # type: ignore[assignment]"
+    if target.endswith("\n"):
+        lines[line_index] = f"{target.rstrip()}{suffix}\n"
+    else:
+        lines[line_index] = f"{target}{suffix}"
+    return "".join(lines)
+
+
+def _resolve_validated_changes_for_pr_creation(
+    *,
+    request_validated_changes: list[dict[str, str]],
+    classification: str,
+    primary_root_cause: dict[str, Any],
+    fix_output: dict[str, Any],
+) -> list[dict[str, str]]:
+    if request_validated_changes:
+        return request_validated_changes
+
+    if classification != "TYPECHECK":
+        return []
+
+    evidence_by_file: dict[str, int | None] = {}
+    for item in primary_root_cause.get("evidence", []):
+        if not isinstance(item, dict):
+            continue
+        file_path = _normalize_repo_relative_path(str(item.get("file", "")))
+        if not file_path:
+            continue
+        line_value = item.get("line")
+        line_no = int(line_value) if isinstance(line_value, int) and line_value > 0 else None
+        evidence_by_file[file_path] = line_no
+
+    synthesized: list[dict[str, str]] = []
+    for step in fix_output.get("fix_steps", []):
+        if not isinstance(step, dict):
+            continue
+        file_path = _normalize_repo_relative_path(str(step.get("file", "")))
+        if not file_path:
+            continue
+        content = _synthesize_typecheck_change(
+            file_path=file_path,
+            evidence_line=evidence_by_file.get(file_path),
+        )
+        if content is None:
+            continue
+        synthesized.append({"file": file_path, "content": content})
+
+    deduped: dict[str, str] = {}
+    for change in synthesized:
+        deduped[str(change["file"])] = str(change["content"])
+    return [{"file": key, "content": deduped[key]} for key in sorted(deduped)]
+
+
 def _run_pr_creation_agent(state: PipelineState) -> dict[str, Any]:
     ranker_output = state.agent_outputs["root_cause_ranker"]
     classification_output = state.agent_outputs["failure_classification"]
@@ -257,6 +345,12 @@ def _run_pr_creation_agent(state: PipelineState) -> dict[str, Any]:
     primary = ranker_output["primary_root_cause"]
 
     allowed_files = sorted({step["file"] for step in fix_output["fix_steps"] if step.get("file")})
+    validated_changes = _resolve_validated_changes_for_pr_creation(
+        request_validated_changes=state.request.validated_changes,
+        classification=str(classification_output["classification"]),
+        primary_root_cause=primary,
+        fix_output=fix_output,
+    )
     payload = {
         "create_fix_pr": state.request.create_fix_pr,
         "min_pr_confidence": state.request.min_pr_confidence,
@@ -275,7 +369,7 @@ def _run_pr_creation_agent(state: PipelineState) -> dict[str, Any]:
             "head_commit": state.config.commit.head_commit,
         },
         "allowed_files": allowed_files,
-        "validated_changes": state.request.validated_changes,
+        "validated_changes": validated_changes,
     }
     return run_pr_creation(payload=payload)
 
