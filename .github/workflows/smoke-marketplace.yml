@@ -41,7 +41,7 @@ jobs:
 
       - name: Run published ci-rootcause action
         id: rca
-        uses: ibrahim1023/ci-rootcause-action@v0.1.4
+        uses: ibrahim1023/ci-rootcause-action@v0.1.5
         env:
           CI_ROOTCAUSE_RAW_LOG: |
             ##[group]Run mypy
