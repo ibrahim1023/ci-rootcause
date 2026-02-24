@@ -36,7 +36,7 @@ jobs:
           cat > ci-rootcause-self-test.log <<'EOF'
           ##[group]typecheck
           Running static type checks
-            File "fixtures/canary/typecheck_target.py", line 4, in sentinel_value
+            File "fixtures/canary/typecheck_target.py", line 5, in sentinel_value
           TypeError: incompatible types in assignment (ts2345)
           ##[endgroup]
           EOF
@@ -54,21 +54,28 @@ jobs:
           echo "Expected intentional failure probe to fail."
           exit 1
 
+      - name: Configure git identity for action-created commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
       - name: Run local ci-rootcause action
         id: rca
         uses: ./
         env:
           CI_ROOTCAUSE_LOG_PATH: ci-rootcause-self-test.log
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+          github_token: ${{ secrets.CI_ROOTCAUSE_ACTION_REPO_TOKEN != '' && secrets.CI_ROOTCAUSE_ACTION_REPO_TOKEN || secrets.GITHUB_TOKEN }}
           create_fix_pr: "true"
           post_pr_comment: "false"
           base_ref: ${{ github.sha }}
-          head_ref: ${{ github.sha }}
+          head_ref: self-test-local-${{ github.run_id }}
           min_pr_confidence: "0.0"
 
       - name: Assert fix PR was created or reused
         run: |
+          echo "classification=${{ steps.rca.outputs.classification }}"
+          echo "confidence=${{ steps.rca.outputs.confidence }}"
           echo "pr_created=${{ steps.rca.outputs.pr_created }}"
           echo "pr_url=${{ steps.rca.outputs.pr_url }}"
           if [ "${{ steps.rca.outputs.pr_created }}" != "true" ]; then
@@ -113,7 +120,7 @@ jobs:
           cat > ci-rootcause-self-test.log <<'EOF'
           ##[group]typecheck
           Running static type checks
-            File "fixtures/canary/typecheck_target.py", line 4, in sentinel_value
+            File "fixtures/canary/typecheck_target.py", line 5, in sentinel_value
           TypeError: incompatible types in assignment (ts2345)
           ##[endgroup]
           EOF
@@ -131,21 +138,28 @@ jobs:
           echo "Expected intentional failure probe to fail."
           exit 1
 
+      - name: Configure git identity for action-created commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
       - name: Run published ci-rootcause wrapper action
         id: rca
         uses: ibrahim1023/ci-rootcause-action@v0.1.4
         env:
           CI_ROOTCAUSE_LOG_PATH: ci-rootcause-self-test.log
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+          github_token: ${{ secrets.CI_ROOTCAUSE_ACTION_REPO_TOKEN != '' && secrets.CI_ROOTCAUSE_ACTION_REPO_TOKEN || secrets.GITHUB_TOKEN }}
           create_fix_pr: "true"
           post_pr_comment: "false"
           base_ref: ${{ github.sha }}
-          head_ref: ${{ github.sha }}
+          head_ref: self-test-published-${{ github.run_id }}
           min_pr_confidence: "0.0"
 
       - name: Assert fix PR was created or reused
         run: |
+          echo "classification=${{ steps.rca.outputs.classification }}"
+          echo "confidence=${{ steps.rca.outputs.confidence }}"
           echo "pr_created=${{ steps.rca.outputs.pr_created }}"
           echo "pr_url=${{ steps.rca.outputs.pr_url }}"
           if [ "${{ steps.rca.outputs.pr_created }}" != "true" ]; then

@@ -220,6 +220,8 @@ You can run a manual in-repo smoke test of the GitHub Action from the Actions ta
   - each job runs action with `create_fix_pr=true`
   - each job asserts `pr_created=true` (new PR or reused existing PR)
   - each job uploads RCA artifacts (`ci-rca.json`, `ci-rca.md`, `ci-rca-observability.json`)
+  - self-test prefers `CI_ROOTCAUSE_ACTION_REPO_TOKEN` when configured, otherwise uses
+    `GITHUB_TOKEN`
 
 This workflow is isolated from default CI and is intended only for manual validation.
 

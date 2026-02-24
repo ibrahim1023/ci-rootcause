@@ -2,4 +2,5 @@
 
 
 def sentinel_value() -> int:
-    return 7
+    value: int = "7"
+    return value
