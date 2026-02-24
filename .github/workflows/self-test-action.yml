@@ -9,7 +9,8 @@ permissions:
   actions: read
 
 jobs:
-  self-test:
+  self-test-local:
+    name: Self-Test Local Source Action
     runs-on: ubuntu-latest
     env:
       PYTHONHASHSEED: "0"
@@ -53,7 +54,7 @@ jobs:
           echo "Expected intentional failure probe to fail."
           exit 1
 
-      - name: Run ci-rootcause action
+      - name: Run local ci-rootcause action
         id: rca
         uses: ./
         env:
@@ -78,7 +79,84 @@ jobs:
       - name: Upload RCA artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ci-rootcause-self-test-artifacts
+          name: ci-rootcause-self-test-local-artifacts
+          path: |
+            artifacts/ci-rca.json
+            artifacts/ci-rca.md
+            artifacts/ci-rca-observability.json
+
+  self-test-published:
+    name: Self-Test Published Wrapper Action
+    runs-on: ubuntu-latest
+    needs: self-test-local
+    env:
+      PYTHONHASHSEED: "0"
+      TZ: UTC
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install action dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Write intentional TYPECHECK failure log
+        run: |
+          cat > ci-rootcause-self-test.log <<'EOF'
+          ##[group]typecheck
+          Running static type checks
+            File "fixtures/canary/typecheck_target.py", line 4, in sentinel_value
+          TypeError: incompatible types in assignment (ts2345)
+          ##[endgroup]
+          EOF
+
+      - name: Intentional failure probe
+        id: intentional_failure
+        continue-on-error: true
+        run: |
+          echo "Intentional CI failure to validate ci-rootcause published self-test path."
+          exit 1
+
+      - name: Ensure failure probe actually failed
+        if: steps.intentional_failure.outcome != 'failure'
+        run: |
+          echo "Expected intentional failure probe to fail."
+          exit 1
+
+      - name: Run published ci-rootcause wrapper action
+        id: rca
+        uses: ibrahim1023/ci-rootcause-action@v0.1.4
+        env:
+          CI_ROOTCAUSE_LOG_PATH: ci-rootcause-self-test.log
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          create_fix_pr: "true"
+          post_pr_comment: "false"
+          base_ref: ${{ github.sha }}
+          head_ref: ${{ github.sha }}
+          min_pr_confidence: "0.0"
+
+      - name: Assert fix PR was created or reused
+        run: |
+          echo "pr_created=${{ steps.rca.outputs.pr_created }}"
+          echo "pr_url=${{ steps.rca.outputs.pr_url }}"
+          if [ "${{ steps.rca.outputs.pr_created }}" != "true" ]; then
+            echo "Expected published wrapper action to create or reuse a fix PR."
+            exit 1
+          fi
+
+      - name: Upload RCA artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-rootcause-self-test-published-artifacts
           path: |
             artifacts/ci-rca.json
             artifacts/ci-rca.md
