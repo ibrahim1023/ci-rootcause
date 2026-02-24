@@ -39,6 +39,17 @@ jobs:
               return value
           EOF
 
+      - name: Write validated changes payload
+        run: |
+          cat > validated-changes.json <<'EOF'
+          [
+            {
+              "file": "fixtures/canary/typecheck_target.py",
+              "content": "def sentinel_value() -> int:\n    value: int = 7\n    return value\n"
+            }
+          ]
+          EOF
+
       - name: Write deterministic typecheck failure log
         run: |
           cat > ci-rootcause-smoke.log <<'EOF'
@@ -56,6 +67,7 @@ jobs:
           run_id: marketplace-smoke-${{ github.run_id }}
           output_dir: artifacts
           log_path: ci-rootcause-smoke.log
+          validated_changes_path: validated-changes.json
           EOF
 
       - name: Run published ci-rootcause action
@@ -63,6 +75,11 @@ jobs:
         uses: ibrahim1023/ci-rootcause-action@v0.1.5
         env:
           INPUT_GITHUB_TOKEN: ${{ github.token }}
+          CI_ROOTCAUSE_RAW_LOG: |
+            ##[group]Run mypy
+              File "fixtures/canary/typecheck_target.py", line 2, in sentinel_value
+            TypeError: incompatible types in assignment (ts2345)
+            ##[endgroup]
         with:
           github_token: ${{ github.token }}
           create_fix_pr: "true"
@@ -71,6 +88,32 @@ jobs:
           base_ref: ${{ github.sha }}
           head_ref: ${{ github.run_id }}-marketplace-smoke
           min_pr_confidence: "0.0"
+
+      - name: Debug RCA artifacts
+        if: always()
+        run: |
+          echo "classification=${{ steps.rca.outputs.classification }}"
+          echo "confidence=${{ steps.rca.outputs.confidence }}"
+          echo "pr_created=${{ steps.rca.outputs.pr_created }}"
+          echo "pr_url=${{ steps.rca.outputs.pr_url }}"
+          if [ -f artifacts/ci-rca-observability.json ]; then
+            echo "----- artifacts/ci-rca-observability.json -----"
+            cat artifacts/ci-rca-observability.json
+          fi
+          if [ -f artifacts/ci-rca.json ]; then
+            echo "----- artifacts/ci-rca.json -----"
+            cat artifacts/ci-rca.json
+          fi
+
+      - name: Upload RCA artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-rootcause-marketplace-smoke-artifacts
+          path: |
+            artifacts/ci-rca.json
+            artifacts/ci-rca.md
+            artifacts/ci-rca-observability.json
 
       - name: Assert PR was created or reused
         run: |
@@ -93,12 +136,3 @@ jobs:
               exit 1
               ;;
           esac
-
-      - name: Upload RCA artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: ci-rootcause-marketplace-smoke-artifacts
-          path: |
-            artifacts/ci-rca.json
-            artifacts/ci-rca.md
-            artifacts/ci-rca-observability.json
