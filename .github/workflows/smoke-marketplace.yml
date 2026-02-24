@@ -86,7 +86,7 @@ jobs:
 
       - name: Run published ci-rootcause action
         id: rca
-        uses: ibrahim1023/ci-rootcause-action@v0.1.5
+        uses: ibrahim1023/ci-rootcause-action@v0.1.6
         env:
           INPUT_GITHUB_TOKEN: ${{ github.token }}
           CI_ROOTCAUSE_LOG_PATH: ci-rootcause-smoke.log
@@ -112,6 +112,7 @@ jobs:
           echo "confidence=${{ steps.rca.outputs.confidence }}"
           echo "pr_created=${{ steps.rca.outputs.pr_created }}"
           echo "pr_url=${{ steps.rca.outputs.pr_url }}"
+          echo "pr_failure_reason=${{ steps.rca.outputs.pr_failure_reason }}"
           if [ -f artifacts/ci-rca-observability.json ]; then
             echo "----- artifacts/ci-rca-observability.json -----"
             cat artifacts/ci-rca-observability.json
@@ -137,8 +138,9 @@ jobs:
           echo "confidence=${{ steps.rca.outputs.confidence }}"
           echo "pr_created=${{ steps.rca.outputs.pr_created }}"
           echo "pr_url=${{ steps.rca.outputs.pr_url }}"
+          echo "pr_failure_reason=${{ steps.rca.outputs.pr_failure_reason }}"
           if [ "${{ steps.rca.outputs.pr_created }}" != "true" ]; then
-            echo "Expected published action to create or reuse a fix PR."
+            echo "Expected published action to create or reuse a fix PR; failure_reason=${{ steps.rca.outputs.pr_failure_reason }}"
             exit 1
           fi
           if [ -z "${{ steps.rca.outputs.pr_url }}" ]; then

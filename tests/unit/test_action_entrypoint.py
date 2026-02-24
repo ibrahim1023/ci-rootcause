@@ -57,6 +57,7 @@ def test_action_entrypoint_emits_expected_outputs(tmp_path: Path, monkeypatch) -
     assert payload["pr_created"] == "false"
     assert payload["pr_url"] == ""
     assert payload["pr_number"] == ""
+    assert payload["pr_failure_reason"] == "create_fix_pr=false"
     assert payload["rca_json_path"].endswith("ci-rca.json")
     assert payload["rca_md_path"].endswith("ci-rca.md")
     assert (artifact_dir / "ci-rca.json").exists()
@@ -78,6 +79,7 @@ def test_action_entrypoint_requires_github_token(tmp_path: Path, monkeypatch) ->
     payload = _parse_github_output(output_file)
     assert payload["classification"] == "UNKNOWN"
     assert payload["pr_created"] == "false"
+    assert payload["pr_failure_reason"] == "Missing required action input: github_token"
 
 
 def test_action_entrypoint_disables_pr_when_patch_scope_exceeds_limit(
@@ -128,6 +130,7 @@ def test_action_entrypoint_disables_pr_when_patch_scope_exceeds_limit(
     assert exit_code == 0
     payload = _parse_github_output(output_file)
     assert payload["pr_created"] == "false"
+    assert payload["pr_failure_reason"] == "create_fix_pr=false"
     assert (artifact_dir / "ci-rca.json").exists()
     assert (artifact_dir / "ci-rca.md").exists()
 
@@ -172,6 +175,7 @@ def test_action_entrypoint_rejects_invalid_historical_runs_payload(
     payload = _parse_github_output(output_file)
     assert payload["classification"] == "UNKNOWN"
     assert payload["pr_created"] == "false"
+    assert payload["pr_failure_reason"] == "historical_runs_path must point to a JSON list"
 
 
 def test_action_entrypoint_rejects_invalid_min_pr_confidence(tmp_path: Path, monkeypatch) -> None:
@@ -209,6 +213,7 @@ def test_action_entrypoint_rejects_invalid_min_pr_confidence(tmp_path: Path, mon
     payload = _parse_github_output(output_file)
     assert payload["classification"] == "UNKNOWN"
     assert payload["pr_created"] == "false"
+    assert payload["pr_failure_reason"] == "min_pr_confidence must be between 0.0 and 1.0"
 
 
 def test_action_entrypoint_offline_only_skips_pr_creation(tmp_path: Path, monkeypatch) -> None:
@@ -249,6 +254,7 @@ def test_action_entrypoint_offline_only_skips_pr_creation(tmp_path: Path, monkey
     assert exit_code == 0
     payload = _parse_github_output(output_file)
     assert payload["pr_created"] == "false"
+    assert payload["pr_failure_reason"] == "offline_only=true"
 
 
 def test_action_entrypoint_rejects_unknown_rollout_profile(tmp_path: Path, monkeypatch) -> None:
@@ -284,3 +290,7 @@ def test_action_entrypoint_rejects_unknown_rollout_profile(tmp_path: Path, monke
     payload = _parse_github_output(output_file)
     assert payload["classification"] == "UNKNOWN"
     assert payload["pr_created"] == "false"
+    assert (
+        payload["pr_failure_reason"]
+        == "Unsupported rollout_profile 'unknown-profile'. Expected 'safe-github-rollout'."
+    )
