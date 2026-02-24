@@ -54,8 +54,8 @@ jobs:
         run: |
           cat > ci-rootcause-smoke.log <<'EOF'
           ##[group]Run mypy
-            File "fixtures/canary/typecheck_target.py", line 2, in sentinel_value
-          TypeError: incompatible types in assignment (ts2345)
+          fixtures/canary/typecheck_target.py:2: error: Incompatible types in assignment (ts2345)
+          Found 1 error in 1 file (checked 1 source file)
           ##[endgroup]
           EOF
 
@@ -77,8 +77,8 @@ jobs:
           INPUT_GITHUB_TOKEN: ${{ github.token }}
           CI_ROOTCAUSE_RAW_LOG: |
             ##[group]Run mypy
-              File "fixtures/canary/typecheck_target.py", line 2, in sentinel_value
-            TypeError: incompatible types in assignment (ts2345)
+            fixtures/canary/typecheck_target.py:2: error: Incompatible types in assignment (ts2345)
+            Found 1 error in 1 file (checked 1 source file)
             ##[endgroup]
         with:
           github_token: ${{ github.token }}
