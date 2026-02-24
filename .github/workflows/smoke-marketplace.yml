@@ -59,6 +59,20 @@ jobs:
           ##[endgroup]
           EOF
 
+      - name: Write deterministic diff for ranker proximity
+        run: |
+          cat > ci-rootcause-smoke.diff <<'EOF'
+          diff --git a/fixtures/canary/typecheck_target.py b/fixtures/canary/typecheck_target.py
+          index 1111111..2222222 100644
+          --- a/fixtures/canary/typecheck_target.py
+          +++ b/fixtures/canary/typecheck_target.py
+          @@ -1,3 +1,3 @@
+           def sentinel_value() -> int:
+          -    value: int = "7"
+          +    value: int = 7
+               return value
+          EOF
+
       - name: Write smoke config
         run: |
           cat > .ci-rootcause-smoke.yml <<EOF
@@ -67,6 +81,7 @@ jobs:
           run_id: marketplace-smoke-${{ github.run_id }}
           output_dir: artifacts
           log_path: ci-rootcause-smoke.log
+          diff_path: ci-rootcause-smoke.diff
           validated_changes_path: validated-changes.json
           EOF
 
