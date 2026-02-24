@@ -30,6 +30,15 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
+      - name: Write smoke config
+        run: |
+          cat > .ci-rootcause-smoke.yml <<EOF
+          repository: ${{ github.repository }}
+          target_branch: ${{ github.ref_name }}
+          run_id: marketplace-smoke-${{ github.run_id }}
+          output_dir: artifacts
+          EOF
+
       - name: Run published ci-rootcause action
         id: rca
         uses: ibrahim1023/ci-rootcause-action@v0.1.4
@@ -43,6 +52,7 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           create_fix_pr: "true"
           post_pr_comment: "false"
+          config_path: .ci-rootcause-smoke.yml
           base_ref: ${{ github.sha }}
           head_ref: ${{ github.run_id }}-marketplace-smoke
           min_pr_confidence: "0.0"
@@ -61,6 +71,13 @@ jobs:
             echo "Expected non-empty pr_url when pr_created=true."
             exit 1
           fi
+          case "${{ steps.rca.outputs.pr_url }}" in
+            https://github.com/${{ github.repository }}/pull/*) ;;
+            *)
+              echo "Expected PR URL in this repo, got: ${{ steps.rca.outputs.pr_url }}"
+              exit 1
+              ;;
+          esac
 
       - name: Upload RCA artifacts
         uses: actions/upload-artifact@v4
