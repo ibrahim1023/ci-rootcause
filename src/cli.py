@@ -6,6 +6,15 @@ import sys
 from pathlib import Path
 from typing import Any, Sequence
 
+from src.core.input_parsing import (
+    InputParsingError,
+    load_historical_runs,
+    load_simple_config,
+    load_validated_changes,
+    parse_bool,
+    parse_confidence_threshold,
+    read_text_file,
+)
 from src.core.orchestration import PipelineRequest, run_pipeline
 
 
@@ -14,42 +23,6 @@ class CLIError(RuntimeError):
 
 
 SAFE_ROLLOUT_PROFILE = "safe-github-rollout"
-
-
-def _read_text(path: Path) -> str:
-    try:
-        return path.read_text(encoding="utf-8")
-    except OSError as exc:
-        raise CLIError(f"Unable to read file '{path}': {exc}") from exc
-
-
-def _load_simple_config(path: Path | None) -> dict[str, str]:
-    if path is None:
-        return {}
-    if not path.exists():
-        raise CLIError(f"config_path does not exist: '{path}'")
-
-    try:
-        lines = path.read_text(encoding="utf-8").splitlines()
-    except OSError as exc:
-        raise CLIError(f"Unable to read config_path '{path}': {exc}") from exc
-
-    config: dict[str, str] = {}
-    for index, raw in enumerate(lines, start=1):
-        line = raw.strip()
-        if not line or line.startswith("#"):
-            continue
-        if ":" not in line:
-            raise CLIError(f"Invalid config line {index} in '{path}': expected key: value")
-        key, value = line.split(":", maxsplit=1)
-        key = key.strip()
-        value = value.strip()
-        if not key:
-            raise CLIError(f"Invalid config line {index} in '{path}': empty key")
-        if len(value) >= 2 and value[0] == value[-1] and value[0] in {"'", '"'}:
-            value = value[1:-1]
-        config[key] = value
-    return config
 
 
 def _coalesce(primary: str | None, fallback: str | None = None) -> str:
@@ -66,77 +39,7 @@ def _read_input_text(path_value: str, *, input_name: str) -> str:
         if not data.strip():
             raise CLIError(f"stdin for {input_name} is empty")
         return data
-    return _read_text(Path(path_value))
-
-
-def _parse_bool(value: str, *, name: str) -> bool:
-    normalized = value.strip().lower()
-    if normalized in {"true", "1", "yes"}:
-        return True
-    if normalized in {"false", "0", "no"}:
-        return False
-    raise CLIError(f"Invalid boolean value for {name}: '{value}'")
-
-
-def _parse_confidence_threshold(value: str, *, name: str) -> float:
-    try:
-        parsed = float(value)
-    except ValueError as exc:
-        raise CLIError(f"Invalid float value for {name}: '{value}'") from exc
-    if not (0.0 <= parsed <= 1.0):
-        raise CLIError(f"{name} must be between 0.0 and 1.0")
-    return parsed
-
-
-def _load_validated_changes(path: Path | None) -> list[dict[str, str]]:
-    if path is None:
-        return []
-
-    try:
-        raw = json.loads(path.read_text(encoding="utf-8"))
-    except OSError as exc:
-        raise CLIError(f"Unable to read validated changes file '{path}': {exc}") from exc
-    except json.JSONDecodeError as exc:
-        raise CLIError(f"Invalid JSON in validated changes file '{path}': {exc}") from exc
-
-    if not isinstance(raw, list):
-        raise CLIError("Validated changes payload must be a JSON list")
-
-    normalized: list[dict[str, str]] = []
-    for item in raw:
-        if not isinstance(item, dict):
-            raise CLIError("Each validated change must be a JSON object")
-        file_path = str(item.get("file", "")).strip()
-        content = item.get("content")
-        if not file_path or not isinstance(content, str):
-            raise CLIError("Each validated change must include string fields: file, content")
-        normalized.append({"file": file_path, "content": content})
-
-    return normalized
-
-
-def _load_historical_runs(path: Path | None) -> list[dict[str, Any]]:
-    if path is None:
-        return []
-    try:
-        raw = json.loads(path.read_text(encoding="utf-8"))
-    except OSError as exc:
-        raise CLIError(f"Unable to read historical runs file '{path}': {exc}") from exc
-    except json.JSONDecodeError as exc:
-        raise CLIError(f"Invalid JSON in historical runs file '{path}': {exc}") from exc
-
-    if not isinstance(raw, list):
-        raise CLIError("Historical runs payload must be a JSON list")
-
-    normalized: list[dict[str, Any]] = []
-    for item in raw:
-        if not isinstance(item, dict):
-            raise CLIError("Each historical run must be a JSON object")
-        failure_events = item.get("failure_events", [])
-        if failure_events is not None and not isinstance(failure_events, list):
-            raise CLIError("Each historical run field 'failure_events' must be a JSON list")
-        normalized.append(dict(item))
-    return normalized
+    return read_text_file(Path(path_value))
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -310,7 +213,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     try:
-        config = _load_simple_config(Path(args.config_path) if args.config_path else None)
+        config = (
+            load_simple_config(Path(args.config_path), missing_ok=False) if args.config_path else {}
+        )
 
         log_path = _coalesce(args.log_path, config.get("log_path"))
         diff_path = _coalesce(args.diff_path, config.get("diff_path"))
@@ -328,7 +233,7 @@ def main(argv: Sequence[str] | None = None) -> int:
 
         create_fix_pr = bool(args.create_fix_pr)
         if not create_fix_pr and "create_fix_pr" in config:
-            create_fix_pr = _parse_bool(str(config.get("create_fix_pr", "")), name="create_fix_pr")
+            create_fix_pr = parse_bool(str(config.get("create_fix_pr", "")), name="create_fix_pr")
 
         min_pr_confidence_raw = (
             _coalesce(
@@ -337,7 +242,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
             or "0.75"
         )
-        min_pr_confidence = _parse_confidence_threshold(
+        min_pr_confidence = parse_confidence_threshold(
             min_pr_confidence_raw,
             name="min_pr_confidence",
         )
@@ -346,7 +251,7 @@ def main(argv: Sequence[str] | None = None) -> int:
 
         offline_only = bool(args.offline_only)
         if not offline_only and "offline_only" in config:
-            offline_only = _parse_bool(str(config.get("offline_only", "")), name="offline_only")
+            offline_only = parse_bool(str(config.get("offline_only", "")), name="offline_only")
 
         required_fields = {
             "log_path": log_path,
@@ -369,11 +274,13 @@ def main(argv: Sequence[str] | None = None) -> int:
 
         raw_log = _read_input_text(log_path, input_name="log_path")
         raw_diff = _read_input_text(diff_path, input_name="diff_path")
-        validated_changes = _load_validated_changes(
-            Path(args.validated_changes_path) if args.validated_changes_path else None
+        validated_changes = load_validated_changes(
+            Path(args.validated_changes_path) if args.validated_changes_path else None,
+            expected_list_message="Validated changes payload must be a JSON list",
         )
-        historical_runs = _load_historical_runs(
-            Path(args.historical_runs_path) if args.historical_runs_path else None
+        historical_runs = load_historical_runs(
+            Path(args.historical_runs_path) if args.historical_runs_path else None,
+            expected_list_message="Historical runs payload must be a JSON list",
         )
 
         request = PipelineRequest(
@@ -399,6 +306,9 @@ def main(argv: Sequence[str] | None = None) -> int:
             provider_adapter=str(args.provider_adapter).strip() or None,
         )
         state = run_pipeline(request=request)
+    except InputParsingError as exc:
+        print(f"ci-rootcause CLI error: {exc}")
+        return 2
     except Exception as exc:
         print(f"ci-rootcause CLI error: {exc}")
         return 2

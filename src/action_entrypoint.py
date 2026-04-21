@@ -1,11 +1,20 @@
 from __future__ import annotations
 
-import json
 import os
 import subprocess
 from pathlib import Path
 from typing import Any
 
+from src.core.input_parsing import (
+    InputParsingError,
+    load_historical_runs,
+    load_simple_config,
+    load_validated_changes,
+    parse_bool,
+    parse_confidence_threshold,
+    parse_positive_int,
+    read_text_file,
+)
 from src.core.orchestration import PipelineRequest, run_pipeline
 
 
@@ -27,120 +36,6 @@ def _get_input(name: str, *, required: bool = False, default: str | None = None)
     if required and (value is None or value == ""):
         raise ActionInputError(f"Missing required action input: {name}")
     return value or ""
-
-
-def _parse_bool(value: str, *, name: str) -> bool:
-    normalized = value.strip().lower()
-    if normalized in {"true", "1", "yes"}:
-        return True
-    if normalized in {"false", "0", "no"}:
-        return False
-    raise ActionInputError(f"Invalid boolean value for {name}: '{value}'")
-
-
-def _parse_positive_int(value: str, *, name: str) -> int:
-    try:
-        parsed = int(value)
-    except ValueError as exc:
-        raise ActionInputError(f"Invalid integer value for {name}: '{value}'") from exc
-    if parsed <= 0:
-        raise ActionInputError(f"{name} must be > 0")
-    return parsed
-
-
-def _parse_confidence_threshold(value: str, *, name: str) -> float:
-    try:
-        parsed = float(value)
-    except ValueError as exc:
-        raise ActionInputError(f"Invalid float value for {name}: '{value}'") from exc
-    if not (0.0 <= parsed <= 1.0):
-        raise ActionInputError(f"{name} must be between 0.0 and 1.0")
-    return parsed
-
-
-def _load_simple_config(path: Path) -> dict[str, str]:
-    if not path.exists():
-        return {}
-
-    try:
-        lines = path.read_text(encoding="utf-8").splitlines()
-    except OSError as exc:
-        raise ActionInputError(f"Unable to read config_path '{path}': {exc}") from exc
-
-    config: dict[str, str] = {}
-    for index, raw in enumerate(lines, start=1):
-        line = raw.strip()
-        if not line or line.startswith("#"):
-            continue
-        if ":" not in line:
-            raise ActionInputError(f"Invalid config line {index} in '{path}': expected key: value")
-        key, value = line.split(":", maxsplit=1)
-        key = key.strip()
-        value = value.strip()
-        if not key:
-            raise ActionInputError(f"Invalid config line {index} in '{path}': empty key")
-        if len(value) >= 2 and value[0] == value[-1] and value[0] in {"'", '"'}:
-            value = value[1:-1]
-        config[key] = value
-    return config
-
-
-def _read_text(path: Path) -> str:
-    try:
-        return path.read_text(encoding="utf-8")
-    except OSError as exc:
-        raise ActionInputError(f"Unable to read file '{path}': {exc}") from exc
-
-
-def _load_validated_changes(path: Path | None) -> list[dict[str, str]]:
-    if path is None:
-        return []
-    try:
-        raw = json.loads(path.read_text(encoding="utf-8"))
-    except OSError as exc:
-        raise ActionInputError(f"Unable to read validated changes file '{path}': {exc}") from exc
-    except json.JSONDecodeError as exc:
-        raise ActionInputError(f"Invalid JSON in validated changes file '{path}': {exc}") from exc
-
-    if not isinstance(raw, list):
-        raise ActionInputError("validated_changes_path must point to a JSON list")
-
-    normalized: list[dict[str, str]] = []
-    for item in raw:
-        if not isinstance(item, dict):
-            raise ActionInputError("Each validated change must be a JSON object")
-        file_path = str(item.get("file", "")).strip()
-        content = item.get("content")
-        if not file_path or not isinstance(content, str):
-            raise ActionInputError(
-                "Each validated change must include string fields: file, content"
-            )
-        normalized.append({"file": file_path, "content": content})
-    return normalized
-
-
-def _load_historical_runs(path: Path | None) -> list[dict[str, Any]]:
-    if path is None:
-        return []
-    try:
-        raw = json.loads(path.read_text(encoding="utf-8"))
-    except OSError as exc:
-        raise ActionInputError(f"Unable to read historical runs file '{path}': {exc}") from exc
-    except json.JSONDecodeError as exc:
-        raise ActionInputError(f"Invalid JSON in historical runs file '{path}': {exc}") from exc
-
-    if not isinstance(raw, list):
-        raise ActionInputError("historical_runs_path must point to a JSON list")
-
-    normalized: list[dict[str, Any]] = []
-    for item in raw:
-        if not isinstance(item, dict):
-            raise ActionInputError("Each historical run must be a JSON object")
-        failure_events = item.get("failure_events", [])
-        if failure_events is not None and not isinstance(failure_events, list):
-            raise ActionInputError("Each historical run field 'failure_events' must be a JSON list")
-        normalized.append(dict(item))
-    return normalized
 
 
 def _build_diff_from_git(base_ref: str, head_ref: str) -> str:
@@ -166,14 +61,14 @@ def _resolve_raw_log(config: dict[str, str]) -> str:
         return env_log
     log_path = config.get("log_path") or os.getenv("CI_ROOTCAUSE_LOG_PATH", "")
     if log_path.strip():
-        return _read_text(Path(log_path.strip()))
+        return read_text_file(Path(log_path.strip()))
     return "ERROR: ci-rootcause synthetic fallback failure event"
 
 
 def _resolve_raw_diff(config: dict[str, str], base_ref: str, head_ref: str) -> str:
     diff_path = config.get("diff_path") or os.getenv("CI_ROOTCAUSE_DIFF_PATH", "")
     if diff_path.strip():
-        return _read_text(Path(diff_path.strip()))
+        return read_text_file(Path(diff_path.strip()))
     return _build_diff_from_git(base_ref=base_ref, head_ref=head_ref)
 
 
@@ -254,28 +149,28 @@ def _emit_failure_outputs(*, failure_reason: str = "") -> None:
 def main() -> int:
     try:
         github_token = _get_input("github_token", required=True)
-        create_fix_pr = _parse_bool(
+        create_fix_pr = parse_bool(
             _get_input("create_fix_pr", default="false"),
             name="create_fix_pr",
         )
-        offline_only = _parse_bool(
+        offline_only = parse_bool(
             _get_input("offline_only", default="false"),
             name="offline_only",
         )
-        _parse_bool(_get_input("post_pr_comment", default="true"), name="post_pr_comment")
+        parse_bool(_get_input("post_pr_comment", default="true"), name="post_pr_comment")
         base_ref_input = _get_input("base_ref", default="")
         head_ref_input = _get_input("head_ref", default="")
         config_path_value = _get_input("config_path", default=".ci-rootcause.yml")
-        max_fix_files = _parse_positive_int(
+        max_fix_files = parse_positive_int(
             _get_input("max_fix_files", default="5"),
             name="max_fix_files",
         )
-        min_pr_confidence = _parse_confidence_threshold(
+        min_pr_confidence = parse_confidence_threshold(
             _get_input("min_pr_confidence", default="0.75"),
             name="min_pr_confidence",
         )
 
-        config = _load_simple_config(Path(config_path_value))
+        config = load_simple_config(Path(config_path_value), missing_ok=True)
         rollout_profile = (
             _get_input("rollout_profile", default="").strip() or config.get("profile", "").strip()
         )
@@ -310,12 +205,14 @@ def main() -> int:
         )
 
         validated_changes_path = config.get("validated_changes_path", "").strip()
-        validated_changes = _load_validated_changes(
-            Path(validated_changes_path) if validated_changes_path else None
+        validated_changes = load_validated_changes(
+            Path(validated_changes_path) if validated_changes_path else None,
+            expected_list_message="validated_changes_path must point to a JSON list",
         )
         historical_runs_path = config.get("historical_runs_path", "").strip()
-        historical_runs = _load_historical_runs(
-            Path(historical_runs_path) if historical_runs_path else None
+        historical_runs = load_historical_runs(
+            Path(historical_runs_path) if historical_runs_path else None,
+            expected_list_message="historical_runs_path must point to a JSON list",
         )
 
         if create_fix_pr:
@@ -351,6 +248,10 @@ def main() -> int:
         outputs = _build_summary(state=state)
         _write_github_outputs(outputs)
         return 0 if state.pipeline_status in {"completed", "partial"} else 2
+    except InputParsingError as exc:
+        print(f"ci-rootcause action error: {exc}")
+        _emit_failure_outputs(failure_reason=str(exc))
+        return 2
     except Exception as exc:
         print(f"ci-rootcause action error: {exc}")
         _emit_failure_outputs(failure_reason=str(exc))

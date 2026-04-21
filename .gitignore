@@ -30,9 +30,3 @@ runs/
 # Env
 .env
 .env.*
-
-# Agents
-context.md
-task.md
-AGENTS.md
-scope.md

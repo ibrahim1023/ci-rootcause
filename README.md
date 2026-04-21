@@ -2,6 +2,49 @@
 
 Deterministic multi-agent CI root-cause analysis engine for failed CI runs.
 
+## 60-Second GitHub Actions Quickstart (Safe Mode)
+
+Use this in a repository where CI is already running tests/lint/build.
+This mode keeps PR creation disabled (`create_fix_pr: "false"`).
+
+```yaml
+name: ci-rootcause
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+
+permissions:
+  contents: read
+  pull-requests: write
+  actions: read
+
+jobs:
+  root-cause:
+    if: ${{ github.event.workflow_run.conclusion == 'failure' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Analyze failed CI run
+        id: rca
+        uses: ibrahim1023/ci-rootcause-action@v0
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          create_fix_pr: "false"
+          post_pr_comment: "true"
+```
+
+Expected outputs from the action step:
+- `classification`
+- `confidence`
+- `primary_root_cause_title`
+- `pr_failure_reason` (`create_fix_pr=false` in safe mode)
+- `rca_json_path` and `rca_md_path` (artifact files)
+
+Reference artifact examples:
+- [`artifacts/benchmark-mvp/case-typecheck-ts2345/ci-rca.json`](artifacts/benchmark-mvp/case-typecheck-ts2345/ci-rca.json)
+- [`artifacts/benchmark-mvp/case-typecheck-ts2345/ci-rca.md`](artifacts/benchmark-mvp/case-typecheck-ts2345/ci-rca.md)
+
 ## Purpose
 
 `ci-rootcause` analyzes CI failures and produces:
