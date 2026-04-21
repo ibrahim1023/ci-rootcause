@@ -179,6 +179,6 @@ def test_fixture_accuracy_tracks_misclassification_rate() -> None:
 
     metrics = evaluate_classification_accuracy(cases)
 
-    assert metrics["total"] == 7
-    assert metrics["correct"] >= 6
-    assert metrics["misclassification_rate"] <= 0.15
+    assert metrics["total"] == 17
+    assert metrics["correct"] >= 16
+    assert metrics["misclassification_rate"] <= 0.1

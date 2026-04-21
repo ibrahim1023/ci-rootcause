@@ -58,6 +58,21 @@ def _p95(values: list[float]) -> float:
     return ordered[index]
 
 
+def _build_classification_confusion_matrix(
+    case_results: list[dict[str, Any]],
+) -> dict[str, dict[str, int]]:
+    matrix: dict[str, dict[str, int]] = {}
+    for item in case_results:
+        expected = str(item.get("expected_classification") or "UNSPECIFIED")
+        actual = str(item.get("classification") or "UNKNOWN")
+        row = matrix.setdefault(expected, {})
+        row[actual] = row.get(actual, 0) + 1
+    return {
+        expected: {actual: matrix[expected][actual] for actual in sorted(matrix[expected])}
+        for expected in sorted(matrix)
+    }
+
+
 def _basic_log_baseline_classification(first_failure_event: dict[str, Any]) -> str:
     text = " ".join(
         [
@@ -311,6 +326,7 @@ def run_benchmark_suite(
         "classification_match_lift": (
             round((matched - baseline_matched) / total_cases, 4) if total_cases else 0.0
         ),
+        "classification_confusion_matrix": _build_classification_confusion_matrix(case_results),
         "primary_root_cause_matches": root_cause_matched,
         "primary_root_cause_accuracy": (
             round(root_cause_matched / total_cases, 4) if total_cases else 0.0

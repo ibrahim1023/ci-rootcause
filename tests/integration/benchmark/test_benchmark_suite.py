@@ -25,6 +25,11 @@ def test_run_benchmark_suite_executes_curated_cases(tmp_path: Path) -> None:
     assert result["baseline_classification_matches"] == 4
     assert result["baseline_classification_match_rate"] == 0.6667
     assert result["classification_match_lift"] == 0.3333
+    assert "classification_confusion_matrix" in result
+    assert result["classification_confusion_matrix"]["DEPENDENCY"]["DEPENDENCY"] == 2
+    assert result["classification_confusion_matrix"]["INFRA"]["INFRA"] == 1
+    assert result["classification_confusion_matrix"]["TEST"]["TEST"] == 2
+    assert result["classification_confusion_matrix"]["TYPECHECK"]["TYPECHECK"] == 1
     assert result["primary_root_cause_matches"] == 6
     assert result["primary_root_cause_accuracy"] == 1.0
     assert result["baseline_primary_root_cause_matches"] == 6

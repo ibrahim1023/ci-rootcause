@@ -72,5 +72,109 @@
       }
     ],
     "expected_classification": "UNKNOWN"
+  },
+  {
+    "name": "infra-service-unavailable",
+    "failure_events": [
+      {
+        "error_signature": "Service unavailable from registry endpoint",
+        "log_excerpt": "temporary failure in name resolution"
+      }
+    ],
+    "expected_classification": "INFRA"
+  },
+  {
+    "name": "infra-runner-lost",
+    "failure_events": [
+      {
+        "error_signature": "runner lost while executing job",
+        "log_excerpt": "connection reset"
+      }
+    ],
+    "expected_classification": "INFRA"
+  },
+  {
+    "name": "dependency-conflict-manifest",
+    "failure_events": [
+      {
+        "error_signature": "dependency conflict for urllib3",
+        "log_excerpt": "version solving failed"
+      }
+    ],
+    "dependency_change_flags": {
+      "has_lockfile_change": false,
+      "has_manifest_change": true
+    },
+    "expected_classification": "DEPENDENCY"
+  },
+  {
+    "name": "dependency-cannot-find-module",
+    "failure_events": [
+      {
+        "error_signature": "Cannot find module 'lodash'",
+        "log_excerpt": "install failed"
+      }
+    ],
+    "expected_classification": "DEPENDENCY"
+  },
+  {
+    "name": "security-secret-detected",
+    "failure_events": [
+      {
+        "error_signature": "secret detected in commit",
+        "log_excerpt": "denied by policy"
+      }
+    ],
+    "expected_classification": "SECURITY"
+  },
+  {
+    "name": "typecheck-mypy-incompatible",
+    "failure_events": [
+      {
+        "error_signature": "Incompatible types in assignment",
+        "log_excerpt": "mypy"
+      }
+    ],
+    "expected_classification": "TYPECHECK"
+  },
+  {
+    "name": "lint-eslint",
+    "failure_events": [
+      {
+        "error_signature": "eslint failed",
+        "log_excerpt": "lint error in src/app.ts"
+      }
+    ],
+    "expected_classification": "LINT"
+  },
+  {
+    "name": "test-jest-failed",
+    "failure_events": [
+      {
+        "error_signature": "jest test failed: expected true to be false",
+        "log_excerpt": "failed: auth flow"
+      }
+    ],
+    "expected_classification": "TEST"
+  },
+  {
+    "name": "build-compilation-failed",
+    "failure_events": [
+      {
+        "error_signature": "compilation failed for target",
+        "log_excerpt": "c compiler returned non-zero exit status"
+      }
+    ],
+    "expected_classification": "BUILD"
+  },
+  {
+    "name": "unknown-noise",
+    "failure_events": [
+      {
+        "error_signature": "pipeline terminated",
+        "log_excerpt": "retry suggested"
+      }
+    ],
+    "expected_classification": "UNKNOWN"
   }
 ]
