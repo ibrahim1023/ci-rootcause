@@ -30,3 +30,8 @@ runs/
 # Env
 .env
 .env.*
+
+# Local planning/state docs
+task.md
+progress.md
+scope.md
