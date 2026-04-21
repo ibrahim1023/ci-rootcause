@@ -1,11 +1,23 @@
 # ci-rootcause
 
-Deterministic multi-agent CI root-cause analysis engine for failed CI runs.
+Deterministic CI root-cause analysis for failed CI runs.
 
-## 60-Second GitHub Actions Quickstart (Safe Mode)
+## Proven Results (MVP Suite)
 
-Use this in a repository where CI is already running tests/lint/build.
-This mode keeps PR creation disabled (`create_fix_pr: "false"`).
+From the curated MVP benchmark (`6` cases):
+- Classification accuracy: `100%` (`6/6`)
+- Baseline classification accuracy: `66.67%` (`4/6`)
+- Improvement: `+33.33` percentage points (about `50%` relative lift vs baseline)
+- Artifact hash reproducibility: `100%`
+- Confidence reproducibility: `100%`
+
+Benchmark source:
+- [`docs/reports/mvp-benchmark-report.md`](docs/reports/mvp-benchmark-report.md)
+- [`docs/reports/mvp-benchmark-report.json`](docs/reports/mvp-benchmark-report.json)
+
+## 60-Second Setup (Safe Mode)
+
+Add this workflow. It keeps PR creation disabled (`create_fix_pr: "false"`), so you get RCA output first.
 
 ```yaml
 name: ci-rootcause
