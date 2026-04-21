@@ -61,6 +61,30 @@ Reference artifact examples:
 Primary runtime target is GitHub Actions.
 Provider adapter defaults support GitHub Actions and GitLab CI metadata resolution.
 
+## When To Use ci-rootcause
+
+Ideal use cases:
+- CI failed and you need deterministic root-cause ranking with evidence, not just a generic summary.
+- You want machine-readable RCA artifacts (`ci-rca.json`) for automation/reporting.
+- You want safe, guardrailed fix PR proposals with explicit confidence thresholds.
+- You need consistent behavior across repeated runs on the same inputs.
+
+Not a fit (non-goals):
+- Running arbitrary autonomous repo-wide refactors.
+- Replacing your normal test/lint/build workflows.
+- Auto-merging remediation changes without human review.
+
+Comparison with formatter-only autofix workflows:
+
+| Capability | ci-rootcause | Formatter/Linter autofix flow |
+| --- | --- | --- |
+| Works from failed CI logs + diff | Yes | Usually no |
+| Root-cause classification | Yes | No |
+| Ranked RCA with confidence | Yes | No |
+| Structured RCA artifact (`ci-rca.json`) | Yes | No |
+| Guardrailed optional fix PRs | Yes | Yes (tool-dependent) |
+| Designed for deterministic replay | Yes | Varies |
+
 ## Architecture Overview
 
 ```mermaid

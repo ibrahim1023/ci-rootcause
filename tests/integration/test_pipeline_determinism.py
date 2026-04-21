@@ -12,6 +12,10 @@ DIFF_FIXTURES = [
     Path("fixtures/diffs/python-lockfile-only.diff"),
     Path("fixtures/diffs/node-mixed-code-lock.diff"),
 ]
+REFRACTOR_ONLY_FIXED_HASHES = {
+    "ci_rca_json_sha256": "92462dd31f9569404ce733514126b632312959522ad37fa0b1c78ff828d2150f",
+    "ci_rca_md_sha256": "a9123fe3a2736070c0b9387b56ebc4ba06d8fd42e3d9323eb32ba55384c2fb46",
+}
 
 
 def _file_sha256(path: Path) -> str:
@@ -87,3 +91,14 @@ def test_pipeline_output_hashes_are_deterministic_across_repeat_runs(tmp_path: P
         )
 
         assert first == second
+
+
+def test_pipeline_output_hashes_match_fixed_refactor_only_baseline(tmp_path: Path) -> None:
+    result = _run_case(
+        tmp_path=tmp_path,
+        diff_fixture=Path("fixtures/diffs/refactor-only.diff"),
+        case_id="refactor-only-fixed-baseline",
+    )
+
+    assert result["ci_rca_json_sha256"] == REFRACTOR_ONLY_FIXED_HASHES["ci_rca_json_sha256"]
+    assert result["ci_rca_md_sha256"] == REFRACTOR_ONLY_FIXED_HASHES["ci_rca_md_sha256"]
