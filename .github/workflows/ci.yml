@@ -33,3 +33,40 @@ jobs:
 
       - name: Test
         run: pytest
+
+  packaging-smoke:
+    runs-on: ubuntu-latest
+    env:
+      PYTHONHASHSEED: "0"
+      TZ: UTC
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install package
+        run: |
+          python -m pip install --upgrade pip
+          pip install .
+
+      - name: CLI help smoke test
+        run: ci-rootcause --help
+
+      - name: Fixture run smoke test
+        run: |
+          ci-rootcause \
+            --log-path fixtures/ci-logs/github-actions-python-failure.log \
+            --diff-path fixtures/diffs/refactor-only.diff \
+            --output-dir artifacts/ci-smoke \
+            --timestamp 2026-02-21T00:00:00Z \
+            --commit abc123 \
+            --run-id gha_ci_smoke_1 \
+            --base-commit abc122 \
+            --head-commit abc123 \
+            --repository owner/repo
+          test -f artifacts/ci-smoke/ci-rca.json
+          test -f artifacts/ci-smoke/ci-rca.md
