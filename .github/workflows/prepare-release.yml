@@ -1,0 +1,92 @@
+name: Prepare Release Tag
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: "Version bump type"
+        required: true
+        default: "patch"
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+
+permissions:
+  contents: write
+
+jobs:
+  create-next-tag:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure git identity
+        run: |
+          git config user.name "ci-rootcause release bot"
+          git config user.email "ci-rootcause-release-bot@users.noreply.github.com"
+
+      - name: Resolve next release tag
+        id: next
+        run: |
+          BUMP="${{ inputs.bump }}"
+          LATEST="$(git tag --list 'v*' \
+            | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' \
+            | sort -V \
+            | tail -n 1)"
+
+          if [ -z "$LATEST" ]; then
+            MAJOR=0
+            MINOR=1
+            PATCH=0
+          else
+            VERSION="${LATEST#v}"
+            MAJOR="$(echo "$VERSION" | cut -d. -f1)"
+            MINOR="$(echo "$VERSION" | cut -d. -f2)"
+            PATCH="$(echo "$VERSION" | cut -d. -f3)"
+          fi
+
+          case "$BUMP" in
+            patch)
+              PATCH=$((PATCH + 1))
+              ;;
+            minor)
+              MINOR=$((MINOR + 1))
+              PATCH=0
+              ;;
+            major)
+              MAJOR=$((MAJOR + 1))
+              MINOR=0
+              PATCH=0
+              ;;
+            *)
+              echo "Unsupported bump type: $BUMP"
+              exit 1
+              ;;
+          esac
+
+          NEXT_TAG="v${MAJOR}.${MINOR}.${PATCH}"
+          if git rev-parse -q --verify "refs/tags/${NEXT_TAG}" >/dev/null; then
+            echo "Tag already exists locally: ${NEXT_TAG}"
+            exit 1
+          fi
+
+          echo "latest=$LATEST" >> "$GITHUB_OUTPUT"
+          echo "tag=$NEXT_TAG" >> "$GITHUB_OUTPUT"
+          echo "next_tag=${NEXT_TAG}"
+
+      - name: Create and push tag
+        run: |
+          NEXT_TAG="${{ steps.next.outputs.tag }}"
+          git tag -a "$NEXT_TAG" -m "release ${NEXT_TAG}"
+          git push origin "$NEXT_TAG"
+
+      - name: Summary
+        run: |
+          echo "Created release tag: ${{ steps.next.outputs.tag }}"
+          echo "Previous semver tag: ${{ steps.next.outputs.latest }}"
+          echo "publish-wrapper will run automatically from the new tag push."
