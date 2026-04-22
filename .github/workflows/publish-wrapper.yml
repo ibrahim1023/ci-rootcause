@@ -24,6 +24,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          fetch-tags: true
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -62,7 +63,7 @@ jobs:
       - name: Verify source tag exists
         run: |
           TAG="${{ steps.tag.outputs.tag }}"
-          if ! git rev-parse -q --verify "refs/tags/${TAG}" >/dev/null; then
+          if ! git ls-remote --tags origin "refs/tags/${TAG}" | grep -q "refs/tags/${TAG}$"; then
             echo "Source repository is missing expected tag: ${TAG}"
             exit 1
           fi
