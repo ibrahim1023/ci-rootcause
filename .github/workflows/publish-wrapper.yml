@@ -42,6 +42,14 @@ jobs:
           esac
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
 
+      - name: Verify source tag exists
+        run: |
+          TAG="${{ steps.tag.outputs.tag }}"
+          if ! git rev-parse -q --verify "refs/tags/${TAG}" >/dev/null; then
+            echo "Source repository is missing expected tag: ${TAG}"
+            exit 1
+          fi
+
       - name: Sync wrapper repository
         env:
           WRAPPER_TOKEN: ${{ secrets.CI_ROOTCAUSE_ACTION_REPO_TOKEN }}
@@ -77,6 +85,13 @@ jobs:
           git tag -f v0 "$TAG"
           git push origin "refs/tags/$TAG" --force
           git push origin refs/tags/v0 --force
+
+          TAG_SHA="$(git rev-parse "$TAG^{commit}")"
+          V0_SHA="$(git rev-parse "v0^{commit}")"
+          if [ "$TAG_SHA" != "$V0_SHA" ]; then
+            echo "Wrapper tag mismatch: v0 does not point to ${TAG}"
+            exit 1
+          fi
 
       - name: Create or update wrapper release
         env:
