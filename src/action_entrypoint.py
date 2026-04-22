@@ -81,6 +81,7 @@ def _build_summary(state: Any) -> dict[str, Any]:
     pr_created = False
     pr_url = ""
     pr_number = ""
+    pr_failure_reason_code = ""
     pr_failure_reason = ""
 
     classification_output = state.agent_outputs.get("failure_classification", {})
@@ -104,6 +105,8 @@ def _build_summary(state: Any) -> dict[str, Any]:
             pr_url = str(pr_output["pr_url"])
         if pr_output.get("pr_number") is not None:
             pr_number = str(pr_output["pr_number"])
+        if pr_output.get("failure_reason_code"):
+            pr_failure_reason_code = str(pr_output["failure_reason_code"])
         if pr_output.get("failure_reason"):
             pr_failure_reason = str(pr_output["failure_reason"])
 
@@ -116,6 +119,7 @@ def _build_summary(state: Any) -> dict[str, Any]:
         "pr_created": "true" if pr_created else "false",
         "pr_url": pr_url,
         "pr_number": pr_number,
+        "pr_failure_reason_code": pr_failure_reason_code,
         "pr_failure_reason": pr_failure_reason,
     }
 
@@ -130,7 +134,7 @@ def _write_github_outputs(outputs: dict[str, str]) -> None:
     print(payload, end="")
 
 
-def _emit_failure_outputs(*, failure_reason: str = "") -> None:
+def _emit_failure_outputs(*, failure_reason_code: str = "", failure_reason: str = "") -> None:
     _write_github_outputs(
         {
             "classification": "UNKNOWN",
@@ -141,6 +145,7 @@ def _emit_failure_outputs(*, failure_reason: str = "") -> None:
             "pr_created": "false",
             "pr_url": "",
             "pr_number": "",
+            "pr_failure_reason_code": failure_reason_code,
             "pr_failure_reason": failure_reason,
         }
     )
@@ -217,8 +222,12 @@ def main() -> int:
 
         if create_fix_pr:
             file_count = len({change["file"] for change in validated_changes})
+            create_fix_pr_disabled_reason = ""
             if file_count > max_fix_files:
                 create_fix_pr = False
+                create_fix_pr_disabled_reason = "max_fix_files_exceeded"
+        else:
+            create_fix_pr_disabled_reason = ""
 
         raw_log = _resolve_raw_log(config=config)
         raw_diff = _resolve_raw_diff(config=config, base_ref=base_ref, head_ref=head_ref)
@@ -242,19 +251,26 @@ def main() -> int:
             fail_fast=False,
             historical_runs=historical_runs,
             min_pr_confidence=min_pr_confidence,
+            create_fix_pr_disabled_reason=create_fix_pr_disabled_reason or None,
         )
 
         state = run_pipeline(request=request)
         outputs = _build_summary(state=state)
         _write_github_outputs(outputs)
         return 0 if state.pipeline_status in {"completed", "partial"} else 2
-    except InputParsingError as exc:
+    except (InputParsingError, ActionInputError) as exc:
         print(f"ci-rootcause action error: {exc}")
-        _emit_failure_outputs(failure_reason=str(exc))
+        _emit_failure_outputs(
+            failure_reason_code="ACTION_INPUT_ERROR",
+            failure_reason=str(exc),
+        )
         return 2
     except Exception as exc:
         print(f"ci-rootcause action error: {exc}")
-        _emit_failure_outputs(failure_reason=str(exc))
+        _emit_failure_outputs(
+            failure_reason_code="ACTION_RUNTIME_ERROR",
+            failure_reason=str(exc),
+        )
         return 2
 
 

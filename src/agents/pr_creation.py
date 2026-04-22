@@ -8,6 +8,8 @@ from pathlib import Path
 from typing import Any, Iterable, Protocol
 from urllib import error, parse, request
 
+from src.path_safety import PathSafetyError, normalize_repo_relative_path
+
 
 class ProviderAdapterError(RuntimeError):
     """Raised when git provider command execution fails."""
@@ -89,6 +91,17 @@ class PullRequestRequest:
     base_branch: str
 
 
+PR_REASON_CREATE_FIX_PR_DISABLED = "CREATE_FIX_PR_DISABLED"
+PR_REASON_OFFLINE_ONLY = "OFFLINE_ONLY"
+PR_REASON_CONFIDENCE_BELOW_THRESHOLD = "CONFIDENCE_BELOW_THRESHOLD"
+PR_REASON_DRY_RUN = "DRY_RUN"
+PR_REASON_MAX_FIX_FILES_EXCEEDED = "MAX_FIX_FILES_EXCEEDED"
+
+
+def _build_reason(code: str, message: str) -> dict[str, str]:
+    return {"failure_reason_code": code, "failure_reason": message}
+
+
 def _normalize_ref_segment(value: str) -> str:
     normalized = "".join(ch for ch in value.lower() if ch.isalnum())
     if not normalized:
@@ -120,17 +133,10 @@ def build_branch_creation_plan(payload: dict[str, Any]) -> BranchCreationPlan:
 
 
 def _normalize_repo_relative_path(file_path: str) -> str:
-    normalized_input = file_path.strip()
-    if not normalized_input:
-        raise PatchApplicationError("Change file path must not be empty")
-    candidate = Path(normalized_input)
-    if candidate == Path("."):
-        raise PatchApplicationError("Change file path must not be empty")
-    if candidate.is_absolute():
-        raise PatchApplicationError(f"Absolute paths are not allowed: {file_path}")
-    if ".." in candidate.parts:
-        raise PatchApplicationError(f"Parent directory traversal is not allowed: {file_path}")
-    return candidate.as_posix()
+    try:
+        return normalize_repo_relative_path(file_path)
+    except PathSafetyError as exc:
+        raise PatchApplicationError(str(exc)) from exc
 
 
 def _extract_evidence_files(payload: dict[str, Any]) -> set[str]:
@@ -591,12 +597,23 @@ def run_pr_creation(
     github_client: GitHubClient | None = None,
 ) -> dict[str, Any]:
     if not bool(payload.get("create_fix_pr", False)):
+        disabled_reason = str(payload.get("create_fix_pr_disabled_reason", "")).strip()
+        if disabled_reason == "max_fix_files_exceeded":
+            reason = _build_reason(
+                PR_REASON_MAX_FIX_FILES_EXCEEDED,
+                "validated changes exceed max_fix_files limit",
+            )
+        else:
+            reason = _build_reason(
+                PR_REASON_CREATE_FIX_PR_DISABLED,
+                "create_fix_pr=false",
+            )
         return {
             "pr_created": False,
             "pr_url": None,
             "pr_number": None,
             "pr_branch": None,
-            "failure_reason": "create_fix_pr=false",
+            **reason,
         }
     if bool(payload.get("offline_only", False)):
         return {
@@ -604,7 +621,10 @@ def run_pr_creation(
             "pr_url": None,
             "pr_number": None,
             "pr_branch": None,
-            "failure_reason": "offline_only=true",
+            **_build_reason(
+                PR_REASON_OFFLINE_ONLY,
+                "offline_only=true",
+            ),
         }
 
     _enforce_pr_guardrails(payload)
@@ -616,8 +636,9 @@ def run_pr_creation(
             "pr_url": None,
             "pr_number": None,
             "pr_branch": None,
-            "failure_reason": (
-                f"confidence_below_threshold:{confidence:.4f}<{min_pr_confidence:.4f}"
+            **_build_reason(
+                PR_REASON_CONFIDENCE_BELOW_THRESHOLD,
+                f"confidence {confidence:.4f} is below threshold {min_pr_confidence:.4f}",
             ),
         }
 
@@ -643,6 +664,7 @@ def run_pr_creation(
                 "pr_url": str(existing["html_url"]),
                 "pr_number": int(existing["number"]),
                 "pr_branch": plan.pr_branch,
+                "failure_reason_code": "",
                 "failure_reason": None,
                 "commit_message": None,
             }
@@ -664,7 +686,10 @@ def run_pr_creation(
             "pr_url": None,
             "pr_number": None,
             "pr_branch": created_branch,
-            "failure_reason": "dry_run=true",
+            **_build_reason(
+                PR_REASON_DRY_RUN,
+                "dry_run=true",
+            ),
             "commit_message": commit_message,
         }
 
@@ -681,6 +706,7 @@ def run_pr_creation(
         "pr_url": str(pr_payload["html_url"]),
         "pr_number": int(pr_payload["number"]),
         "pr_branch": created_branch,
+        "failure_reason_code": "",
         "failure_reason": None,
         "commit_message": commit_message,
     }

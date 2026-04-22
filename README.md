@@ -55,7 +55,7 @@ Expected outputs from the action step:
 - `classification`
 - `confidence`
 - `primary_root_cause_title`
-- `pr_failure_reason` (`create_fix_pr=false` in safe mode)
+- `pr_failure_reason_code` + `pr_failure_reason` (`CREATE_FIX_PR_DISABLED` + `create_fix_pr=false` in safe mode)
 - `rca_json_path` and `rca_md_path` (artifact files)
 
 Reference artifact examples:
@@ -222,7 +222,7 @@ Outputs:
 
 - `classification`, `confidence`, `primary_root_cause_title`
 - `rca_json_path`, `rca_md_path`
-- `pr_created`, `pr_url`, `pr_number`, `pr_failure_reason`
+- `pr_created`, `pr_url`, `pr_number`, `pr_failure_reason_code`, `pr_failure_reason`
 
 Autonomous PR note:
 

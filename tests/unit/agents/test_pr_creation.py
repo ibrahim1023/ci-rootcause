@@ -9,6 +9,11 @@ from urllib import request as urllib_request
 import pytest
 
 from src.agents.pr_creation import (
+    PR_REASON_CONFIDENCE_BELOW_THRESHOLD,
+    PR_REASON_CREATE_FIX_PR_DISABLED,
+    PR_REASON_DRY_RUN,
+    PR_REASON_MAX_FIX_FILES_EXCEEDED,
+    PR_REASON_OFFLINE_ONLY,
     BranchCreationPlan,
     GitHubAPIError,
     GitHubRateLimitError,
@@ -30,6 +35,22 @@ from src.agents.pr_creation import (
     push_fix_branch,
     run_pr_creation,
 )
+
+
+def test_pr_reason_code_literals_remain_stable() -> None:
+    assert {
+        PR_REASON_CREATE_FIX_PR_DISABLED,
+        PR_REASON_OFFLINE_ONLY,
+        PR_REASON_CONFIDENCE_BELOW_THRESHOLD,
+        PR_REASON_DRY_RUN,
+        PR_REASON_MAX_FIX_FILES_EXCEEDED,
+    } == {
+        "CREATE_FIX_PR_DISABLED",
+        "OFFLINE_ONLY",
+        "CONFIDENCE_BELOW_THRESHOLD",
+        "DRY_RUN",
+        "MAX_FIX_FILES_EXCEEDED",
+    }
 
 
 @dataclass
@@ -170,6 +191,7 @@ def test_run_pr_creation_returns_skip_when_disabled() -> None:
         "pr_url": None,
         "pr_number": None,
         "pr_branch": None,
+        "failure_reason_code": PR_REASON_CREATE_FIX_PR_DISABLED,
         "failure_reason": "create_fix_pr=false",
     }
 
@@ -185,7 +207,8 @@ def test_run_pr_creation_skips_when_confidence_is_below_threshold() -> None:
 
     assert result["pr_created"] is False
     assert result["pr_branch"] is None
-    assert result["failure_reason"] == "confidence_below_threshold:0.6000<0.7500"
+    assert result["failure_reason_code"] == PR_REASON_CONFIDENCE_BELOW_THRESHOLD
+    assert result["failure_reason"] == "confidence 0.6000 is below threshold 0.7500"
 
 
 def test_run_pr_creation_skips_when_offline_only_mode_is_enabled() -> None:
@@ -200,7 +223,20 @@ def test_run_pr_creation_skips_when_offline_only_mode_is_enabled() -> None:
 
     assert result["pr_created"] is False
     assert result["pr_branch"] is None
+    assert result["failure_reason_code"] == PR_REASON_OFFLINE_ONLY
     assert result["failure_reason"] == "offline_only=true"
+
+
+def test_run_pr_creation_uses_stable_max_fix_files_disabled_reason_code() -> None:
+    result = run_pr_creation(
+        payload={
+            "create_fix_pr": False,
+            "create_fix_pr_disabled_reason": "max_fix_files_exceeded",
+        }
+    )
+
+    assert result["failure_reason_code"] == PR_REASON_MAX_FIX_FILES_EXCEEDED
+    assert result["failure_reason"] == "validated changes exceed max_fix_files limit"
 
 
 def test_build_pull_request_request_includes_summary_and_confidence() -> None:
@@ -368,6 +404,36 @@ def test_run_pr_creation_rejects_empty_change_path(tmp_path: Path) -> None:
         )
 
 
+@pytest.mark.parametrize(
+    ("bad_path", "error_message"),
+    [
+        ("/tmp/abs.py", "Absolute paths are not allowed"),
+        ("../escape.py", "Parent directory traversal is not allowed"),
+        ("./src/file.py", "Dot-segment path syntax is not allowed"),
+        ("src//file.py", "Duplicate path separators are not allowed"),
+        ("src\\file.py", "Backslashes are not allowed in file paths"),
+    ],
+)
+def test_run_pr_creation_rejects_ambiguous_change_paths(
+    tmp_path: Path, bad_path: str, error_message: str
+) -> None:
+    payload = {
+        "create_fix_pr": True,
+        "confidence": 0.9,
+        "base_ref": "abc123deadbeef",
+        "head_ref": "def456feedface",
+        "allowed_files": [bad_path],
+        "validated_changes": [{"file": bad_path, "content": "print('x')\n"}],
+    }
+
+    with pytest.raises(PatchApplicationError, match=error_message):
+        run_pr_creation(
+            payload=payload,
+            repo_path=str(tmp_path),
+            git_runner=FakeGitRunner(set(), []),
+        )
+
+
 def test_run_pr_creation_applies_changes_and_commits(tmp_path: Path) -> None:
     runner = FakeGitRunner(fail_on={"show-ref"}, seen=[])
     payload = {
@@ -389,6 +455,7 @@ def test_run_pr_creation_applies_changes_and_commits(tmp_path: Path) -> None:
 
     assert result["pr_branch"] == "ci-rootcause/fix/abc123deadbe-def456feedfa"
     assert result["pr_created"] is False
+    assert result["failure_reason_code"] == PR_REASON_DRY_RUN
     assert result["failure_reason"] == "dry_run=true"
     assert result["commit_message"] == (
         "ci-rootcause: apply evidence-backed fix plan (gha_555, files=1)"
@@ -460,6 +527,7 @@ def test_run_pr_creation_opens_pr_via_client(tmp_path: Path) -> None:
     assert result["pr_created"] is True
     assert result["pr_url"] == "https://github.com/acme/repo/pull/12"
     assert result["pr_number"] == 12
+    assert result["failure_reason_code"] == ""
     assert result["failure_reason"] is None
     assert [
         "git",
@@ -503,6 +571,7 @@ def test_run_pr_creation_short_circuits_when_open_pr_exists(tmp_path: Path) -> N
     assert result["pr_created"] is True
     assert result["pr_url"] == "https://github.com/acme/repo/pull/18"
     assert result["pr_number"] == 18
+    assert result["failure_reason_code"] == ""
     assert result["commit_message"] is None
     assert runner.seen == []
 

@@ -4,6 +4,8 @@ import json
 from pathlib import Path
 from typing import Any
 
+from src.path_safety import PathSafetyError, normalize_repo_relative_path
+
 
 class InputParsingError(ValueError):
     """Raised when input parsing/validation fails."""
@@ -95,12 +97,16 @@ def load_validated_changes(
     for item in raw:
         if not isinstance(item, dict):
             raise InputParsingError("Each validated change must be a JSON object")
-        file_path = str(item.get("file", "")).strip()
+        file_path_raw = str(item.get("file", ""))
         content = item.get("content")
-        if not file_path or not isinstance(content, str):
+        if not isinstance(content, str):
             raise InputParsingError(
                 "Each validated change must include string fields: file, content"
             )
+        try:
+            file_path = normalize_repo_relative_path(file_path_raw)
+        except PathSafetyError as exc:
+            raise InputParsingError(str(exc)) from exc
         normalized.append({"file": file_path, "content": content})
 
     return normalized

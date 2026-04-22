@@ -160,6 +160,7 @@ class PipelineRequest:
     historical_runs: list[dict[str, Any]] = field(default_factory=list)
     min_pr_confidence: float = 0.75
     offline_only: bool = False
+    create_fix_pr_disabled_reason: str | None = None
     ci_provider: str | None = None
     provider_adapter: str | None = None
     config: PipelineConfig | None = None
@@ -374,6 +375,7 @@ def _run_pr_creation_agent(state: PipelineState) -> dict[str, Any]:
     )
     payload = {
         "create_fix_pr": state.request.create_fix_pr,
+        "create_fix_pr_disabled_reason": state.request.create_fix_pr_disabled_reason or "",
         "min_pr_confidence": state.request.min_pr_confidence,
         "offline_only": state.request.offline_only,
         "dry_run": state.request.dry_run,

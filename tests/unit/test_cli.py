@@ -143,6 +143,45 @@ def test_cli_returns_error_for_invalid_historical_runs_payload(tmp_path: Path, c
     assert "Historical runs payload must be a JSON list" in captured.out
 
 
+def test_cli_rejects_ambiguous_validated_change_path(tmp_path: Path, capsys) -> None:
+    log_path = tmp_path / "ci.log"
+    diff_path = tmp_path / "change.diff"
+    validated_path = tmp_path / "validated.json"
+
+    log_path.write_text(_sample_log(), encoding="utf-8")
+    diff_path.write_text(_sample_diff(), encoding="utf-8")
+    validated_path.write_text(
+        '[{"file":"./src/app.py","content":"print(1)\\n"}]',
+        encoding="utf-8",
+    )
+
+    exit_code = main(
+        [
+            "--log-path",
+            str(log_path),
+            "--diff-path",
+            str(diff_path),
+            "--output-dir",
+            str(tmp_path / "artifacts"),
+            "--timestamp",
+            "2026-02-20T00:00:00Z",
+            "--commit",
+            "abc123",
+            "--run-id",
+            "gha_ambiguous_path",
+            "--base-commit",
+            "abc123",
+            "--head-commit",
+            "def456",
+            "--validated-changes-path",
+            str(validated_path),
+        ]
+    )
+
+    assert exit_code == 2
+    assert "Dot-segment path syntax is not allowed" in capsys.readouterr().out
+
+
 def test_cli_returns_error_for_invalid_min_pr_confidence(tmp_path: Path, capsys) -> None:
     log_path = tmp_path / "ci.log"
     diff_path = tmp_path / "change.diff"

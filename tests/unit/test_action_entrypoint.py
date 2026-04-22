@@ -57,6 +57,7 @@ def test_action_entrypoint_emits_expected_outputs(tmp_path: Path, monkeypatch) -
     assert payload["pr_created"] == "false"
     assert payload["pr_url"] == ""
     assert payload["pr_number"] == ""
+    assert payload["pr_failure_reason_code"] == "CREATE_FIX_PR_DISABLED"
     assert payload["pr_failure_reason"] == "create_fix_pr=false"
     assert payload["rca_json_path"].endswith("ci-rca.json")
     assert payload["rca_md_path"].endswith("ci-rca.md")
@@ -79,6 +80,7 @@ def test_action_entrypoint_requires_github_token(tmp_path: Path, monkeypatch) ->
     payload = _parse_github_output(output_file)
     assert payload["classification"] == "UNKNOWN"
     assert payload["pr_created"] == "false"
+    assert payload["pr_failure_reason_code"] == "ACTION_INPUT_ERROR"
     assert payload["pr_failure_reason"] == "Missing required action input: github_token"
 
 
@@ -130,7 +132,8 @@ def test_action_entrypoint_disables_pr_when_patch_scope_exceeds_limit(
     assert exit_code == 0
     payload = _parse_github_output(output_file)
     assert payload["pr_created"] == "false"
-    assert payload["pr_failure_reason"] == "create_fix_pr=false"
+    assert payload["pr_failure_reason_code"] == "MAX_FIX_FILES_EXCEEDED"
+    assert payload["pr_failure_reason"] == "validated changes exceed max_fix_files limit"
     assert (artifact_dir / "ci-rca.json").exists()
     assert (artifact_dir / "ci-rca.md").exists()
 
@@ -175,6 +178,7 @@ def test_action_entrypoint_rejects_invalid_historical_runs_payload(
     payload = _parse_github_output(output_file)
     assert payload["classification"] == "UNKNOWN"
     assert payload["pr_created"] == "false"
+    assert payload["pr_failure_reason_code"] == "ACTION_INPUT_ERROR"
     assert payload["pr_failure_reason"] == "historical_runs_path must point to a JSON list"
 
 
@@ -213,6 +217,7 @@ def test_action_entrypoint_rejects_invalid_min_pr_confidence(tmp_path: Path, mon
     payload = _parse_github_output(output_file)
     assert payload["classification"] == "UNKNOWN"
     assert payload["pr_created"] == "false"
+    assert payload["pr_failure_reason_code"] == "ACTION_INPUT_ERROR"
     assert payload["pr_failure_reason"] == "min_pr_confidence must be between 0.0 and 1.0"
 
 
@@ -254,6 +259,7 @@ def test_action_entrypoint_offline_only_skips_pr_creation(tmp_path: Path, monkey
     assert exit_code == 0
     payload = _parse_github_output(output_file)
     assert payload["pr_created"] == "false"
+    assert payload["pr_failure_reason_code"] == "OFFLINE_ONLY"
     assert payload["pr_failure_reason"] == "offline_only=true"
 
 
@@ -290,7 +296,50 @@ def test_action_entrypoint_rejects_unknown_rollout_profile(tmp_path: Path, monke
     payload = _parse_github_output(output_file)
     assert payload["classification"] == "UNKNOWN"
     assert payload["pr_created"] == "false"
+    assert payload["pr_failure_reason_code"] == "ACTION_INPUT_ERROR"
     assert (
         payload["pr_failure_reason"]
         == "Unsupported rollout_profile 'unknown-profile'. Expected 'safe-github-rollout'."
     )
+
+
+def test_action_entrypoint_rejects_ambiguous_validated_change_path(
+    tmp_path: Path, monkeypatch
+) -> None:
+    output_file = tmp_path / "github_output.txt"
+    config_path = tmp_path / "ci-rootcause.yml"
+    validated_path = tmp_path / "validated_changes.json"
+    validated_path.write_text(
+        '[{"file":"./src/app.py","content":"print(1)\\n"}]',
+        encoding="utf-8",
+    )
+    config_path.write_text(
+        "\n".join(
+            [
+                "raw_log: pytest failed",
+                "raw_diff: diff --git a/a.py b/a.py",
+                f"validated_changes_path: {validated_path}",
+                f"output_dir: {tmp_path / 'artifacts'}",
+                "timestamp: 2026-02-24T00:00:00Z",
+                "run_id: gha_8007",
+                "commit: abc123",
+                "base_commit: abc122",
+                "head_commit: abc123",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setenv("GITHUB_OUTPUT", str(output_file))
+    monkeypatch.setenv("INPUT_GITHUB_TOKEN", "dummy-token")
+    monkeypatch.setenv("INPUT_CREATE_FIX_PR", "false")
+    monkeypatch.setenv("INPUT_POST_PR_COMMENT", "true")
+    monkeypatch.setenv("INPUT_CONFIG_PATH", str(config_path))
+    monkeypatch.setenv("INPUT_MAX_FIX_FILES", "5")
+
+    exit_code = main()
+
+    assert exit_code == 2
+    payload = _parse_github_output(output_file)
+    assert payload["pr_failure_reason_code"] == "ACTION_INPUT_ERROR"
+    assert "Dot-segment path syntax is not allowed" in payload["pr_failure_reason"]

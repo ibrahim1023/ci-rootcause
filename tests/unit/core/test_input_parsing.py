@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
@@ -68,3 +69,26 @@ def test_load_historical_runs_rejects_non_list_failure_events(tmp_path: Path) ->
 
     with pytest.raises(InputParsingError, match="Each historical run field 'failure_events'"):
         load_historical_runs(path, expected_list_message="unused")
+
+
+@pytest.mark.parametrize(
+    "path_value, expected_message",
+    [
+        ("/tmp/abs.py", "Absolute paths are not allowed"),
+        ("../escape.py", "Parent directory traversal is not allowed"),
+        ("./src/file.py", "Dot-segment path syntax is not allowed"),
+        ("src//file.py", "Duplicate path separators are not allowed"),
+        ("src\\file.py", "Backslashes are not allowed in file paths"),
+    ],
+)
+def test_load_validated_changes_rejects_ambiguous_paths(
+    tmp_path: Path, path_value: str, expected_message: str
+) -> None:
+    path = tmp_path / "validated.json"
+    path.write_text(
+        json.dumps([{"file": path_value, "content": "print(1)\n"}]),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(InputParsingError, match=expected_message):
+        load_validated_changes(path, expected_list_message="unused")
