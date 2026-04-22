@@ -2,6 +2,10 @@
 
 Deterministic CI root-cause analysis for failed CI runs.
 
+![CI](https://github.com/ibrahim1023/ci-rootcause/actions/workflows/ci.yml/badge.svg)
+![Latest Release](https://img.shields.io/github/v/release/ibrahim1023/ci-rootcause)
+![Tests](https://img.shields.io/badge/tests-151%20passed-brightgreen)
+
 ## Proven Results (MVP Suite)
 
 From the curated MVP benchmark (`6` cases):
@@ -14,6 +18,7 @@ From the curated MVP benchmark (`6` cases):
 Benchmark source:
 - [`docs/reports/mvp-benchmark-report.md`](docs/reports/mvp-benchmark-report.md)
 - [`docs/reports/mvp-benchmark-report.json`](docs/reports/mvp-benchmark-report.json)
+- [`docs/limitations.md`](docs/limitations.md)
 
 ## 60-Second Setup (Safe Mode)
 
