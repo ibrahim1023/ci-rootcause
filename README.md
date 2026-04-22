@@ -167,6 +167,36 @@ ci-rootcause \
 - `artifacts/ci-rca.json`
 - `artifacts/ci-rca.md`
 
+## Demo Script
+
+Run three reproducible demo scenarios:
+
+```bash
+for case in \
+  fixtures/demos/01-dependency-lockfile-drift \
+  fixtures/demos/02-typecheck-ts2345 \
+  fixtures/demos/03-infra-timeout
+do
+  name="$(basename "$case")"
+  ci-rootcause \
+    --log-path "$case/ci.log" \
+    --diff-path "$case/change.diff" \
+    --output-dir "artifacts/demo/$name" \
+    --timestamp 2026-02-21T00:00:00Z \
+    --commit abc123 \
+    --run-id "demo_${name}" \
+    --base-commit abc122 \
+    --head-commit abc123 \
+    --repository owner/repo
+done
+```
+
+Demo fixture pack:
+- [`fixtures/demos/README.md`](fixtures/demos/README.md)
+- `fixtures/demos/01-dependency-lockfile-drift`
+- `fixtures/demos/02-typecheck-ts2345`
+- `fixtures/demos/03-infra-timeout`
+
 ## Local CLI Execution
 
 Run end-to-end deterministic analysis locally:

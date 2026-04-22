@@ -26,6 +26,7 @@ coverage/
 runs/
 *.log
 !fixtures/ci-logs/*.log
+!fixtures/demos/*/ci.log
 
 # Env
 .env
