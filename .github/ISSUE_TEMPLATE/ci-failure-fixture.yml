@@ -1,0 +1,95 @@
+name: CI Failure Fixture Submission
+description: Submit a sanitized CI failure case to improve ci-rootcause precision.
+title: "[fixture] <short failure summary>"
+labels:
+  - fixture
+  - triage
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for contributing a fixture.
+        Please sanitize secrets, internal URLs, tokens, and any private identifiers.
+
+  - type: dropdown
+    id: ci_provider
+    attributes:
+      label: CI provider
+      description: Which CI system produced this failure?
+      options:
+        - GitHub Actions
+        - GitLab CI
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: expected_classification
+    attributes:
+      label: Expected classification
+      description: What should ci-rootcause classify this failure as?
+      options:
+        - INFRA
+        - DEPENDENCY
+        - SECURITY
+        - TYPECHECK
+        - LINT
+        - TEST
+        - BUILD
+        - UNKNOWN
+    validations:
+      required: true
+
+  - type: input
+    id: expected_root_cause
+    attributes:
+      label: Expected primary root cause (short)
+      description: A concise phrase expected in the primary root cause title.
+      placeholder: "TS2345 in src/app.ts"
+    validations:
+      required: true
+
+  - type: textarea
+    id: ci_log
+    attributes:
+      label: Sanitized CI log excerpt
+      description: Paste the minimal log excerpt needed to reproduce classification.
+      placeholder: |
+        ##[group]Run mypy
+        src/app.py:7: error: Incompatible types in assignment
+        ##[endgroup]
+      render: shell
+    validations:
+      required: true
+
+  - type: textarea
+    id: git_diff
+    attributes:
+      label: Sanitized git diff excerpt
+      description: Paste the relevant diff that was present for this failure.
+      placeholder: |
+        diff --git a/src/app.py b/src/app.py
+        --- a/src/app.py
+        +++ b/src/app.py
+      render: diff
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro_steps
+    attributes:
+      label: Reproduction notes
+      description: Optional notes if special context is needed.
+      placeholder: "Any assumptions, branch state, or caveats."
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Privacy scrub checklist
+      options:
+        - label: I removed all secrets/tokens/private URLs from logs and diffs.
+          required: true
+        - label: I confirm this fixture can be shared publicly.
+          required: true
