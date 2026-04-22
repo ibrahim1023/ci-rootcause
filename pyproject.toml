@@ -15,6 +15,10 @@ dependencies = [
 [project.scripts]
 ci-rootcause = "src.cli:main"
 
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["src*"]
+
 [tool.pytest.ini_options]
 addopts = "-q"
 testpaths = ["tests/unit", "tests/integration"]
