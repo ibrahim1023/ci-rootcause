@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import time
 from dataclasses import dataclass
 from urllib import error
 from urllib import request as urllib_request
@@ -50,7 +51,14 @@ def build_app_comment_body(
 
 
 class GitHubAppCommentClient:
-    def __init__(self, *, token: str, api_base: str = "https://api.github.com") -> None:
+    def __init__(
+        self,
+        *,
+        token: str,
+        api_base: str = "https://api.github.com",
+        max_retries: int = 3,
+        backoff_seconds: float = 0.5,
+    ) -> None:
         self._token = token.strip()
         if not self._token:
             raise GitHubAppCommentError(
@@ -58,6 +66,44 @@ class GitHubAppCommentClient:
                 reason_code="MISSING_GITHUB_TOKEN",
             )
         self._api_base = api_base.rstrip("/")
+        if max_retries < 0:
+            raise GitHubAppCommentError(
+                "max_retries must be >= 0",
+                reason_code="COMMENT_API_INVALID_RESPONSE",
+            )
+        if backoff_seconds < 0.0:
+            raise GitHubAppCommentError(
+                "backoff_seconds must be >= 0.0",
+                reason_code="COMMENT_API_INVALID_RESPONSE",
+            )
+        self._max_retries = max_retries
+        self._backoff_seconds = backoff_seconds
+
+    def _is_rate_limited(self, exc: error.HTTPError, detail: str) -> bool:
+        if exc.code == 429:
+            return True
+        return exc.code == 403 and "rate limit" in detail.lower()
+
+    def _compute_retry_delay(self, attempt: int, retry_after: float | None = None) -> float:
+        if retry_after is not None and retry_after >= 0.0:
+            return retry_after
+        return self._backoff_seconds * float(2**attempt)
+
+    def _rate_limit_retry_after(self, exc: error.HTTPError) -> float | None:
+        retry_after_header = exc.headers.get("Retry-After")
+        if retry_after_header:
+            try:
+                return max(0.0, float(retry_after_header))
+            except ValueError:
+                return 0.0
+        reset_epoch = exc.headers.get("X-RateLimit-Reset")
+        if not reset_epoch:
+            return None
+        try:
+            reset_ts = float(reset_epoch)
+        except ValueError:
+            return 0.0
+        return max(0.0, reset_ts - time.time())
 
     def _request_json(
         self,
@@ -82,20 +128,49 @@ class GitHubAppCommentClient:
             headers=headers,
             data=body,
         )
-        try:
-            with urllib_request.urlopen(req, timeout=30) as response:
-                raw = response.read()
-        except error.HTTPError as exc:
-            detail = exc.read().decode("utf-8", errors="replace")
+        attempts = self._max_retries + 1
+        for attempt in range(attempts):
+            try:
+                with urllib_request.urlopen(req, timeout=30) as response:
+                    raw = response.read()
+                    break
+            except error.HTTPError as exc:
+                detail = exc.read().decode("utf-8", errors="replace")
+                is_last = attempt >= self._max_retries
+                if self._is_rate_limited(exc, detail):
+                    if is_last:
+                        raise GitHubAppCommentError(
+                            f"GitHub API HTTP error for {method} {path}: {exc.code}: {detail}",
+                            reason_code="COMMENT_API_HTTP_ERROR",
+                        ) from exc
+                    retry_after = self._rate_limit_retry_after(exc)
+                    time.sleep(self._compute_retry_delay(attempt, retry_after))
+                    continue
+                if exc.code in {500, 502, 503, 504}:
+                    if is_last:
+                        raise GitHubAppCommentError(
+                            f"GitHub API HTTP error for {method} {path}: {exc.code}: {detail}",
+                            reason_code="COMMENT_API_HTTP_ERROR",
+                        ) from exc
+                    time.sleep(self._compute_retry_delay(attempt))
+                    continue
+                raise GitHubAppCommentError(
+                    f"GitHub API HTTP error for {method} {path}: {exc.code}: {detail}",
+                    reason_code="COMMENT_API_HTTP_ERROR",
+                ) from exc
+            except error.URLError as exc:
+                is_last = attempt >= self._max_retries
+                if is_last:
+                    raise GitHubAppCommentError(
+                        f"GitHub API network error for {method} {path}: {exc}",
+                        reason_code="COMMENT_API_NETWORK_ERROR",
+                    ) from exc
+                time.sleep(self._compute_retry_delay(attempt))
+        else:
             raise GitHubAppCommentError(
-                f"GitHub API HTTP error for {method} {path}: {exc.code}: {detail}",
-                reason_code="COMMENT_API_HTTP_ERROR",
-            ) from exc
-        except error.URLError as exc:
-            raise GitHubAppCommentError(
-                f"GitHub API network error for {method} {path}: {exc}",
+                f"GitHub API retries exhausted for {method} {path}",
                 reason_code="COMMENT_API_NETWORK_ERROR",
-            ) from exc
+            )
 
         if not raw:
             return {}
@@ -180,13 +255,54 @@ class GitHubAppCommentClient:
             html_url=str(payload.get("html_url", "")),
         )
 
-    def create_commit_comment(
+    def upsert_commit_comment(
         self,
         *,
         repository: str,
         commit_sha: str,
         body: str,
     ) -> CommentPublishResult:
+        comments = self._request_json(
+            method="GET",
+            path=f"/repos/{repository}/commits/{commit_sha}/comments?per_page=100",
+        )
+        if not isinstance(comments, list):
+            raise GitHubAppCommentError(
+                "commit comments response must be a JSON list",
+                reason_code="COMMENT_API_INVALID_RESPONSE",
+            )
+        existing: dict[str, object] | None = None
+        for item in comments:
+            if not isinstance(item, dict):
+                continue
+            comment_body = str(item.get("body", ""))
+            if APP_COMMENT_MARKER in comment_body:
+                existing = item
+                break
+        if existing is not None:
+            comment_id = int(existing.get("id", 0) or 0)
+            if comment_id <= 0:
+                raise GitHubAppCommentError(
+                    "existing commit comment missing id",
+                    reason_code="COMMENT_API_INVALID_RESPONSE",
+                )
+            payload = self._request_json(
+                method="PATCH",
+                path=f"/repos/{repository}/comments/{comment_id}",
+                payload={"body": body},
+            )
+            if not isinstance(payload, dict):
+                raise GitHubAppCommentError(
+                    "updated commit comment response must be a JSON object",
+                    reason_code="COMMENT_API_INVALID_RESPONSE",
+                )
+            return CommentPublishResult(
+                target="commit",
+                comment_id=int(payload.get("id", comment_id) or comment_id),
+                action="updated",
+                html_url=str(payload.get("html_url", "")),
+            )
+
         payload = self._request_json(
             method="POST",
             path=f"/repos/{repository}/commits/{commit_sha}/comments",

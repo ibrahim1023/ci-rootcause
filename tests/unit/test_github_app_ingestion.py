@@ -166,3 +166,30 @@ def test_fetch_workflow_run_logs_raises_typed_http_error(monkeypatch) -> None:
     with pytest.raises(GitHubAppIngestionError) as exc:
         client.fetch_workflow_run_logs(repository="acme/project", workflow_run_id=100)
     assert exc.value.reason_code == "GITHUB_API_HTTP_ERROR"
+
+
+def test_fetch_workflow_run_logs_retries_transient_http_errors(monkeypatch) -> None:
+    attempts = {"count": 0}
+    payload = _zip_payload({"step.txt": "pytest failed"})
+
+    def fake_urlopen(req, timeout: int):  # noqa: ANN001
+        del req, timeout
+        attempts["count"] += 1
+        if attempts["count"] < 3:
+            raise error.HTTPError(
+                url="https://api.github.com/repos/acme/project/actions/runs/100/logs",
+                code=503,
+                msg="Service Unavailable",
+                hdrs=None,
+                fp=io.BytesIO(b'{"message":"temporary"}'),
+            )
+        return _FakeResponse(payload)
+
+    monkeypatch.setattr("src.github_app_ingestion.urllib_request.urlopen", fake_urlopen)
+    monkeypatch.setattr("src.github_app_ingestion.time.sleep", lambda *_args: None)
+
+    client = GitHubAppIngestionClient(token="token", max_retries=3, backoff_seconds=0.0)
+    raw_log = client.fetch_workflow_run_logs(repository="acme/project", workflow_run_id=100)
+
+    assert attempts["count"] == 3
+    assert "pytest failed" in raw_log

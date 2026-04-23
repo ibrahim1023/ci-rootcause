@@ -193,7 +193,7 @@ def test_process_github_app_webhook_runs_pipeline_with_safe_defaults(monkeypatch
             captured["comment_pr_number"] = pull_request_number
             return _FakeCommentResult()
 
-        def create_commit_comment(self, *, repository: str, commit_sha: str, body: str):  # noqa: ANN201
+        def upsert_commit_comment(self, *, repository: str, commit_sha: str, body: str):  # noqa: ANN201
             del repository, commit_sha, body
             raise AssertionError("commit comment path should not be used")
 
@@ -280,7 +280,7 @@ def test_process_github_app_webhook_requires_explicit_pr_mode_opt_in(monkeypatch
             del repository, pull_request_number, body
             return _FakeCommentResult()
 
-        def create_commit_comment(self, *, repository: str, commit_sha: str, body: str):  # noqa: ANN201
+        def upsert_commit_comment(self, *, repository: str, commit_sha: str, body: str):  # noqa: ANN201
             del repository, commit_sha, body
             raise AssertionError("commit comment path should not be used")
 
@@ -361,7 +361,7 @@ def test_process_github_app_webhook_falls_back_to_commit_comment(monkeypatch) ->
             del repository, pull_request_number, body
             raise AssertionError("pr comment path should not be used")
 
-        def create_commit_comment(self, *, repository: str, commit_sha: str, body: str):  # noqa: ANN201
+        def upsert_commit_comment(self, *, repository: str, commit_sha: str, body: str):  # noqa: ANN201
             del repository, body
             captured["commit_sha"] = commit_sha
             return _FakeCommentResult()
@@ -440,7 +440,7 @@ def test_process_github_app_webhook_marks_partial_when_artifact_paths_missing(mo
             del repository, pull_request_number, body
             raise AssertionError("pr comment path should not be used")
 
-        def create_commit_comment(self, *, repository: str, commit_sha: str, body: str):  # noqa: ANN201
+        def upsert_commit_comment(self, *, repository: str, commit_sha: str, body: str):  # noqa: ANN201
             del repository, commit_sha, body
             return _FakeCommentResult()
 

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import io
 import json
+import time
 import zipfile
 from dataclasses import dataclass
 from urllib import error
@@ -27,7 +28,14 @@ class WorkflowRunIngestionPayload:
 
 
 class GitHubAppIngestionClient:
-    def __init__(self, *, token: str, api_base: str = "https://api.github.com") -> None:
+    def __init__(
+        self,
+        *,
+        token: str,
+        api_base: str = "https://api.github.com",
+        max_retries: int = 3,
+        backoff_seconds: float = 0.5,
+    ) -> None:
         self._token = token.strip()
         if not self._token:
             raise GitHubAppIngestionError(
@@ -35,6 +43,44 @@ class GitHubAppIngestionClient:
                 reason_code="MISSING_GITHUB_TOKEN",
             )
         self._api_base = api_base.rstrip("/")
+        if max_retries < 0:
+            raise GitHubAppIngestionError(
+                "max_retries must be >= 0",
+                reason_code="GITHUB_API_INVALID_RESPONSE",
+            )
+        if backoff_seconds < 0.0:
+            raise GitHubAppIngestionError(
+                "backoff_seconds must be >= 0.0",
+                reason_code="GITHUB_API_INVALID_RESPONSE",
+            )
+        self._max_retries = max_retries
+        self._backoff_seconds = backoff_seconds
+
+    def _is_rate_limited(self, exc: error.HTTPError, detail: str) -> bool:
+        if exc.code == 429:
+            return True
+        return exc.code == 403 and "rate limit" in detail.lower()
+
+    def _compute_retry_delay(self, attempt: int, retry_after: float | None = None) -> float:
+        if retry_after is not None and retry_after >= 0.0:
+            return retry_after
+        return self._backoff_seconds * float(2**attempt)
+
+    def _rate_limit_retry_after(self, exc: error.HTTPError) -> float | None:
+        retry_after_header = exc.headers.get("Retry-After")
+        if retry_after_header:
+            try:
+                return max(0.0, float(retry_after_header))
+            except ValueError:
+                return 0.0
+        reset_epoch = exc.headers.get("X-RateLimit-Reset")
+        if not reset_epoch:
+            return None
+        try:
+            reset_ts = float(reset_epoch)
+        except ValueError:
+            return 0.0
+        return max(0.0, reset_ts - time.time())
 
     def _request_bytes(
         self,
@@ -53,20 +99,47 @@ class GitHubAppIngestionClient:
                 "X-GitHub-Api-Version": "2022-11-28",
             },
         )
-        try:
-            with urllib_request.urlopen(req, timeout=30) as response:
-                return response.read()
-        except error.HTTPError as exc:
-            body = exc.read().decode("utf-8", errors="replace")
-            raise GitHubAppIngestionError(
-                f"GitHub API HTTP error for {method} {path}: {exc.code}: {body}",
-                reason_code="GITHUB_API_HTTP_ERROR",
-            ) from exc
-        except error.URLError as exc:
-            raise GitHubAppIngestionError(
-                f"GitHub API network error for {method} {path}: {exc}",
-                reason_code="GITHUB_API_NETWORK_ERROR",
-            ) from exc
+        attempts = self._max_retries + 1
+        for attempt in range(attempts):
+            try:
+                with urllib_request.urlopen(req, timeout=30) as response:
+                    return response.read()
+            except error.HTTPError as exc:
+                detail = exc.read().decode("utf-8", errors="replace")
+                is_last = attempt >= self._max_retries
+                if self._is_rate_limited(exc, detail):
+                    if is_last:
+                        raise GitHubAppIngestionError(
+                            f"GitHub API HTTP error for {method} {path}: {exc.code}: {detail}",
+                            reason_code="GITHUB_API_HTTP_ERROR",
+                        ) from exc
+                    retry_after = self._rate_limit_retry_after(exc)
+                    time.sleep(self._compute_retry_delay(attempt, retry_after))
+                    continue
+                if exc.code in {500, 502, 503, 504}:
+                    if is_last:
+                        raise GitHubAppIngestionError(
+                            f"GitHub API HTTP error for {method} {path}: {exc.code}: {detail}",
+                            reason_code="GITHUB_API_HTTP_ERROR",
+                        ) from exc
+                    time.sleep(self._compute_retry_delay(attempt))
+                    continue
+                raise GitHubAppIngestionError(
+                    f"GitHub API HTTP error for {method} {path}: {exc.code}: {detail}",
+                    reason_code="GITHUB_API_HTTP_ERROR",
+                ) from exc
+            except error.URLError as exc:
+                is_last = attempt >= self._max_retries
+                if is_last:
+                    raise GitHubAppIngestionError(
+                        f"GitHub API network error for {method} {path}: {exc}",
+                        reason_code="GITHUB_API_NETWORK_ERROR",
+                    ) from exc
+                time.sleep(self._compute_retry_delay(attempt))
+        raise GitHubAppIngestionError(
+            f"GitHub API retries exhausted for {method} {path}",
+            reason_code="GITHUB_API_NETWORK_ERROR",
+        )
 
     def _request_json(self, *, method: str, path: str) -> dict[str, object]:
         raw = self._request_bytes(method=method, path=path)

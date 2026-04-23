@@ -289,7 +289,7 @@ def process_github_app_webhook(
                     body=comment_body,
                 )
             else:
-                comment_result = client.create_commit_comment(
+                comment_result = client.upsert_commit_comment(
                     repository=repository,
                     commit_sha=ingestion.head_sha,
                     body=comment_body,
