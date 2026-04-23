@@ -18,8 +18,24 @@ def _sign(body: bytes, secret: str) -> str:
     return f"sha256={digest}"
 
 
+def _workflow_run_payload(*, conclusion: str) -> dict[str, object]:
+    return {
+        "repository": {"full_name": "acme/project"},
+        "workflow_run": {
+            "id": 101,
+            "name": "CI",
+            "head_sha": "abc123",
+            "head_branch": "main",
+            "status": "completed",
+            "conclusion": conclusion,
+            "html_url": "https://github.com/acme/project/actions/runs/101",
+            "pull_requests": [{"base": {"sha": "def456"}}],
+        },
+    }
+
+
 def test_handle_webhook_accepts_valid_workflow_run_failure_event() -> None:
-    body = json.dumps({"workflow_run": {"id": 101, "status": "completed", "conclusion": "failure"}})
+    body = json.dumps(_workflow_run_payload(conclusion="failure"))
     raw = body.encode("utf-8")
     secret = "top-secret"
     headers = {
@@ -37,10 +53,14 @@ def test_handle_webhook_accepts_valid_workflow_run_failure_event() -> None:
     assert result["workflow_run_id"] == 101
     assert result["should_process_failure"] is True
     assert result["reason_code"] == ""
+    assert result["repository"] == "acme/project"
+    assert result["head_sha"] == "abc123"
 
 
 def test_handle_webhook_ignores_workflow_run_when_not_failed() -> None:
-    body = json.dumps({"workflow_run": {"id": 102, "status": "completed", "conclusion": "success"}})
+    payload = _workflow_run_payload(conclusion="success")
+    payload["workflow_run"]["id"] = 102
+    body = json.dumps(payload)
     raw = body.encode("utf-8")
     secret = "top-secret"
     headers = {
@@ -54,6 +74,23 @@ def test_handle_webhook_ignores_workflow_run_when_not_failed() -> None:
     assert result["ignored"] is True
     assert result["reason_code"] == "WORKFLOW_NOT_FAILED"
     assert result["should_process_failure"] is False
+
+
+def test_handle_webhook_reports_reason_code_for_invalid_workflow_payload() -> None:
+    body = json.dumps({"workflow_run": {"id": 101}})
+    raw = body.encode("utf-8")
+    secret = "top-secret"
+    headers = {
+        "X-GitHub-Event": "workflow_run",
+        "X-Hub-Signature-256": _sign(raw, secret),
+    }
+
+    result = handle_github_app_webhook(headers=headers, body=raw, webhook_secret=secret)
+
+    assert result["handled"] is False
+    assert result["ignored"] is False
+    assert result["reason_code"] == "MISSING_REPOSITORY"
+    assert "repository must be a JSON object" in result["reason"]
 
 
 def test_handle_webhook_ignores_unsupported_event() -> None:

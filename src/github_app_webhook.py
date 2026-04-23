@@ -6,6 +6,8 @@ import json
 from collections.abc import Mapping
 from typing import Any, Callable
 
+from src.github_app_events import GitHubAppEventPayloadError, parse_workflow_run_event
+
 
 class GitHubWebhookError(RuntimeError):
     """Base class for GitHub App webhook handling errors."""
@@ -75,28 +77,32 @@ def parse_github_webhook_event(
 
 
 def _handle_workflow_run(payload: dict[str, Any]) -> dict[str, Any]:
-    workflow_run = payload.get("workflow_run")
-    if not isinstance(workflow_run, dict):
+    try:
+        event = parse_workflow_run_event(payload)
+    except GitHubAppEventPayloadError as exc:
         return {
             "handled": False,
             "ignored": False,
-            "reason_code": "INVALID_WORKFLOW_RUN_PAYLOAD",
-            "reason": "workflow_run object missing in webhook payload",
+            "reason_code": exc.reason_code,
+            "reason": str(exc),
             "should_process_failure": False,
         }
-
-    conclusion = str(workflow_run.get("conclusion", "")).strip().lower()
-    status = str(workflow_run.get("status", "")).strip().lower()
-    should_process_failure = conclusion == "failure"
+    should_process_failure = event.is_failure
 
     return {
         "handled": True,
         "ignored": not should_process_failure,
         "reason_code": "" if should_process_failure else "WORKFLOW_NOT_FAILED",
         "reason": "" if should_process_failure else "workflow_run conclusion is not failure",
-        "workflow_run_id": workflow_run.get("id"),
-        "status": status,
-        "conclusion": conclusion,
+        "workflow_run_id": event.workflow_run_id,
+        "status": event.status,
+        "conclusion": event.conclusion,
+        "repository": event.repository,
+        "head_sha": event.head_sha,
+        "base_sha": event.base_sha,
+        "head_branch": event.head_branch,
+        "workflow_run_name": event.workflow_run_name,
+        "workflow_run_url": event.html_url,
         "should_process_failure": should_process_failure,
     }
 

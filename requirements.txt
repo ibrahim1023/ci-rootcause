@@ -1,4 +1,5 @@
 google-adk==1.25.1
+pyjwt[crypto]>=2.10.0,<3
 pytest
 ruff
 pre-commit
