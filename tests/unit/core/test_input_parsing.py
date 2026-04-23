@@ -10,6 +10,7 @@ from src.core.input_parsing import (
     load_historical_runs,
     load_simple_config,
     load_validated_changes,
+    parse_agentic_provider_config,
     parse_bool,
     parse_confidence_threshold,
     parse_execution_mode,
@@ -46,6 +47,30 @@ def test_parse_execution_mode_accepts_supported_value() -> None:
 def test_parse_execution_mode_rejects_invalid_value() -> None:
     with pytest.raises(InputParsingError, match="Invalid value for mode"):
         parse_execution_mode("fast-and-loose")
+
+
+def test_parse_agentic_provider_config_requires_key_for_hosted_agentic_modes() -> None:
+    execution_mode = parse_execution_mode("agentic_assist")
+    with pytest.raises(InputParsingError, match="provider_api_key is required"):
+        parse_agentic_provider_config(
+            execution_mode=execution_mode,
+            provider_value="openai",
+            model_value="",
+            api_key_value="",
+        )
+
+
+def test_parse_agentic_provider_config_allows_local_without_key() -> None:
+    execution_mode = parse_execution_mode("agentic_assist")
+    config = parse_agentic_provider_config(
+        execution_mode=execution_mode,
+        provider_value="local",
+        model_value="",
+        api_key_value="",
+    )
+    assert config.provider.value == "local"
+    assert config.model == "local-default"
+    assert config.api_key is None
 
 
 def test_load_simple_config_respects_missing_ok(tmp_path: Path) -> None:

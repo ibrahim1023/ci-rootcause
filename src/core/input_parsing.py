@@ -4,6 +4,12 @@ import json
 from pathlib import Path
 from typing import Any
 
+from src.core.agentic_provider import (
+    AgenticProvider,
+    AgenticProviderConfig,
+    default_model_for_provider,
+    parse_agentic_provider,
+)
 from src.core.execution_mode import ExecutionMode
 from src.core.execution_mode import parse_execution_mode as _parse_execution_mode
 from src.path_safety import PathSafetyError, normalize_repo_relative_path
@@ -47,6 +53,32 @@ def parse_execution_mode(value: str, *, name: str = "mode") -> ExecutionMode:
         return _parse_execution_mode(value, name=name)
     except ValueError as exc:
         raise InputParsingError(str(exc)) from exc
+
+
+def parse_agentic_provider_config(
+    *,
+    execution_mode: ExecutionMode,
+    provider_value: str,
+    model_value: str,
+    api_key_value: str,
+) -> AgenticProviderConfig:
+    provider_text = provider_value.strip() or AgenticProvider.LOCAL.value
+    try:
+        provider = parse_agentic_provider(provider_text, name="provider")
+    except ValueError as exc:
+        raise InputParsingError(str(exc)) from exc
+
+    model = model_value.strip() or default_model_for_provider(provider)
+    api_key = api_key_value.strip() or None
+    if (
+        execution_mode in {ExecutionMode.AGENTIC_ASSIST, ExecutionMode.AGENTIC_FULL}
+        and provider in {AgenticProvider.OPENAI, AgenticProvider.ANTHROPIC}
+        and not api_key
+    ):
+        raise InputParsingError(
+            "provider_api_key is required for hosted providers in agentic modes"
+        )
+    return AgenticProviderConfig(provider=provider, model=model, api_key=api_key)
 
 
 def load_simple_config(path: Path, *, missing_ok: bool) -> dict[str, str]:

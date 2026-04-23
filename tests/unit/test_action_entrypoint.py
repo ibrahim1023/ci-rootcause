@@ -340,6 +340,50 @@ def test_action_entrypoint_rejects_invalid_mode(tmp_path: Path, monkeypatch) -> 
     assert "Invalid value for mode: 'invalid-mode'" in payload["pr_failure_reason"]
 
 
+def test_action_entrypoint_requires_provider_key_for_hosted_agentic_mode(
+    tmp_path: Path, monkeypatch
+) -> None:
+    output_file = tmp_path / "github_output.txt"
+    config_path = tmp_path / "ci-rootcause.yml"
+    config_path.write_text(
+        "\n".join(
+            [
+                "raw_log: pytest failed",
+                "raw_diff: diff --git a/a.py b/a.py",
+                f"output_dir: {tmp_path / 'artifacts'}",
+                "timestamp: 2026-02-24T00:00:00Z",
+                "run_id: gha_8008_mode",
+                "commit: abc123",
+                "base_commit: abc122",
+                "head_commit: abc123",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setenv("GITHUB_OUTPUT", str(output_file))
+    monkeypatch.setenv("INPUT_GITHUB_TOKEN", "dummy-token")
+    monkeypatch.setenv("INPUT_CREATE_FIX_PR", "false")
+    monkeypatch.setenv("INPUT_POST_PR_COMMENT", "true")
+    monkeypatch.setenv("INPUT_CONFIG_PATH", str(config_path))
+    monkeypatch.setenv("INPUT_MAX_FIX_FILES", "5")
+    monkeypatch.setenv("INPUT_MODE", "agentic_assist")
+    monkeypatch.setenv("INPUT_PROVIDER", "openai")
+    monkeypatch.delenv("INPUT_PROVIDER_API_KEY", raising=False)
+
+    exit_code = main()
+
+    assert exit_code == 2
+    payload = _parse_github_output(output_file)
+    assert payload["classification"] == "UNKNOWN"
+    assert payload["pr_created"] == "false"
+    assert payload["pr_failure_reason_code"] == "ACTION_INPUT_ERROR"
+    assert (
+        "provider_api_key is required for hosted providers in agentic modes"
+        in payload["pr_failure_reason"]
+    )
+
+
 def test_action_entrypoint_rejects_ambiguous_validated_change_path(
     tmp_path: Path, monkeypatch
 ) -> None:

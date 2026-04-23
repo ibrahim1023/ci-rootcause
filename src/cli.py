@@ -11,6 +11,7 @@ from src.core.input_parsing import (
     load_historical_runs,
     load_simple_config,
     load_validated_changes,
+    parse_agentic_provider_config,
     parse_bool,
     parse_confidence_threshold,
     parse_execution_mode,
@@ -63,6 +64,21 @@ def _build_parser() -> argparse.ArgumentParser:
         "--mode",
         default=None,
         help="Execution mode: deterministic | agentic_assist | agentic_full.",
+    )
+    parser.add_argument(
+        "--provider",
+        default=None,
+        help="Agentic provider: openai | anthropic | local. Default: local.",
+    )
+    parser.add_argument(
+        "--model",
+        default=None,
+        help="Optional provider model id override.",
+    )
+    parser.add_argument(
+        "--provider-api-key",
+        default=None,
+        help="Optional API key for hosted agentic providers (required in agentic modes).",
     )
     parser.add_argument(
         "--log-path",
@@ -241,6 +257,12 @@ def main(argv: Sequence[str] | None = None) -> int:
             _coalesce(args.mode, config.get("mode")) or DEFAULT_EXECUTION_MODE,
             name="mode",
         )
+        provider_config = parse_agentic_provider_config(
+            execution_mode=execution_mode,
+            provider_value=_coalesce(args.provider, config.get("provider")),
+            model_value=_coalesce(args.model, config.get("model")),
+            api_key_value=_coalesce(args.provider_api_key, config.get("provider_api_key")),
+        )
 
         create_fix_pr = bool(args.create_fix_pr)
         if not create_fix_pr and "create_fix_pr" in config:
@@ -314,6 +336,9 @@ def main(argv: Sequence[str] | None = None) -> int:
             min_pr_confidence=min_pr_confidence,
             offline_only=offline_only,
             execution_mode=execution_mode.value,
+            llm_provider=provider_config.provider.value,
+            llm_model=provider_config.model,
+            llm_api_key=provider_config.api_key,
             ci_provider=str(args.ci_provider).strip() or None,
             provider_adapter=str(args.provider_adapter).strip() or None,
         )

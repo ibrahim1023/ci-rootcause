@@ -161,6 +161,9 @@ class PipelineRequest:
     min_pr_confidence: float = 0.75
     offline_only: bool = False
     execution_mode: str = "deterministic"
+    llm_provider: str | None = None
+    llm_model: str | None = None
+    llm_api_key: str | None = None
     create_fix_pr_disabled_reason: str | None = None
     ci_provider: str | None = None
     provider_adapter: str | None = None
@@ -532,6 +535,8 @@ def _compute_input_hashes(request: PipelineRequest, config: PipelineConfig) -> d
         "historical_runs_sha256": _sha256_text(historical_runs_payload),
         "config_sha256": _config_hash(config),
         "execution_mode_sha256": _sha256_text(request.execution_mode),
+        "llm_provider_sha256": _sha256_text(request.llm_provider or ""),
+        "llm_model_sha256": _sha256_text(request.llm_model or ""),
     }
 
 
@@ -546,6 +551,8 @@ def _compute_trace_id(request: PipelineRequest, config: PipelineConfig) -> str:
         "job_id": config.run.job_id,
         "request_commit": request.commit,
         "execution_mode": request.execution_mode,
+        "llm_provider": request.llm_provider or "",
+        "llm_model": request.llm_model or "",
     }
     serialized = json.dumps(material, sort_keys=True, separators=(",", ":"))
     return _sha256_text(serialized)[:24]

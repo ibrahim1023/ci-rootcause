@@ -10,6 +10,7 @@ from src.core.input_parsing import (
     load_historical_runs,
     load_simple_config,
     load_validated_changes,
+    parse_agentic_provider_config,
     parse_bool,
     parse_confidence_threshold,
     parse_execution_mode,
@@ -184,6 +185,17 @@ def main() -> int:
             or DEFAULT_EXECUTION_MODE,
             name="mode",
         )
+        provider_config = parse_agentic_provider_config(
+            execution_mode=execution_mode,
+            provider_value=(
+                _get_input("provider", default="").strip() or config.get("provider", "").strip()
+            ),
+            model_value=_get_input("model", default="").strip() or config.get("model", "").strip(),
+            api_key_value=(
+                _get_input("provider_api_key", default="").strip()
+                or config.get("provider_api_key", "").strip()
+            ),
+        )
         rollout_profile = (
             _get_input("rollout_profile", default="").strip() or config.get("profile", "").strip()
         )
@@ -260,6 +272,9 @@ def main() -> int:
             historical_runs=historical_runs,
             min_pr_confidence=min_pr_confidence,
             execution_mode=execution_mode.value,
+            llm_provider=provider_config.provider.value,
+            llm_model=provider_config.model,
+            llm_api_key=provider_config.api_key,
             create_fix_pr_disabled_reason=create_fix_pr_disabled_reason or None,
         )
 

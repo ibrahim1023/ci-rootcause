@@ -47,6 +47,18 @@ inputs:
     description: "Execution mode (deterministic, agentic_assist, agentic_full)."
     required: false
     default: "deterministic"
+  provider:
+    description: "Agentic provider (openai, anthropic, local)."
+    required: false
+    default: "local"
+  model:
+    description: "Optional provider model id."
+    required: false
+    default: ""
+  provider_api_key:
+    description: "Optional API key for hosted providers; required in agentic modes."
+    required: false
+    default: ""
 
 outputs:
   classification:
