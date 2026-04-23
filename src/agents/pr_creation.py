@@ -603,6 +603,11 @@ def run_pr_creation(
                 PR_REASON_MAX_FIX_FILES_EXCEEDED,
                 "validated changes exceed max_fix_files limit",
             )
+        elif disabled_reason == "app_pr_mode_not_enabled":
+            reason = _build_reason(
+                PR_REASON_CREATE_FIX_PR_DISABLED,
+                "app_pr_mode_not_enabled",
+            )
         else:
             reason = _build_reason(
                 PR_REASON_CREATE_FIX_PR_DISABLED,

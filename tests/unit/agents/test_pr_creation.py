@@ -239,6 +239,18 @@ def test_run_pr_creation_uses_stable_max_fix_files_disabled_reason_code() -> Non
     assert result["failure_reason"] == "validated changes exceed max_fix_files limit"
 
 
+def test_run_pr_creation_reports_app_pr_mode_not_enabled_reason() -> None:
+    result = run_pr_creation(
+        payload={
+            "create_fix_pr": False,
+            "create_fix_pr_disabled_reason": "app_pr_mode_not_enabled",
+        }
+    )
+
+    assert result["failure_reason_code"] == PR_REASON_CREATE_FIX_PR_DISABLED
+    assert result["failure_reason"] == "app_pr_mode_not_enabled"
+
+
 def test_build_pull_request_request_includes_summary_and_confidence() -> None:
     payload = {
         "repository": "acme/ci-rootcause",

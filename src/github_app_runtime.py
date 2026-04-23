@@ -27,11 +27,20 @@ from src.github_app_webhook import (
 
 @dataclass(frozen=True)
 class GitHubAppRepoConfig:
+    enable_pr_mode: bool = False
     create_fix_pr: bool = False
     min_pr_confidence: float = 0.75
     execution_mode: str = "deterministic"
     output_dir: str = "artifacts/app"
     post_comment: bool = True
+
+
+def _resolve_pr_creation_controls(config: GitHubAppRepoConfig) -> tuple[bool, str | None]:
+    if not config.create_fix_pr:
+        return False, None
+    if not config.enable_pr_mode:
+        return False, "app_pr_mode_not_enabled"
+    return True, None
 
 
 def _pipeline_summary(state: Any) -> dict[str, Any]:
@@ -170,6 +179,8 @@ def process_github_app_webhook(
             "workflow_run_id": workflow_run_id,
         }
 
+    resolved_create_fix_pr, disabled_reason = _resolve_pr_creation_controls(config)
+
     request = PipelineRequest(
         raw_log=ingestion.raw_log,
         raw_diff=ingestion.raw_diff,
@@ -179,7 +190,7 @@ def process_github_app_webhook(
         base_commit=ingestion.base_sha,
         head_commit=ingestion.head_sha,
         output_dir=output_dir,
-        create_fix_pr=config.create_fix_pr,
+        create_fix_pr=resolved_create_fix_pr,
         dry_run=False,
         github_token=github_token,
         repository=ingestion.repository,
@@ -187,6 +198,7 @@ def process_github_app_webhook(
         fail_fast=False,
         min_pr_confidence=config.min_pr_confidence,
         execution_mode=config.execution_mode,
+        create_fix_pr_disabled_reason=disabled_reason,
     )
 
     state = run_pipeline(request=request)

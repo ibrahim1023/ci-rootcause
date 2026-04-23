@@ -6,6 +6,7 @@ Repository-level app configuration schema (logical contract):
 {
   "enabled": true,
   "mode": "deterministic",
+  "enable_pr_mode": false,
   "create_fix_pr": false,
   "min_pr_confidence": 0.75,
   "post_comment": true
@@ -20,7 +21,11 @@ Repository-level app configuration schema (logical contract):
   - MVP default: `deterministic`.
 - `create_fix_pr`:
   - Must default to `false`.
-  - If enabled later, existing PR guardrails must still apply.
+  - Has effect only when `enable_pr_mode=true`.
+- `enable_pr_mode`:
+  - Explicit opt-in gate for app-driven PR creation.
+  - Must default to `false`.
+  - When `false`, app mode keeps comment/artifact-only behavior.
 - `min_pr_confidence`:
   - Float in `[0.0, 1.0]`.
 - `post_comment`:
