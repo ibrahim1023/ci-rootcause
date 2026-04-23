@@ -20,6 +20,7 @@ class WorkflowRunEvent:
     workflow_run_name: str
     head_sha: str
     base_sha: str
+    pull_request_number: int | None
     head_branch: str
     conclusion: str
     status: str
@@ -67,6 +68,19 @@ def _read_base_sha(workflow_run: dict[str, Any]) -> str:
     if not isinstance(base, dict):
         return ""
     return str(base.get("sha", "")).strip()
+
+
+def _read_pull_request_number(workflow_run: dict[str, Any]) -> int | None:
+    pull_requests = workflow_run.get("pull_requests")
+    if not isinstance(pull_requests, list) or not pull_requests:
+        return None
+    first_pr = pull_requests[0]
+    if not isinstance(first_pr, dict):
+        return None
+    number = first_pr.get("number")
+    if isinstance(number, int) and number > 0:
+        return number
+    return None
 
 
 def parse_workflow_run_event(payload: dict[str, Any]) -> WorkflowRunEvent:
@@ -141,6 +155,7 @@ def parse_workflow_run_event(payload: dict[str, Any]) -> WorkflowRunEvent:
         reason_code="MISSING_WORKFLOW_RUN_URL",
     )
     base_sha = _read_base_sha(workflow_run)
+    pull_request_number = _read_pull_request_number(workflow_run)
 
     return WorkflowRunEvent(
         repository=repository,
@@ -149,6 +164,7 @@ def parse_workflow_run_event(payload: dict[str, Any]) -> WorkflowRunEvent:
         workflow_run_name=run_name,
         head_sha=head_sha,
         base_sha=base_sha,
+        pull_request_number=pull_request_number,
         head_branch=head_branch,
         conclusion=conclusion,
         status=status,

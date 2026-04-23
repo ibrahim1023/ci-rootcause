@@ -6,6 +6,11 @@ from pathlib import Path
 from typing import Any
 
 from src.core.orchestration import PipelineRequest, run_pipeline
+from src.github_app_comments import (
+    GitHubAppCommentClient,
+    GitHubAppCommentError,
+    build_app_comment_body,
+)
 from src.github_app_ingestion import GitHubAppIngestionError, collect_workflow_run_inputs
 from src.github_app_webhook import (
     GitHubWebhookError,
@@ -19,6 +24,7 @@ class GitHubAppRepoConfig:
     min_pr_confidence: float = 0.75
     execution_mode: str = "deterministic"
     output_dir: str = "artifacts/app"
+    post_comment: bool = True
 
 
 def _pipeline_summary(state: Any) -> dict[str, Any]:
@@ -158,14 +164,65 @@ def process_github_app_webhook(
 
     state = run_pipeline(request=request)
     summary = _pipeline_summary(state=state)
+    comment_posted = False
+    comment_target = ""
+    comment_id = 0
+    comment_action = ""
+    comment_url = ""
+    comment_reason_code = ""
+    comment_reason = ""
+
+    if config.post_comment:
+        comment_body = build_app_comment_body(
+            classification=str(summary["classification"]),
+            confidence=float(summary["confidence"]),
+            primary_root_cause_title=str(summary["primary_root_cause_title"]),
+            run_id=run_id,
+            rca_json_path=str(summary["rca_json_path"]),
+            rca_md_path=str(summary["rca_md_path"]),
+        )
+        client = GitHubAppCommentClient(token=github_token, api_base=api_base)
+        pull_request_number_raw = webhook_result.get("pull_request_number")
+        pull_request_number = (
+            int(pull_request_number_raw)
+            if isinstance(pull_request_number_raw, int) and pull_request_number_raw > 0
+            else 0
+        )
+        try:
+            if pull_request_number > 0:
+                comment_result = client.upsert_pr_comment(
+                    repository=repository,
+                    pull_request_number=pull_request_number,
+                    body=comment_body,
+                )
+            else:
+                comment_result = client.create_commit_comment(
+                    repository=repository,
+                    commit_sha=ingestion.head_sha,
+                    body=comment_body,
+                )
+            comment_posted = True
+            comment_target = comment_result.target
+            comment_id = comment_result.comment_id
+            comment_action = comment_result.action
+            comment_url = comment_result.html_url
+        except GitHubAppCommentError as exc:
+            comment_reason_code = exc.reason_code
+            comment_reason = str(exc)
+
     return {
-        "status": "ok",
-        "reason_code": "",
-        "reason": "",
+        "status": "partial" if comment_reason_code else "ok",
+        "reason_code": comment_reason_code,
+        "reason": comment_reason,
         "event": str(webhook_result.get("event", "")),
         "delivery": str(webhook_result.get("delivery", "")),
         "repository": repository,
         "workflow_run_id": workflow_run_id,
         "pipeline_status": str(getattr(state, "pipeline_status", "unknown")),
+        "comment_posted": comment_posted,
+        "comment_target": comment_target,
+        "comment_id": comment_id,
+        "comment_action": comment_action,
+        "comment_url": comment_url,
         **summary,
     }

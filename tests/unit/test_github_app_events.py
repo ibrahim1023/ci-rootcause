@@ -28,6 +28,7 @@ def test_parse_workflow_run_event_success_failure() -> None:
     assert parsed.workflow_run_id == 123
     assert parsed.workflow_run_attempt == 1
     assert parsed.base_sha == "def456"
+    assert parsed.pull_request_number is None
     assert parsed.is_failure is True
 
 
@@ -74,3 +75,13 @@ def test_parse_workflow_run_event_allows_blank_conclusion_when_not_completed() -
     assert parsed.status == "in_progress"
     assert parsed.conclusion == ""
     assert parsed.is_failure is False
+
+
+def test_parse_workflow_run_event_reads_pull_request_number() -> None:
+    payload = _payload()
+    payload["workflow_run"]["pull_requests"] = [
+        {"number": 321, "base": {"sha": "def456"}},
+    ]
+
+    parsed = parse_workflow_run_event(payload)
+    assert parsed.pull_request_number == 321

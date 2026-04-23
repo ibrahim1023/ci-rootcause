@@ -87,6 +87,7 @@ def test_process_github_app_webhook_runs_pipeline_with_safe_defaults(monkeypatch
             "head_sha": "head123",
             "base_sha": "base123",
             "head_branch": "main",
+            "pull_request_number": 77,
         },
     )
     monkeypatch.setattr(
@@ -120,7 +121,28 @@ def test_process_github_app_webhook_runs_pipeline_with_safe_defaults(monkeypatch
             }
         )
 
+    class _FakeCommentResult:
+        target = "pull_request"
+        comment_id = 1234
+        action = "updated"
+        html_url = "https://example.com/comment/1234"
+
+    class _FakeCommentClient:
+        def __init__(self, *, token: str, api_base: str = "https://api.github.com") -> None:
+            del token, api_base
+
+        def upsert_pr_comment(self, *, repository: str, pull_request_number: int, body: str):  # noqa: ANN201
+            del body
+            captured["comment_target_repo"] = repository
+            captured["comment_pr_number"] = pull_request_number
+            return _FakeCommentResult()
+
+        def create_commit_comment(self, *, repository: str, commit_sha: str, body: str):  # noqa: ANN201
+            del repository, commit_sha, body
+            raise AssertionError("commit comment path should not be used")
+
     monkeypatch.setattr("src.github_app_runtime.run_pipeline", _fake_run_pipeline)
+    monkeypatch.setattr("src.github_app_runtime.GitHubAppCommentClient", _FakeCommentClient)
 
     result = process_github_app_webhook(
         headers={"X-GitHub-Event": "workflow_run"},
@@ -136,3 +158,87 @@ def test_process_github_app_webhook_runs_pipeline_with_safe_defaults(monkeypatch
     assert result["status"] == "ok"
     assert result["classification"] == "TEST"
     assert result["rca_json_path"] == "artifacts/app/ci-rca.json"
+    assert result["comment_posted"] is True
+    assert result["comment_target"] == "pull_request"
+    assert captured["comment_pr_number"] == 77
+
+
+def test_process_github_app_webhook_falls_back_to_commit_comment(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "src.github_app_runtime.handle_github_app_webhook",
+        lambda headers, body, webhook_secret: {  # noqa: ARG005
+            "handled": True,
+            "ignored": False,
+            "event": "workflow_run",
+            "delivery": "d1",
+            "repository": "acme/project",
+            "workflow_run_id": 104,
+            "head_sha": "head456",
+            "base_sha": "base456",
+            "head_branch": "main",
+            "pull_request_number": None,
+        },
+    )
+    monkeypatch.setattr(
+        "src.github_app_runtime.collect_workflow_run_inputs",
+        lambda **kwargs: WorkflowRunIngestionPayload(  # noqa: ANN003
+            repository="acme/project",
+            workflow_run_id=104,
+            base_sha="base456",
+            head_sha="head456",
+            raw_log="pytest failed\n",
+            raw_diff="diff --git a/a.py b/a.py\n",
+        ),
+    )
+    monkeypatch.setattr(
+        "src.github_app_runtime.run_pipeline",
+        lambda request: _FakeState(  # noqa: ARG005
+            agent_outputs={
+                "failure_classification": {"classification": "TEST"},
+                "root_cause_ranker": {
+                    "confidence": 0.9,
+                    "primary_root_cause": {"title": "assertion failed"},
+                },
+                "reporter": {
+                    "ci_rca_json_path": "artifacts/app/ci-rca.json",
+                    "ci_rca_md_path": "artifacts/app/ci-rca.md",
+                },
+                "pr_creation": {"pr_created": False},
+            }
+        ),
+    )
+
+    captured = {}
+
+    class _FakeCommentResult:
+        target = "commit"
+        comment_id = 5678
+        action = "created"
+        html_url = "https://example.com/comment/5678"
+
+    class _FakeCommentClient:
+        def __init__(self, *, token: str, api_base: str = "https://api.github.com") -> None:
+            del token, api_base
+
+        def upsert_pr_comment(self, *, repository: str, pull_request_number: int, body: str):  # noqa: ANN201
+            del repository, pull_request_number, body
+            raise AssertionError("pr comment path should not be used")
+
+        def create_commit_comment(self, *, repository: str, commit_sha: str, body: str):  # noqa: ANN201
+            del repository, body
+            captured["commit_sha"] = commit_sha
+            return _FakeCommentResult()
+
+    monkeypatch.setattr("src.github_app_runtime.GitHubAppCommentClient", _FakeCommentClient)
+
+    result = process_github_app_webhook(
+        headers={"X-GitHub-Event": "workflow_run"},
+        body=b"{}",
+        webhook_secret="secret",
+        github_token="token",
+    )
+
+    assert result["status"] == "ok"
+    assert result["comment_posted"] is True
+    assert result["comment_target"] == "commit"
+    assert captured["commit_sha"] == "head456"
