@@ -87,6 +87,25 @@ def _handle_workflow_run(payload: dict[str, Any]) -> dict[str, Any]:
             "reason": str(exc),
             "should_process_failure": False,
         }
+    if event.status != "completed":
+        return {
+            "handled": True,
+            "ignored": True,
+            "reason_code": "WORKFLOW_NOT_COMPLETED",
+            "reason": "workflow_run status is not completed",
+            "workflow_run_id": event.workflow_run_id,
+            "workflow_run_attempt": event.workflow_run_attempt,
+            "status": event.status,
+            "conclusion": event.conclusion,
+            "repository": event.repository,
+            "head_sha": event.head_sha,
+            "base_sha": event.base_sha,
+            "head_branch": event.head_branch,
+            "workflow_run_name": event.workflow_run_name,
+            "workflow_run_url": event.html_url,
+            "should_process_failure": False,
+        }
+
     should_process_failure = event.is_failure
 
     return {
@@ -95,6 +114,7 @@ def _handle_workflow_run(payload: dict[str, Any]) -> dict[str, Any]:
         "reason_code": "" if should_process_failure else "WORKFLOW_NOT_FAILED",
         "reason": "" if should_process_failure else "workflow_run conclusion is not failure",
         "workflow_run_id": event.workflow_run_id,
+        "workflow_run_attempt": event.workflow_run_attempt,
         "status": event.status,
         "conclusion": event.conclusion,
         "repository": event.repository,

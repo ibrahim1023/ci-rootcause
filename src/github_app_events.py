@@ -16,6 +16,7 @@ class GitHubAppEventPayloadError(ValueError):
 class WorkflowRunEvent:
     repository: str
     workflow_run_id: int
+    workflow_run_attempt: int
     workflow_run_name: str
     head_sha: str
     base_sha: str
@@ -92,6 +93,12 @@ def parse_workflow_run_event(payload: dict[str, Any]) -> WorkflowRunEvent:
             "workflow_run.id must be a positive integer",
             reason_code="INVALID_WORKFLOW_RUN_ID",
         )
+    run_attempt_raw = workflow_run.get("run_attempt", 1)
+    if not isinstance(run_attempt_raw, int) or run_attempt_raw <= 0:
+        raise GitHubAppEventPayloadError(
+            "workflow_run.run_attempt must be a positive integer",
+            reason_code="INVALID_WORKFLOW_RUN_ATTEMPT",
+        )
 
     head_sha = _require_non_empty_str(
         workflow_run.get("head_sha"),
@@ -108,11 +115,21 @@ def parse_workflow_run_event(payload: dict[str, Any]) -> WorkflowRunEvent:
         field_name="workflow_run.status",
         reason_code="MISSING_WORKFLOW_RUN_STATUS",
     ).lower()
-    conclusion = _require_non_empty_str(
-        workflow_run.get("conclusion"),
-        field_name="workflow_run.conclusion",
-        reason_code="MISSING_WORKFLOW_RUN_CONCLUSION",
-    ).lower()
+    conclusion_raw = workflow_run.get("conclusion")
+    if conclusion_raw is None:
+        conclusion = ""
+    elif isinstance(conclusion_raw, str):
+        conclusion = conclusion_raw.strip().lower()
+    else:
+        raise GitHubAppEventPayloadError(
+            "workflow_run.conclusion must be a string when provided",
+            reason_code="INVALID_WORKFLOW_RUN_CONCLUSION",
+        )
+    if status == "completed" and not conclusion:
+        raise GitHubAppEventPayloadError(
+            "workflow_run.conclusion is required",
+            reason_code="MISSING_WORKFLOW_RUN_CONCLUSION",
+        )
     run_name = _require_non_empty_str(
         workflow_run.get("name"),
         field_name="workflow_run.name",
@@ -128,6 +145,7 @@ def parse_workflow_run_event(payload: dict[str, Any]) -> WorkflowRunEvent:
     return WorkflowRunEvent(
         repository=repository,
         workflow_run_id=run_id_raw,
+        workflow_run_attempt=run_attempt_raw,
         workflow_run_name=run_name,
         head_sha=head_sha,
         base_sha=base_sha,

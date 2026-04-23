@@ -10,6 +10,7 @@ def _payload(*, conclusion: str = "failure") -> dict[str, object]:
         "repository": {"full_name": "acme/project"},
         "workflow_run": {
             "id": 123,
+            "run_attempt": 1,
             "name": "CI",
             "head_sha": "abc123",
             "head_branch": "main",
@@ -25,6 +26,7 @@ def test_parse_workflow_run_event_success_failure() -> None:
     parsed = parse_workflow_run_event(_payload(conclusion="failure"))
     assert parsed.repository == "acme/project"
     assert parsed.workflow_run_id == 123
+    assert parsed.workflow_run_attempt == 1
     assert parsed.base_sha == "def456"
     assert parsed.is_failure is True
 
@@ -52,3 +54,23 @@ def test_parse_workflow_run_event_invalid_run_id_reason_code() -> None:
     with pytest.raises(GitHubAppEventPayloadError) as exc:
         parse_workflow_run_event(payload)
     assert exc.value.reason_code == "INVALID_WORKFLOW_RUN_ID"
+
+
+def test_parse_workflow_run_event_rejects_invalid_run_attempt_reason_code() -> None:
+    payload = _payload()
+    payload["workflow_run"]["run_attempt"] = 0
+
+    with pytest.raises(GitHubAppEventPayloadError) as exc:
+        parse_workflow_run_event(payload)
+    assert exc.value.reason_code == "INVALID_WORKFLOW_RUN_ATTEMPT"
+
+
+def test_parse_workflow_run_event_allows_blank_conclusion_when_not_completed() -> None:
+    payload = _payload()
+    payload["workflow_run"]["status"] = "in_progress"
+    payload["workflow_run"]["conclusion"] = None
+
+    parsed = parse_workflow_run_event(payload)
+    assert parsed.status == "in_progress"
+    assert parsed.conclusion == ""
+    assert parsed.is_failure is False

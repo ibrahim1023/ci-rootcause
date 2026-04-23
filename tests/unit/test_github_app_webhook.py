@@ -23,6 +23,7 @@ def _workflow_run_payload(*, conclusion: str) -> dict[str, object]:
         "repository": {"full_name": "acme/project"},
         "workflow_run": {
             "id": 101,
+            "run_attempt": 1,
             "name": "CI",
             "head_sha": "abc123",
             "head_branch": "main",
@@ -73,6 +74,26 @@ def test_handle_webhook_ignores_workflow_run_when_not_failed() -> None:
     assert result["handled"] is True
     assert result["ignored"] is True
     assert result["reason_code"] == "WORKFLOW_NOT_FAILED"
+    assert result["should_process_failure"] is False
+
+
+def test_handle_webhook_ignores_workflow_run_when_not_completed() -> None:
+    payload = _workflow_run_payload(conclusion="")
+    payload["workflow_run"]["status"] = "in_progress"
+    payload["workflow_run"]["conclusion"] = None
+    body = json.dumps(payload)
+    raw = body.encode("utf-8")
+    secret = "top-secret"
+    headers = {
+        "x-github-event": "workflow_run",
+        "x-hub-signature-256": _sign(raw, secret),
+    }
+
+    result = handle_github_app_webhook(headers=headers, body=raw, webhook_secret=secret)
+
+    assert result["handled"] is True
+    assert result["ignored"] is True
+    assert result["reason_code"] == "WORKFLOW_NOT_COMPLETED"
     assert result["should_process_failure"] is False
 
 
