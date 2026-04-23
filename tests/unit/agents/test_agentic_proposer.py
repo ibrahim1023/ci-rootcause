@@ -80,6 +80,19 @@ def test_validate_agentic_patch_proposal_rejects_invalid_op() -> None:
         )
 
 
+def test_validate_agentic_patch_proposal_rejects_unsafe_paths() -> None:
+    with pytest.raises(AgenticProposalContractError, match="Parent directory traversal"):
+        validate_agentic_patch_proposal(
+            {
+                "summary": "bad path",
+                "candidate_fix_steps": [
+                    {"file": "../escape.py", "instruction": "x", "rationale": "y"}
+                ],
+                "patch_plan": [{"op": "modify", "file": "../escape.py", "content": ""}],
+            }
+        )
+
+
 def test_run_agentic_patch_proposal_surfaces_provider_error_code() -> None:
     result = run_agentic_patch_proposal(
         payload={},
