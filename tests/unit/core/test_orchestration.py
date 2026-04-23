@@ -390,7 +390,8 @@ def test_run_pipeline_agentic_assist_falls_back_when_provider_fails(
     fix_output = result.agent_outputs["fix_planner"]
     assert fix_output["agentic_proposal"]["proposal_created"] is False
     assert (
-        fix_output["agentic_proposal"]["failure_reason_code"] == "AGENTIC_PROPOSAL_PROVIDER_ERROR"
+        fix_output["agentic_proposal"]["failure_reason_code"]
+        == "AGENTIC_PROPOSAL_MAX_ATTEMPTS_EXCEEDED"
     )
 
 

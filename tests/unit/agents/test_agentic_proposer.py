@@ -25,6 +25,24 @@ class _ProviderFailureProposer:
         raise AgenticProposalProviderError("provider unavailable")
 
 
+class _FlakyThenGoodProposer:
+    def __init__(self) -> None:
+        self.calls = 0
+
+    def propose(self, payload: dict) -> dict:  # noqa: ANN001
+        del payload
+        self.calls += 1
+        if self.calls == 1:
+            raise AgenticProposalProviderError("temporary provider error")
+        return {
+            "summary": "recovered",
+            "candidate_fix_steps": [
+                {"file": "src/a.py", "instruction": "fix", "rationale": "ci evidence"}
+            ],
+            "patch_plan": [{"op": "modify", "file": "src/a.py", "content": "print(1)\n"}],
+        }
+
+
 def test_validate_agentic_patch_proposal_accepts_valid_shape() -> None:
     proposal = validate_agentic_patch_proposal(
         {
@@ -63,10 +81,15 @@ def test_validate_agentic_patch_proposal_rejects_invalid_op() -> None:
 
 
 def test_run_agentic_patch_proposal_surfaces_provider_error_code() -> None:
-    result = run_agentic_patch_proposal(payload={}, proposer=_ProviderFailureProposer())
+    result = run_agentic_patch_proposal(
+        payload={},
+        proposer=_ProviderFailureProposer(),
+        max_attempts=1,
+    )
 
     assert result["proposal_created"] is False
-    assert result["failure_reason_code"] == "AGENTIC_PROPOSAL_PROVIDER_ERROR"
+    assert result["failure_reason_code"] == "AGENTIC_PROPOSAL_MAX_ATTEMPTS_EXCEEDED"
+    assert result["attempt_count"] == 1
 
 
 def test_run_agentic_patch_proposal_surfaces_contract_error_code() -> None:
@@ -77,10 +100,10 @@ def test_run_agentic_patch_proposal_surfaces_contract_error_code() -> None:
             "patch_plan": [],
         }
     )
-    result = run_agentic_patch_proposal(payload={}, proposer=bad)
+    result = run_agentic_patch_proposal(payload={}, proposer=bad, max_attempts=1)
 
     assert result["proposal_created"] is False
-    assert result["failure_reason_code"] == "AGENTIC_PROPOSAL_CONTRACT_ERROR"
+    assert result["failure_reason_code"] == "AGENTIC_PROPOSAL_MAX_ATTEMPTS_EXCEEDED"
 
 
 def test_run_agentic_patch_proposal_returns_structured_payload() -> None:
@@ -98,3 +121,15 @@ def test_run_agentic_patch_proposal_returns_structured_payload() -> None:
     assert result["proposal_created"] is True
     assert result["failure_reason_code"] == ""
     assert result["candidate_fix_steps"][0]["file"] == "src/a.py"
+
+
+def test_run_agentic_patch_proposal_retries_and_recovers() -> None:
+    proposer = _FlakyThenGoodProposer()
+    result = run_agentic_patch_proposal(payload={}, proposer=proposer, max_attempts=2)
+
+    assert result["proposal_created"] is True
+    assert result["attempt_count"] == 2
+    assert (
+        result["attempt_summaries"][0]["failure_reason_code"] == "AGENTIC_PROPOSAL_PROVIDER_ERROR"
+    )
+    assert result["attempt_summaries"][1]["status"] == "success"

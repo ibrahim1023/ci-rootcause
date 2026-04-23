@@ -146,27 +146,58 @@ def run_agentic_patch_proposal(
     payload: dict[str, Any],
     *,
     proposer: LlmPatchProposer,
+    max_attempts: int = 2,
 ) -> dict[str, Any]:
-    try:
-        raw = proposer.propose(payload)
-        proposal = validate_agentic_patch_proposal(raw)
-    except AgenticProposalContractError as exc:
+    attempt_limit = max(1, int(max_attempts))
+    attempt_summaries: list[dict[str, Any]] = []
+    proposal: AgenticPatchProposal | None = None
+    for attempt in range(1, attempt_limit + 1):
+        try:
+            candidate_payload = dict(payload)
+            candidate_payload["agentic_attempt"] = attempt
+            candidate_payload["previous_attempts"] = list(attempt_summaries)
+            raw = proposer.propose(candidate_payload)
+            proposal = validate_agentic_patch_proposal(raw)
+            attempt_summaries.append(
+                {"attempt": attempt, "status": "success", "failure_reason_code": ""}
+            )
+            break
+        except AgenticProposalContractError as exc:
+            attempt_summaries.append(
+                {
+                    "attempt": attempt,
+                    "status": "failed",
+                    "failure_reason_code": "AGENTIC_PROPOSAL_CONTRACT_ERROR",
+                    "failure_reason": str(exc),
+                }
+            )
+            continue
+        except AgenticProposalProviderError as exc:
+            attempt_summaries.append(
+                {
+                    "attempt": attempt,
+                    "status": "failed",
+                    "failure_reason_code": "AGENTIC_PROPOSAL_PROVIDER_ERROR",
+                    "failure_reason": str(exc),
+                }
+            )
+            continue
+
+    if proposal is None:
         return {
             "proposal_created": False,
-            "failure_reason_code": "AGENTIC_PROPOSAL_CONTRACT_ERROR",
-            "failure_reason": str(exc),
-        }
-    except AgenticProposalProviderError as exc:
-        return {
-            "proposal_created": False,
-            "failure_reason_code": "AGENTIC_PROPOSAL_PROVIDER_ERROR",
-            "failure_reason": str(exc),
+            "failure_reason_code": "AGENTIC_PROPOSAL_MAX_ATTEMPTS_EXCEEDED",
+            "failure_reason": "agentic proposal attempts exhausted",
+            "attempt_count": len(attempt_summaries),
+            "attempt_summaries": attempt_summaries,
         }
 
     return {
         "proposal_created": True,
         "failure_reason_code": "",
         "failure_reason": "",
+        "attempt_count": len(attempt_summaries),
+        "attempt_summaries": attempt_summaries,
         "proposal_summary": proposal.summary,
         "candidate_fix_steps": [
             {"file": item.file, "instruction": item.instruction, "rationale": item.rationale}
