@@ -5,6 +5,8 @@ Repository-level app configuration schema (logical contract):
 ```json
 {
   "enabled": true,
+  "allow_repositories": [],
+  "deny_repositories": [],
   "mode": "deterministic",
   "enable_pr_mode": false,
   "create_fix_pr": false,
@@ -16,6 +18,12 @@ Repository-level app configuration schema (logical contract):
 ## Field Notes
 - `enabled`:
   - Whether app processing is enabled for the repository.
+- `allow_repositories`:
+  - Optional allowlist of repository full names (`owner/repo`).
+  - If non-empty, repositories not in the list are skipped.
+- `deny_repositories`:
+  - Optional denylist of repository full names (`owner/repo`).
+  - Denylist takes precedence over allowlist.
 - `mode`:
   - `deterministic` | `agentic_assist` | `agentic_full`.
   - MVP default: `deterministic`.

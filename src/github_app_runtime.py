@@ -27,6 +27,9 @@ from src.github_app_webhook import (
 
 @dataclass(frozen=True)
 class GitHubAppRepoConfig:
+    enabled: bool = True
+    allow_repositories: tuple[str, ...] = ()
+    deny_repositories: tuple[str, ...] = ()
     enable_pr_mode: bool = False
     create_fix_pr: bool = False
     min_pr_confidence: float = 0.75
@@ -41,6 +44,30 @@ def _resolve_pr_creation_controls(config: GitHubAppRepoConfig) -> tuple[bool, st
     if not config.enable_pr_mode:
         return False, "app_pr_mode_not_enabled"
     return True, None
+
+
+def _normalize_repository_set(items: tuple[str, ...]) -> set[str]:
+    return {value.strip().lower() for value in items if value.strip()}
+
+
+def _evaluate_repository_policy(
+    *,
+    repository: str,
+    config: GitHubAppRepoConfig,
+) -> tuple[bool, str, str]:
+    if not config.enabled:
+        return False, "REPOSITORY_DISABLED", "repository processing is disabled"
+
+    normalized_repo = repository.strip().lower()
+    deny_set = _normalize_repository_set(config.deny_repositories)
+    if normalized_repo in deny_set:
+        return False, "REPOSITORY_DENYLISTED", "repository is explicitly denylisted"
+
+    allow_set = _normalize_repository_set(config.allow_repositories)
+    if allow_set and normalized_repo not in allow_set:
+        return False, "REPOSITORY_NOT_ALLOWLISTED", "repository is not in allowlist"
+
+    return True, "", ""
 
 
 def _pipeline_summary(state: Any) -> dict[str, Any]:
@@ -151,6 +178,27 @@ def process_github_app_webhook(
     workflow_run_id = int(webhook_result.get("workflow_run_id", 0) or 0)
     head_sha = str(webhook_result.get("head_sha", "")).strip()
     base_sha = str(webhook_result.get("base_sha", "")).strip()
+
+    policy_allowed, policy_reason_code, policy_reason = _evaluate_repository_policy(
+        repository=repository,
+        config=config,
+    )
+    if not policy_allowed:
+        outcome = build_outcome(
+            status=STATUS_SKIPPED,
+            reason_code=policy_reason_code,
+            reason=policy_reason,
+        )
+        return {
+            "status": outcome.status,
+            "reason_code": outcome.reason_code,
+            "reason": outcome.reason,
+            "event": str(webhook_result.get("event", "")),
+            "delivery": str(webhook_result.get("delivery", "")),
+            "repository": repository,
+            "workflow_run_id": workflow_run_id,
+        }
+
     run_id = f"gha_{workflow_run_id}"
     output_dir = Path(config.output_dir).as_posix()
 

@@ -74,6 +74,62 @@ def test_process_github_app_webhook_maps_ingestion_errors(monkeypatch) -> None:
     assert result["reason_code"] == "WORKFLOW_LOGS_EMPTY"
 
 
+def test_process_github_app_webhook_skips_when_repository_disabled(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "src.github_app_runtime.handle_github_app_webhook",
+        lambda headers, body, webhook_secret: {  # noqa: ARG005
+            "handled": True,
+            "ignored": False,
+            "event": "workflow_run",
+            "delivery": "d1",
+            "repository": "acme/project",
+            "workflow_run_id": 107,
+            "head_sha": "head107",
+            "base_sha": "base107",
+            "head_branch": "main",
+        },
+    )
+
+    result = process_github_app_webhook(
+        headers={"X-GitHub-Event": "workflow_run"},
+        body=b"{}",
+        webhook_secret="secret",
+        github_token="token",
+        repo_config=GitHubAppRepoConfig(enabled=False),
+    )
+
+    assert result["status"] == "skipped"
+    assert result["reason_code"] == "REPOSITORY_DISABLED"
+
+
+def test_process_github_app_webhook_skips_when_repository_not_allowlisted(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "src.github_app_runtime.handle_github_app_webhook",
+        lambda headers, body, webhook_secret: {  # noqa: ARG005
+            "handled": True,
+            "ignored": False,
+            "event": "workflow_run",
+            "delivery": "d1",
+            "repository": "acme/project",
+            "workflow_run_id": 108,
+            "head_sha": "head108",
+            "base_sha": "base108",
+            "head_branch": "main",
+        },
+    )
+
+    result = process_github_app_webhook(
+        headers={"X-GitHub-Event": "workflow_run"},
+        body=b"{}",
+        webhook_secret="secret",
+        github_token="token",
+        repo_config=GitHubAppRepoConfig(allow_repositories=("another/repo",)),
+    )
+
+    assert result["status"] == "skipped"
+    assert result["reason_code"] == "REPOSITORY_NOT_ALLOWLISTED"
+
+
 def test_process_github_app_webhook_runs_pipeline_with_safe_defaults(monkeypatch) -> None:
     monkeypatch.setattr(
         "src.github_app_runtime.handle_github_app_webhook",
