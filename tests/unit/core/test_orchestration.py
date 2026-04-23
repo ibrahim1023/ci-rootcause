@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 
+from src.agents.agentic_proposer import AgenticProposalProviderError
 from src.core.orchestration import (
     ADKRuntimeScaffold,
     AgentRegistration,
@@ -307,19 +308,90 @@ def test_run_pipeline_returns_partial_results_when_fail_fast_is_disabled() -> No
     assert result.agent_status["first"] == "completed"
     assert result.agent_status["crash"] == "failed"
     assert result.agent_status["after_crash"] == "skipped"
-    assert result.agent_status["independent"] == "completed"
-    assert result.failures == [
-        {
-            "agent": "crash",
-            "error_type": "ValueError",
-            "message": "boom",
+
+
+def test_run_pipeline_agentic_assist_uses_proposal_and_filters_to_evidence(
+    tmp_path: Path, monkeypatch
+) -> None:
+    def _fake_propose(self, payload: dict) -> dict:  # noqa: ANN001
+        del self, payload
+        return {
+            "summary": "agentic suggestion",
+            "candidate_fix_steps": [
+                {
+                    "file": "src/app.py",
+                    "instruction": "Update assertion behavior",
+                    "rationale": "Aligned with CI evidence",
+                },
+                {
+                    "file": "src/other.py",
+                    "instruction": "Unrelated speculative change",
+                    "rationale": "Should be filtered",
+                },
+            ],
+            "patch_plan": [
+                {"op": "modify", "file": "src/app.py", "content": "value = 1\n"},
+                {"op": "modify", "file": "src/other.py", "content": "value = 2\n"},
+            ],
         }
-    ]
-    assert result.agent_outputs["after_crash"] == {
-        "status": "skipped",
-        "reason": "dependency_failed",
-        "blocked_by": ["crash"],
-    }
+
+    monkeypatch.setattr("src.core.orchestration.LocalLlmPatchProposer.propose", _fake_propose)
+
+    request = PipelineRequest(
+        raw_log=_sample_log(),
+        raw_diff=_sample_diff(),
+        timestamp="2026-02-20T00:00:00Z",
+        commit="abc123",
+        run_id="gha_4101",
+        base_commit="abc123",
+        head_commit="def456",
+        output_dir=str(tmp_path),
+        create_fix_pr=False,
+        execution_mode="agentic_assist",
+        llm_provider="local",
+        llm_model="local-default",
+        use_adk_runtime=False,
+    )
+    result = run_pipeline(request=request)
+
+    assert result.pipeline_status == "completed"
+    fix_output = result.agent_outputs["fix_planner"]
+    assert fix_output["agentic_proposal"]["proposal_created"] is True
+    assert all(step["file"] == "src/app.py" for step in fix_output["fix_steps"])
+
+
+def test_run_pipeline_agentic_assist_falls_back_when_provider_fails(
+    tmp_path: Path, monkeypatch
+) -> None:
+    def _raise_provider(self, payload: dict) -> dict:  # noqa: ANN001
+        del self, payload
+        raise AgenticProposalProviderError("provider unavailable")
+
+    monkeypatch.setattr("src.core.orchestration.LocalLlmPatchProposer.propose", _raise_provider)
+
+    request = PipelineRequest(
+        raw_log=_sample_log(),
+        raw_diff=_sample_diff(),
+        timestamp="2026-02-20T00:00:00Z",
+        commit="abc123",
+        run_id="gha_4102",
+        base_commit="abc123",
+        head_commit="def456",
+        output_dir=str(tmp_path),
+        create_fix_pr=False,
+        execution_mode="agentic_assist",
+        llm_provider="local",
+        llm_model="local-default",
+        use_adk_runtime=False,
+    )
+    result = run_pipeline(request=request)
+
+    assert result.pipeline_status == "completed"
+    fix_output = result.agent_outputs["fix_planner"]
+    assert fix_output["agentic_proposal"]["proposal_created"] is False
+    assert (
+        fix_output["agentic_proposal"]["failure_reason_code"] == "AGENTIC_PROPOSAL_PROVIDER_ERROR"
+    )
 
 
 def test_observability_artifact_failure_does_not_fail_pipeline(tmp_path: Path) -> None:

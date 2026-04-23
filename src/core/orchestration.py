@@ -10,6 +10,11 @@ from importlib.util import find_spec
 from pathlib import Path
 from typing import Any, Callable
 
+from src.agents.agentic_proposer import (
+    HostedLlmPatchProposer,
+    LocalLlmPatchProposer,
+    run_agentic_patch_proposal,
+)
 from src.agents.diff_analysis import run_diff_analysis
 from src.agents.failure_classification import run_failure_classification
 from src.agents.fix_planner import run_fix_planner
@@ -226,12 +231,52 @@ def _run_fix_planner_agent(state: PipelineState) -> dict[str, Any]:
     primary = ranker_output["primary_root_cause"]
     if not primary:
         raise OrchestrationError("Fix planner requires a primary_root_cause from ranker output")
-    return run_fix_planner(
-        {
-            "classification": classification_output["classification"],
-            "primary_root_cause": primary,
-        }
+
+    base_payload = {
+        "classification": classification_output["classification"],
+        "primary_root_cause": primary,
+    }
+    if state.request.execution_mode != "agentic_assist":
+        return run_fix_planner(base_payload)
+
+    allowed_files = sorted(
+        {str(item.get("file", "")).strip() for item in primary.get("evidence", [])}
     )
+    allowed_scope = {item for item in allowed_files if item}
+    proposal_payload = {
+        "classification": classification_output["classification"],
+        "primary_root_cause": primary,
+        "allowed_files": sorted(allowed_scope),
+        "run_id": state.request.run_id,
+        "repository": state.request.repository or "",
+    }
+    provider = (state.request.llm_provider or "local").strip().lower()
+    model = (state.request.llm_model or "local-default").strip() or "local-default"
+    if provider == "local":
+        proposer = LocalLlmPatchProposer(model=model)
+    else:
+        proposer = HostedLlmPatchProposer(
+            provider=provider,
+            model=model,
+            api_key=state.request.llm_api_key or "",
+        )
+
+    proposal_result = run_agentic_patch_proposal(payload=proposal_payload, proposer=proposer)
+    candidate_steps = proposal_result.get("candidate_fix_steps", [])
+    filtered_steps = [
+        {
+            "file": str(step.get("file", "")).strip(),
+            "instruction": str(step.get("instruction", "")).strip(),
+            "reason": str(step.get("rationale", "")).strip() or "Evidence-backed fix step",
+        }
+        for step in candidate_steps
+        if str(step.get("file", "")).strip() in allowed_scope
+    ]
+    if filtered_steps:
+        base_payload["candidate_fix_steps"] = filtered_steps
+    planner_output = run_fix_planner(base_payload)
+    planner_output["agentic_proposal"] = proposal_result
+    return planner_output
 
 
 def _build_reporter_payload(state: PipelineState) -> dict[str, Any]:
