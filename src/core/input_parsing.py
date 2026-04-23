@@ -4,6 +4,8 @@ import json
 from pathlib import Path
 from typing import Any
 
+from src.core.execution_mode import ExecutionMode
+from src.core.execution_mode import parse_execution_mode as _parse_execution_mode
 from src.path_safety import PathSafetyError, normalize_repo_relative_path
 
 
@@ -38,6 +40,13 @@ def parse_confidence_threshold(value: str, *, name: str) -> float:
     if not (0.0 <= parsed <= 1.0):
         raise InputParsingError(f"{name} must be between 0.0 and 1.0")
     return parsed
+
+
+def parse_execution_mode(value: str, *, name: str = "mode") -> ExecutionMode:
+    try:
+        return _parse_execution_mode(value, name=name)
+    except ValueError as exc:
+        raise InputParsingError(str(exc)) from exc
 
 
 def load_simple_config(path: Path, *, missing_ok: bool) -> dict[str, str]:

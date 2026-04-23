@@ -12,6 +12,7 @@ from src.core.input_parsing import (
     load_validated_changes,
     parse_bool,
     parse_confidence_threshold,
+    parse_execution_mode,
     parse_positive_int,
 )
 
@@ -35,6 +36,16 @@ def test_parse_positive_int_rejects_non_positive() -> None:
 def test_parse_confidence_threshold_rejects_out_of_range() -> None:
     with pytest.raises(InputParsingError, match="min_pr_confidence must be between 0.0 and 1.0"):
         parse_confidence_threshold("1.1", name="min_pr_confidence")
+
+
+def test_parse_execution_mode_accepts_supported_value() -> None:
+    parsed = parse_execution_mode("agentic_assist")
+    assert parsed.value == "agentic_assist"
+
+
+def test_parse_execution_mode_rejects_invalid_value() -> None:
+    with pytest.raises(InputParsingError, match="Invalid value for mode"):
+        parse_execution_mode("fast-and-loose")
 
 
 def test_load_simple_config_respects_missing_ok(tmp_path: Path) -> None:

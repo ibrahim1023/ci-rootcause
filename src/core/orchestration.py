@@ -160,6 +160,7 @@ class PipelineRequest:
     historical_runs: list[dict[str, Any]] = field(default_factory=list)
     min_pr_confidence: float = 0.75
     offline_only: bool = False
+    execution_mode: str = "deterministic"
     create_fix_pr_disabled_reason: str | None = None
     ci_provider: str | None = None
     provider_adapter: str | None = None
@@ -530,6 +531,7 @@ def _compute_input_hashes(request: PipelineRequest, config: PipelineConfig) -> d
         "raw_diff_sha256": _sha256_text(request.raw_diff),
         "historical_runs_sha256": _sha256_text(historical_runs_payload),
         "config_sha256": _config_hash(config),
+        "execution_mode_sha256": _sha256_text(request.execution_mode),
     }
 
 
@@ -543,6 +545,7 @@ def _compute_trace_id(request: PipelineRequest, config: PipelineConfig) -> str:
         "timestamp": config.run.timestamp,
         "job_id": config.run.job_id,
         "request_commit": request.commit,
+        "execution_mode": request.execution_mode,
     }
     serialized = json.dumps(material, sort_keys=True, separators=(",", ":"))
     return _sha256_text(serialized)[:24]
@@ -596,6 +599,7 @@ def _write_observability_artifact(state: PipelineState) -> None:
             "ci_provider": state.config.ci_provider if state.config else "",
             "provider_adapter": state.config.provider_adapter if state.config else "",
             "repository": state.config.repo.repository if state.config else "",
+            "execution_mode": state.request.execution_mode,
             "agent_status_counts": _count_values(status_values),
             "failure_taxonomy": {
                 "total_failures": len(state.failures),
@@ -661,6 +665,7 @@ def _run_pipeline_local(
         "pipeline_started",
         details={
             "runtime": "local",
+            "execution_mode": state.request.execution_mode,
             "agent_count": len(active_registry.resolve_order()),
             "input_hashes": state.input_hashes,
         },
@@ -948,6 +953,7 @@ def _run_pipeline_with_adk(
                         "event": "pipeline_started",
                         "details": {
                             "runtime": "adk",
+                            "execution_mode": request.execution_mode,
                             "agent_count": len(active_registry.resolve_order()),
                             "input_hashes": input_hashes,
                         },

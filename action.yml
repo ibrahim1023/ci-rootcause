@@ -43,6 +43,10 @@ inputs:
     description: "Optional rollout profile (supported: safe-github-rollout)."
     required: false
     default: ""
+  mode:
+    description: "Execution mode (deterministic, agentic_assist, agentic_full)."
+    required: false
+    default: "deterministic"
 
 outputs:
   classification:

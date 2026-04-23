@@ -13,6 +13,7 @@ from src.core.input_parsing import (
     load_validated_changes,
     parse_bool,
     parse_confidence_threshold,
+    parse_execution_mode,
     read_text_file,
 )
 from src.core.orchestration import PipelineRequest, run_pipeline
@@ -23,6 +24,7 @@ class CLIError(RuntimeError):
 
 
 SAFE_ROLLOUT_PROFILE = "safe-github-rollout"
+DEFAULT_EXECUTION_MODE = "deterministic"
 
 
 def _coalesce(primary: str | None, fallback: str | None = None) -> str:
@@ -56,6 +58,11 @@ def _build_parser() -> argparse.ArgumentParser:
         "--profile",
         default=None,
         help=(f"Optional rollout profile. Supported values: '{SAFE_ROLLOUT_PROFILE}'."),
+    )
+    parser.add_argument(
+        "--mode",
+        default=None,
+        help="Execution mode: deterministic | agentic_assist | agentic_full.",
     )
     parser.add_argument(
         "--log-path",
@@ -230,6 +237,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         profile = _coalesce(args.profile, config.get("profile"))
         if profile and profile != SAFE_ROLLOUT_PROFILE:
             raise CLIError(f"Unsupported profile '{profile}'. Expected '{SAFE_ROLLOUT_PROFILE}'.")
+        execution_mode = parse_execution_mode(
+            _coalesce(args.mode, config.get("mode")) or DEFAULT_EXECUTION_MODE,
+            name="mode",
+        )
 
         create_fix_pr = bool(args.create_fix_pr)
         if not create_fix_pr and "create_fix_pr" in config:
@@ -302,6 +313,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             historical_runs=historical_runs,
             min_pr_confidence=min_pr_confidence,
             offline_only=offline_only,
+            execution_mode=execution_mode.value,
             ci_provider=str(args.ci_provider).strip() or None,
             provider_adapter=str(args.provider_adapter).strip() or None,
         )

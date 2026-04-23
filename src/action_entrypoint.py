@@ -12,6 +12,7 @@ from src.core.input_parsing import (
     load_validated_changes,
     parse_bool,
     parse_confidence_threshold,
+    parse_execution_mode,
     parse_positive_int,
     read_text_file,
 )
@@ -23,6 +24,7 @@ class ActionInputError(RuntimeError):
 
 
 SAFE_ROLLOUT_PROFILE = "safe-github-rollout"
+DEFAULT_EXECUTION_MODE = "deterministic"
 
 
 def _input_key(name: str) -> str:
@@ -176,6 +178,12 @@ def main() -> int:
         )
 
         config = load_simple_config(Path(config_path_value), missing_ok=True)
+        execution_mode = parse_execution_mode(
+            _get_input("mode", default="").strip()
+            or config.get("mode", "").strip()
+            or DEFAULT_EXECUTION_MODE,
+            name="mode",
+        )
         rollout_profile = (
             _get_input("rollout_profile", default="").strip() or config.get("profile", "").strip()
         )
@@ -251,6 +259,7 @@ def main() -> int:
             fail_fast=False,
             historical_runs=historical_runs,
             min_pr_confidence=min_pr_confidence,
+            execution_mode=execution_mode.value,
             create_fix_pr_disabled_reason=create_fix_pr_disabled_reason or None,
         )
 

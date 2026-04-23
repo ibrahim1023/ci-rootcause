@@ -217,6 +217,41 @@ def test_cli_returns_error_for_invalid_min_pr_confidence(tmp_path: Path, capsys)
     assert "Invalid float value for min_pr_confidence: 'invalid'" in captured.out
 
 
+def test_cli_returns_error_for_invalid_mode(tmp_path: Path, capsys) -> None:
+    log_path = tmp_path / "ci.log"
+    diff_path = tmp_path / "change.diff"
+
+    log_path.write_text(_sample_log(), encoding="utf-8")
+    diff_path.write_text(_sample_diff(), encoding="utf-8")
+
+    exit_code = main(
+        [
+            "--log-path",
+            str(log_path),
+            "--diff-path",
+            str(diff_path),
+            "--output-dir",
+            str(tmp_path / "artifacts"),
+            "--timestamp",
+            "2026-02-20T00:00:00Z",
+            "--commit",
+            "abc123",
+            "--run-id",
+            "gha_5004_mode",
+            "--base-commit",
+            "abc123",
+            "--head-commit",
+            "def456",
+            "--mode",
+            "invalid-mode",
+        ]
+    )
+
+    assert exit_code == 2
+    captured = capsys.readouterr()
+    assert "Invalid value for mode: 'invalid-mode'" in captured.out
+
+
 def test_cli_supports_config_path_for_required_inputs(tmp_path: Path, capsys) -> None:
     log_path = tmp_path / "ci.log"
     diff_path = tmp_path / "change.diff"
