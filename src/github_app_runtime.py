@@ -12,6 +12,13 @@ from src.github_app_comments import (
     build_app_comment_body,
 )
 from src.github_app_ingestion import GitHubAppIngestionError, collect_workflow_run_inputs
+from src.github_app_outcomes import (
+    STATUS_ERROR,
+    STATUS_OK,
+    STATUS_PARTIAL,
+    STATUS_SKIPPED,
+    build_outcome,
+)
 from src.github_app_webhook import (
     GitHubWebhookError,
     handle_github_app_webhook,
@@ -88,19 +95,29 @@ def process_github_app_webhook(
             webhook_secret=webhook_secret,
         )
     except GitHubWebhookError as exc:
+        outcome = build_outcome(
+            status=STATUS_ERROR,
+            reason_code="WEBHOOK_VALIDATION_FAILED",
+            reason=str(exc),
+        )
         return {
-            "status": "error",
-            "reason_code": "WEBHOOK_VALIDATION_FAILED",
-            "reason": str(exc),
+            "status": outcome.status,
+            "reason_code": outcome.reason_code,
+            "reason": outcome.reason,
             "event": "",
             "delivery": "",
         }
 
     if webhook_result.get("ignored", False):
+        outcome = build_outcome(
+            status=STATUS_SKIPPED,
+            reason_code=str(webhook_result.get("reason_code", "UNSUPPORTED_EVENT")),
+            reason=str(webhook_result.get("reason", "")),
+        )
         return {
-            "status": "skipped",
-            "reason_code": str(webhook_result.get("reason_code", "IGNORED_EVENT")),
-            "reason": str(webhook_result.get("reason", "")),
+            "status": outcome.status,
+            "reason_code": outcome.reason_code,
+            "reason": outcome.reason,
             "event": str(webhook_result.get("event", "")),
             "delivery": str(webhook_result.get("delivery", "")),
             "repository": str(webhook_result.get("repository", "")),
@@ -108,10 +125,15 @@ def process_github_app_webhook(
         }
 
     if not webhook_result.get("handled", False):
+        outcome = build_outcome(
+            status=STATUS_ERROR,
+            reason_code=str(webhook_result.get("reason_code", "WEBHOOK_UNHANDLED")),
+            reason=str(webhook_result.get("reason", "webhook event was not handled")),
+        )
         return {
-            "status": "error",
-            "reason_code": str(webhook_result.get("reason_code", "WEBHOOK_UNHANDLED")),
-            "reason": str(webhook_result.get("reason", "webhook event was not handled")),
+            "status": outcome.status,
+            "reason_code": outcome.reason_code,
+            "reason": outcome.reason,
             "event": str(webhook_result.get("event", "")),
             "delivery": str(webhook_result.get("delivery", "")),
         }
@@ -133,10 +155,15 @@ def process_github_app_webhook(
             api_base=api_base,
         )
     except GitHubAppIngestionError as exc:
+        outcome = build_outcome(
+            status=STATUS_ERROR,
+            reason_code=exc.reason_code,
+            reason=str(exc),
+        )
         return {
-            "status": "error",
-            "reason_code": exc.reason_code,
-            "reason": str(exc),
+            "status": outcome.status,
+            "reason_code": outcome.reason_code,
+            "reason": outcome.reason,
             "event": str(webhook_result.get("event", "")),
             "delivery": str(webhook_result.get("delivery", "")),
             "repository": repository,
@@ -164,6 +191,12 @@ def process_github_app_webhook(
 
     state = run_pipeline(request=request)
     summary = _pipeline_summary(state=state)
+    artifact_reason_code = ""
+    artifact_reason = ""
+    if not str(summary["rca_json_path"]).strip() or not str(summary["rca_md_path"]).strip():
+        artifact_reason_code = "ARTIFACT_OUTPUT_MISSING"
+        artifact_reason = "reporter did not return ci-rca artifact paths"
+
     comment_posted = False
     comment_target = ""
     comment_id = 0
@@ -210,15 +243,36 @@ def process_github_app_webhook(
             comment_reason_code = exc.reason_code
             comment_reason = str(exc)
 
+    status = STATUS_OK
+    reason_code = ""
+    reason = ""
+    if artifact_reason_code:
+        status = STATUS_PARTIAL
+        reason_code = artifact_reason_code
+        reason = artifact_reason
+    if comment_reason_code:
+        status = STATUS_PARTIAL
+        reason_code = comment_reason_code
+        reason = comment_reason
+
+    outcome = build_outcome(
+        status=status,
+        reason_code=reason_code,
+        reason=reason,
+    )
+
     return {
-        "status": "partial" if comment_reason_code else "ok",
-        "reason_code": comment_reason_code,
-        "reason": comment_reason,
+        "status": outcome.status,
+        "reason_code": outcome.reason_code,
+        "reason": outcome.reason,
         "event": str(webhook_result.get("event", "")),
         "delivery": str(webhook_result.get("delivery", "")),
         "repository": repository,
         "workflow_run_id": workflow_run_id,
         "pipeline_status": str(getattr(state, "pipeline_status", "unknown")),
+        "artifact_output_ok": artifact_reason_code == "",
+        "artifact_output_reason_code": artifact_reason_code,
+        "artifact_output_reason": artifact_reason,
         "comment_posted": comment_posted,
         "comment_target": comment_target,
         "comment_id": comment_id,

@@ -1,0 +1,53 @@
+# App Outcome Codes
+
+Stable outcome contract for `process_github_app_webhook`:
+
+## Status Values
+- `ok`: Pipeline completed and app output/comment flow succeeded.
+- `partial`: Pipeline completed, but a non-fatal downstream step failed (for example comment publish or artifact path output).
+- `skipped`: Event intentionally ignored by policy.
+- `error`: Processing failed before a valid RCA result could be produced.
+
+## Reason Codes
+
+### Skip Codes
+- `UNSUPPORTED_EVENT`
+- `WORKFLOW_NOT_COMPLETED`
+- `WORKFLOW_NOT_FAILED`
+
+### Webhook/Error Codes
+- `WEBHOOK_VALIDATION_FAILED`
+- `WEBHOOK_UNHANDLED`
+- `MISSING_REPOSITORY`
+- `MISSING_REPOSITORY_FULL_NAME`
+- `MISSING_WORKFLOW_RUN`
+- `INVALID_WORKFLOW_RUN_ID`
+- `INVALID_WORKFLOW_RUN_ATTEMPT`
+- `INVALID_WORKFLOW_RUN_CONCLUSION`
+- `MISSING_HEAD_SHA`
+- `MISSING_HEAD_BRANCH`
+- `MISSING_WORKFLOW_RUN_STATUS`
+- `MISSING_WORKFLOW_RUN_CONCLUSION`
+- `MISSING_WORKFLOW_RUN_NAME`
+- `MISSING_WORKFLOW_RUN_URL`
+- `MISSING_BASE_SHA`
+- `MISSING_GITHUB_TOKEN`
+
+### GitHub API Retrieval Codes
+- `GITHUB_API_HTTP_ERROR`
+- `GITHUB_API_NETWORK_ERROR`
+- `GITHUB_API_INVALID_JSON`
+- `GITHUB_API_INVALID_RESPONSE`
+- `WORKFLOW_LOGS_EMPTY`
+- `WORKFLOW_LOGS_UNREADABLE`
+- `WORKFLOW_LOGS_INVALID_ARCHIVE`
+- `WORKFLOW_LOGS_EMPTY_ARCHIVE`
+- `COMPARE_FILES_MISSING`
+- `COMPARE_DIFF_EMPTY`
+
+### Comment/Artifact Partial Codes
+- `COMMENT_API_HTTP_ERROR`
+- `COMMENT_API_NETWORK_ERROR`
+- `COMMENT_API_INVALID_JSON`
+- `COMMENT_API_INVALID_RESPONSE`
+- `ARTIFACT_OUTPUT_MISSING`

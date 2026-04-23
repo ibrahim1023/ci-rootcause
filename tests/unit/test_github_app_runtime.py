@@ -242,3 +242,80 @@ def test_process_github_app_webhook_falls_back_to_commit_comment(monkeypatch) ->
     assert result["comment_posted"] is True
     assert result["comment_target"] == "commit"
     assert captured["commit_sha"] == "head456"
+
+
+def test_process_github_app_webhook_marks_partial_when_artifact_paths_missing(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "src.github_app_runtime.handle_github_app_webhook",
+        lambda headers, body, webhook_secret: {  # noqa: ARG005
+            "handled": True,
+            "ignored": False,
+            "event": "workflow_run",
+            "delivery": "d1",
+            "repository": "acme/project",
+            "workflow_run_id": 105,
+            "head_sha": "head789",
+            "base_sha": "base789",
+            "head_branch": "main",
+            "pull_request_number": None,
+        },
+    )
+    monkeypatch.setattr(
+        "src.github_app_runtime.collect_workflow_run_inputs",
+        lambda **kwargs: WorkflowRunIngestionPayload(  # noqa: ANN003
+            repository="acme/project",
+            workflow_run_id=105,
+            base_sha="base789",
+            head_sha="head789",
+            raw_log="pytest failed\n",
+            raw_diff="diff --git a/a.py b/a.py\n",
+        ),
+    )
+    monkeypatch.setattr(
+        "src.github_app_runtime.run_pipeline",
+        lambda request: _FakeState(  # noqa: ARG005
+            agent_outputs={
+                "failure_classification": {"classification": "TEST"},
+                "root_cause_ranker": {
+                    "confidence": 0.5,
+                    "primary_root_cause": {"title": "missing artifacts"},
+                },
+                "reporter": {
+                    "ci_rca_json_path": "",
+                    "ci_rca_md_path": "",
+                },
+                "pr_creation": {"pr_created": False},
+            }
+        ),
+    )
+
+    class _FakeCommentResult:
+        target = "commit"
+        comment_id = 1
+        action = "created"
+        html_url = "https://example.com/comment/1"
+
+    class _FakeCommentClient:
+        def __init__(self, *, token: str, api_base: str = "https://api.github.com") -> None:
+            del token, api_base
+
+        def upsert_pr_comment(self, *, repository: str, pull_request_number: int, body: str):  # noqa: ANN201
+            del repository, pull_request_number, body
+            raise AssertionError("pr comment path should not be used")
+
+        def create_commit_comment(self, *, repository: str, commit_sha: str, body: str):  # noqa: ANN201
+            del repository, commit_sha, body
+            return _FakeCommentResult()
+
+    monkeypatch.setattr("src.github_app_runtime.GitHubAppCommentClient", _FakeCommentClient)
+
+    result = process_github_app_webhook(
+        headers={"X-GitHub-Event": "workflow_run"},
+        body=b"{}",
+        webhook_secret="secret",
+        github_token="token",
+    )
+
+    assert result["status"] == "partial"
+    assert result["reason_code"] == "ARTIFACT_OUTPUT_MISSING"
+    assert result["artifact_output_ok"] is False
