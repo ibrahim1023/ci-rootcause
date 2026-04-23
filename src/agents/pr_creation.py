@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import shlex
 import subprocess
 import time
 from dataclasses import dataclass
@@ -96,10 +97,36 @@ PR_REASON_OFFLINE_ONLY = "OFFLINE_ONLY"
 PR_REASON_CONFIDENCE_BELOW_THRESHOLD = "CONFIDENCE_BELOW_THRESHOLD"
 PR_REASON_DRY_RUN = "DRY_RUN"
 PR_REASON_MAX_FIX_FILES_EXCEEDED = "MAX_FIX_FILES_EXCEEDED"
+PR_REASON_VALIDATION_FAILED = "VALIDATION_FAILED"
 
 
 def _build_reason(code: str, message: str) -> dict[str, str]:
     return {"failure_reason_code": code, "failure_reason": message}
+
+
+def _resolve_validation_commands(payload: dict[str, Any]) -> list[str]:
+    raw = payload.get("validation_commands", [])
+    if isinstance(raw, str):
+        normalized = raw.replace("\r\n", "\n").replace(";", "\n")
+        return [line.strip() for line in normalized.splitlines() if line.strip()]
+    if isinstance(raw, list):
+        return [str(item).strip() for item in raw if str(item).strip()]
+    return []
+
+
+def _run_validation_commands(commands: list[str], repo_path: str) -> None:
+    cwd = Path(repo_path)
+    for command in commands:
+        args = shlex.split(command)
+        if not args:
+            continue
+        try:
+            subprocess.run(args, cwd=cwd, check=True, capture_output=True, text=True)
+        except subprocess.CalledProcessError as exc:
+            stderr = (exc.stderr or "").strip()
+            raise GuardrailViolationError(
+                f"validation command failed: {command}: {stderr or exc.returncode}"
+            ) from exc
 
 
 def _normalize_ref_segment(value: str) -> str:
@@ -632,6 +659,21 @@ def run_pr_creation(
             ),
         }
 
+    execution_mode = str(payload.get("execution_mode", "deterministic")).strip().lower()
+    requires_validation = execution_mode in {"agentic_assist", "agentic_full"}
+    validation_commands = _resolve_validation_commands(payload)
+    if requires_validation and not validation_commands:
+        return {
+            "pr_created": False,
+            "pr_url": None,
+            "pr_number": None,
+            "pr_branch": None,
+            **_build_reason(
+                PR_REASON_VALIDATION_FAILED,
+                "no validation commands configured for agentic mode",
+            ),
+        }
+
     _enforce_pr_guardrails(payload)
     min_pr_confidence = _resolve_min_pr_confidence(payload)
     confidence = float(payload.get("confidence", 0.0))
@@ -684,6 +726,18 @@ def run_pr_creation(
         repo_path=repo_path,
         git_runner=git_runner,
     )
+    if requires_validation:
+        try:
+            _run_validation_commands(validation_commands, repo_path=repo_path)
+        except GuardrailViolationError as exc:
+            return {
+                "pr_created": False,
+                "pr_url": None,
+                "pr_number": None,
+                "pr_branch": created_branch,
+                **_build_reason(PR_REASON_VALIDATION_FAILED, str(exc)),
+                "commit_message": commit_message,
+            }
 
     if bool(payload.get("dry_run", False)):
         return {

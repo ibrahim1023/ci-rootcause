@@ -14,6 +14,7 @@ from src.agents.pr_creation import (
     PR_REASON_DRY_RUN,
     PR_REASON_MAX_FIX_FILES_EXCEEDED,
     PR_REASON_OFFLINE_ONLY,
+    PR_REASON_VALIDATION_FAILED,
     BranchCreationPlan,
     GitHubAPIError,
     GitHubRateLimitError,
@@ -44,12 +45,14 @@ def test_pr_reason_code_literals_remain_stable() -> None:
         PR_REASON_CONFIDENCE_BELOW_THRESHOLD,
         PR_REASON_DRY_RUN,
         PR_REASON_MAX_FIX_FILES_EXCEEDED,
+        PR_REASON_VALIDATION_FAILED,
     } == {
         "CREATE_FIX_PR_DISABLED",
         "OFFLINE_ONLY",
         "CONFIDENCE_BELOW_THRESHOLD",
         "DRY_RUN",
         "MAX_FIX_FILES_EXCEEDED",
+        "VALIDATION_FAILED",
     }
 
 
@@ -249,6 +252,72 @@ def test_run_pr_creation_reports_app_pr_mode_not_enabled_reason() -> None:
 
     assert result["failure_reason_code"] == PR_REASON_CREATE_FIX_PR_DISABLED
     assert result["failure_reason"] == "app_pr_mode_not_enabled"
+
+
+def test_run_pr_creation_requires_validation_commands_in_agentic_mode() -> None:
+    result = run_pr_creation(
+        payload={
+            "create_fix_pr": True,
+            "execution_mode": "agentic_assist",
+            "confidence": 0.95,
+            "min_pr_confidence": 0.75,
+        }
+    )
+
+    assert result["pr_created"] is False
+    assert result["failure_reason_code"] == PR_REASON_VALIDATION_FAILED
+    assert result["failure_reason"] == "no validation commands configured for agentic mode"
+
+
+def test_run_pr_creation_returns_validation_failed_when_command_fails(
+    tmp_path: Path, monkeypatch
+) -> None:
+    payload = {
+        "create_fix_pr": True,
+        "execution_mode": "agentic_assist",
+        "validation_commands": ['python -c "raise SystemExit(1)"'],
+        "repository": "acme/repo",
+        "target_branch": "main",
+        "summary": "Type mismatch in core module",
+        "classification": "TYPECHECK",
+        "confidence": 0.95,
+        "min_pr_confidence": 0.75,
+        "primary_root_cause": {
+            "title": "Invalid return type",
+            "evidence": [{"file": "src/core/math.py", "line": 1, "signal": "type mismatch"}],
+        },
+        "meta": {
+            "base_commit": "abc123deadbeef",
+            "head_commit": "def456feedface",
+            "run_id": "gha_validation_1",
+        },
+        "allowed_files": ["src/core/math.py"],
+        "validated_changes": [
+            {"file": "src/core/math.py", "content": "def calc() -> int:\n    return 7\n"}
+        ],
+        "github_token": "token",
+        "dry_run": True,
+    }
+
+    def _failing_subprocess(*args, **kwargs):  # noqa: ANN002, ANN003
+        raise __import__("subprocess").CalledProcessError(
+            returncode=1,
+            cmd=args[0] if args else kwargs.get("args", []),
+            output="",
+            stderr="validation failed",
+        )
+
+    monkeypatch.setattr("src.agents.pr_creation.subprocess.run", _failing_subprocess)
+
+    result = run_pr_creation(
+        payload=payload,
+        repo_path=str(tmp_path),
+        git_runner=FakeGitRunner(fail_on={"show-ref"}, seen=[]),
+    )
+
+    assert result["pr_created"] is False
+    assert result["failure_reason_code"] == PR_REASON_VALIDATION_FAILED
+    assert "validation command failed" in str(result["failure_reason"])
 
 
 def test_build_pull_request_request_includes_summary_and_confidence() -> None:

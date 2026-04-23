@@ -169,6 +169,7 @@ class PipelineRequest:
     llm_provider: str | None = None
     llm_model: str | None = None
     llm_api_key: str | None = None
+    validation_commands: list[str] = field(default_factory=list)
     create_fix_pr_disabled_reason: str | None = None
     ci_provider: str | None = None
     provider_adapter: str | None = None
@@ -425,6 +426,8 @@ def _run_pr_creation_agent(state: PipelineState) -> dict[str, Any]:
     payload = {
         "create_fix_pr": state.request.create_fix_pr,
         "create_fix_pr_disabled_reason": state.request.create_fix_pr_disabled_reason or "",
+        "execution_mode": state.request.execution_mode,
+        "validation_commands": list(state.request.validation_commands),
         "min_pr_confidence": state.request.min_pr_confidence,
         "offline_only": state.request.offline_only,
         "dry_run": state.request.dry_run,

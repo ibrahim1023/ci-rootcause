@@ -127,6 +127,13 @@ def _build_summary(state: Any) -> dict[str, Any]:
     }
 
 
+def _parse_validation_commands(value: str) -> list[str]:
+    if not value.strip():
+        return []
+    normalized = value.replace("\r\n", "\n").replace(";", "\n")
+    return [line.strip() for line in normalized.splitlines() if line.strip()]
+
+
 def _write_github_outputs(outputs: dict[str, str]) -> None:
     output_path = os.getenv("GITHUB_OUTPUT", "").strip()
     lines = [f"{key}={value}" for key, value in outputs.items()]
@@ -185,6 +192,16 @@ def main() -> int:
             or DEFAULT_EXECUTION_MODE,
             name="mode",
         )
+        enable_agentic_full = parse_bool(
+            _get_input("enable_agentic_full", default="").strip()
+            or config.get("enable_agentic_full", "").strip()
+            or "false",
+            name="enable_agentic_full",
+        )
+        if execution_mode.value == "agentic_full" and not enable_agentic_full:
+            raise ActionInputError(
+                "agentic_full requires explicit opt-in via enable_agentic_full=true"
+            )
         provider_config = parse_agentic_provider_config(
             execution_mode=execution_mode,
             provider_value=(
@@ -195,6 +212,10 @@ def main() -> int:
                 _get_input("provider_api_key", default="").strip()
                 or config.get("provider_api_key", "").strip()
             ),
+        )
+        validation_commands = _parse_validation_commands(
+            _get_input("validation_commands", default="").strip()
+            or config.get("validation_commands", "").strip()
         )
         rollout_profile = (
             _get_input("rollout_profile", default="").strip() or config.get("profile", "").strip()
@@ -207,6 +228,8 @@ def main() -> int:
                 )
             if min_pr_confidence < 0.9:
                 min_pr_confidence = 0.9
+            if execution_mode.value == "agentic_full":
+                raise ActionInputError("safe-github-rollout does not allow mode=agentic_full")
 
         output_dir = config.get("output_dir", "artifacts")
 
@@ -275,6 +298,7 @@ def main() -> int:
             llm_provider=provider_config.provider.value,
             llm_model=provider_config.model,
             llm_api_key=provider_config.api_key,
+            validation_commands=validation_commands,
             create_fix_pr_disabled_reason=create_fix_pr_disabled_reason or None,
         )
 

@@ -45,6 +45,13 @@ def _read_input_text(path_value: str, *, input_name: str) -> str:
     return read_text_file(Path(path_value))
 
 
+def _parse_validation_commands(value: str) -> list[str]:
+    if not value.strip():
+        return []
+    normalized = value.replace("\r\n", "\n").replace(";", "\n")
+    return [line.strip() for line in normalized.splitlines() if line.strip()]
+
+
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="ci-rootcause",
@@ -64,6 +71,11 @@ def _build_parser() -> argparse.ArgumentParser:
         "--mode",
         default=None,
         help="Execution mode: deterministic | agentic_assist | agentic_full.",
+    )
+    parser.add_argument(
+        "--enable-agentic-full",
+        action="store_true",
+        help="Explicitly allow agentic_full mode.",
     )
     parser.add_argument(
         "--provider",
@@ -183,6 +195,11 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Enable offline-only mode (skip any remote PR creation/network calls).",
     )
+    parser.add_argument(
+        "--validation-commands",
+        default=None,
+        help=("Optional validation commands for agentic PR gating. Use ';' or newline separators."),
+    )
 
     return parser
 
@@ -257,11 +274,25 @@ def main(argv: Sequence[str] | None = None) -> int:
             _coalesce(args.mode, config.get("mode")) or DEFAULT_EXECUTION_MODE,
             name="mode",
         )
+        enable_agentic_full = bool(args.enable_agentic_full)
+        if not enable_agentic_full and "enable_agentic_full" in config:
+            enable_agentic_full = parse_bool(
+                str(config.get("enable_agentic_full", "")),
+                name="enable_agentic_full",
+            )
+        if execution_mode.value == "agentic_full" and not enable_agentic_full:
+            raise CLIError(
+                "agentic_full requires explicit opt-in via --enable-agentic-full "
+                "or config enable_agentic_full=true"
+            )
         provider_config = parse_agentic_provider_config(
             execution_mode=execution_mode,
             provider_value=_coalesce(args.provider, config.get("provider")),
             model_value=_coalesce(args.model, config.get("model")),
             api_key_value=_coalesce(args.provider_api_key, config.get("provider_api_key")),
+        )
+        validation_commands = _parse_validation_commands(
+            _coalesce(args.validation_commands, config.get("validation_commands"))
         )
 
         create_fix_pr = bool(args.create_fix_pr)
@@ -281,6 +312,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
         if profile == SAFE_ROLLOUT_PROFILE and min_pr_confidence < 0.9:
             min_pr_confidence = 0.9
+        if profile == SAFE_ROLLOUT_PROFILE and execution_mode.value == "agentic_full":
+            raise CLIError("safe-github-rollout does not allow mode=agentic_full")
 
         offline_only = bool(args.offline_only)
         if not offline_only and "offline_only" in config:
@@ -339,6 +372,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             llm_provider=provider_config.provider.value,
             llm_model=provider_config.model,
             llm_api_key=provider_config.api_key,
+            validation_commands=validation_commands,
             ci_provider=str(args.ci_provider).strip() or None,
             provider_adapter=str(args.provider_adapter).strip() or None,
         )

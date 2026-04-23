@@ -289,6 +289,79 @@ def test_cli_requires_provider_key_for_hosted_agentic_mode(tmp_path: Path, capsy
     assert "provider_api_key is required for hosted providers in agentic modes" in captured.out
 
 
+def test_cli_rejects_agentic_full_without_explicit_opt_in(tmp_path: Path, capsys) -> None:
+    log_path = tmp_path / "ci.log"
+    diff_path = tmp_path / "change.diff"
+
+    log_path.write_text(_sample_log(), encoding="utf-8")
+    diff_path.write_text(_sample_diff(), encoding="utf-8")
+
+    exit_code = main(
+        [
+            "--log-path",
+            str(log_path),
+            "--diff-path",
+            str(diff_path),
+            "--output-dir",
+            str(tmp_path / "artifacts"),
+            "--timestamp",
+            "2026-02-20T00:00:00Z",
+            "--commit",
+            "abc123",
+            "--run-id",
+            "gha_5006_mode",
+            "--base-commit",
+            "abc123",
+            "--head-commit",
+            "def456",
+            "--mode",
+            "agentic_full",
+        ]
+    )
+
+    assert exit_code == 2
+    captured = capsys.readouterr()
+    assert "agentic_full requires explicit opt-in" in captured.out
+
+
+def test_cli_safe_rollout_rejects_agentic_full_mode(tmp_path: Path, capsys) -> None:
+    log_path = tmp_path / "ci.log"
+    diff_path = tmp_path / "change.diff"
+
+    log_path.write_text(_sample_log(), encoding="utf-8")
+    diff_path.write_text(_sample_diff(), encoding="utf-8")
+
+    exit_code = main(
+        [
+            "--log-path",
+            str(log_path),
+            "--diff-path",
+            str(diff_path),
+            "--output-dir",
+            str(tmp_path / "artifacts"),
+            "--timestamp",
+            "2026-02-20T00:00:00Z",
+            "--commit",
+            "abc123",
+            "--run-id",
+            "gha_5007_mode",
+            "--base-commit",
+            "abc123",
+            "--head-commit",
+            "def456",
+            "--mode",
+            "agentic_full",
+            "--enable-agentic-full",
+            "--profile",
+            "safe-github-rollout",
+        ]
+    )
+
+    assert exit_code == 2
+    captured = capsys.readouterr()
+    assert "safe-github-rollout does not allow mode=agentic_full" in captured.out
+
+
 def test_cli_supports_config_path_for_required_inputs(tmp_path: Path, capsys) -> None:
     log_path = tmp_path / "ci.log"
     diff_path = tmp_path / "change.diff"

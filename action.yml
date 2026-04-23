@@ -47,6 +47,10 @@ inputs:
     description: "Execution mode (deterministic, agentic_assist, agentic_full)."
     required: false
     default: "deterministic"
+  enable_agentic_full:
+    description: "Explicit opt-in gate for agentic_full mode."
+    required: false
+    default: "false"
   provider:
     description: "Agentic provider (openai, anthropic, local)."
     required: false
@@ -57,6 +61,10 @@ inputs:
     default: ""
   provider_api_key:
     description: "Optional API key for hosted providers; required in agentic modes."
+    required: false
+    default: ""
+  validation_commands:
+    description: "Optional agentic validation commands (';' or newline separated)."
     required: false
     default: ""
 
