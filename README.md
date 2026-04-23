@@ -20,9 +20,31 @@ Benchmark source:
 - [`docs/reports/mvp-benchmark-report.json`](docs/reports/mvp-benchmark-report.json)
 - [`docs/limitations.md`](docs/limitations.md)
 
-## 60-Second Setup (Safe Mode)
+## App-First Quickstart (No YAML)
 
-Add this workflow. It keeps PR creation disabled (`create_fix_pr: "false"`), so you get RCA output first.
+Primary path (recommended):
+
+1. Install the GitHub App for your target repository.
+2. Configure app runtime with safe defaults:
+   - `enabled=true`
+   - `post_comment=true`
+   - `enable_pr_mode=false`
+   - `create_fix_pr=false`
+3. Trigger a failed `workflow_run` and verify:
+   - RCA comment appears on PR/commit context
+   - `ci-rca.json` and `ci-rca.md` paths are returned
+   - Outcome status/reason codes are machine-readable
+
+Setup references:
+- [`docs/app-first-mvp.md`](docs/app-first-mvp.md)
+- [`docs/app-config-contract.md`](docs/app-config-contract.md)
+- [`docs/app-outcome-codes.md`](docs/app-outcome-codes.md)
+- [`docs/app-operations.md`](docs/app-operations.md)
+- [`docs/migration-action-to-app.md`](docs/migration-action-to-app.md)
+
+## Advanced: Action Workflow Setup (Safe Mode)
+
+Use this path when you want explicit workflow YAML control. It keeps PR creation disabled (`create_fix_pr: "false"`), so you get RCA output first.
 
 ```yaml
 name: ci-rootcause
@@ -140,7 +162,7 @@ ruff format --check .
 pytest
 ```
 
-## Quickstart
+## CLI Quickstart
 
 1. Install dependencies:
 
