@@ -26,6 +26,9 @@ class ActionInputError(RuntimeError):
 
 SAFE_ROLLOUT_PROFILE = "safe-github-rollout"
 DEFAULT_EXECUTION_MODE = "deterministic"
+PR_REASON_AGENTIC_MISSING_KEY = "AGENTIC_MISSING_KEY"
+PR_REASON_AGENTIC_PROVIDER_ERROR = "AGENTIC_PROVIDER_ERROR"
+PR_REASON_AGENTIC_MAX_ATTEMPTS_EXCEEDED = "AGENTIC_MAX_ATTEMPTS_EXCEEDED"
 
 
 def _input_key(name: str) -> str:
@@ -91,6 +94,7 @@ def _build_summary(state: Any) -> dict[str, Any]:
     ranker_output = state.agent_outputs.get("root_cause_ranker", {})
     reporter_output = state.agent_outputs.get("reporter", {})
     pr_output = state.agent_outputs.get("pr_creation", {})
+    fix_output = state.agent_outputs.get("fix_planner", {})
 
     if isinstance(classification_output, dict):
         classification = str(classification_output.get("classification", classification))
@@ -112,6 +116,15 @@ def _build_summary(state: Any) -> dict[str, Any]:
             pr_failure_reason_code = str(pr_output["failure_reason_code"])
         if pr_output.get("failure_reason"):
             pr_failure_reason = str(pr_output["failure_reason"])
+    if not pr_failure_reason_code and isinstance(fix_output, dict):
+        agentic_proposal = fix_output.get("agentic_proposal", {})
+        if isinstance(agentic_proposal, dict):
+            mapped_code = _map_agentic_proposal_failure_code(
+                str(agentic_proposal.get("failure_reason_code", "")).strip()
+            )
+            if mapped_code:
+                pr_failure_reason_code = mapped_code
+                pr_failure_reason = str(agentic_proposal.get("failure_reason", "")).strip()
 
     return {
         "classification": classification,
@@ -159,6 +172,22 @@ def _emit_failure_outputs(*, failure_reason_code: str = "", failure_reason: str 
             "pr_failure_reason": failure_reason,
         }
     )
+
+
+def _map_agentic_proposal_failure_code(code: str) -> str:
+    normalized = code.strip().upper()
+    if normalized == "AGENTIC_PROPOSAL_PROVIDER_ERROR":
+        return PR_REASON_AGENTIC_PROVIDER_ERROR
+    if normalized == "AGENTIC_PROPOSAL_MAX_ATTEMPTS_EXCEEDED":
+        return PR_REASON_AGENTIC_MAX_ATTEMPTS_EXCEEDED
+    return ""
+
+
+def _map_input_failure_code(exc: Exception) -> str:
+    message = str(exc).lower()
+    if "provider_api_key is required" in message:
+        return PR_REASON_AGENTIC_MISSING_KEY
+    return "ACTION_INPUT_ERROR"
 
 
 def main() -> int:
@@ -309,7 +338,7 @@ def main() -> int:
     except (InputParsingError, ActionInputError) as exc:
         print(f"ci-rootcause action error: {exc}")
         _emit_failure_outputs(
-            failure_reason_code="ACTION_INPUT_ERROR",
+            failure_reason_code=_map_input_failure_code(exc),
             failure_reason=str(exc),
         )
         return 2

@@ -84,6 +84,26 @@ Reference artifact examples:
 - [`artifacts/benchmark-mvp/case-typecheck-ts2345/ci-rca.json`](artifacts/benchmark-mvp/case-typecheck-ts2345/ci-rca.json)
 - [`artifacts/benchmark-mvp/case-typecheck-ts2345/ci-rca.md`](artifacts/benchmark-mvp/case-typecheck-ts2345/ci-rca.md)
 
+## Agentic Modes (Optional)
+
+Recommended default for new users: `deterministic`.
+
+| Mode | Autonomy | Key requirement | Cost profile | Risk profile |
+| --- | --- | --- | --- | --- |
+| `deterministic` | Rule-based only | None | Lowest | Lowest |
+| `agentic_assist` | LLM proposes candidate fix steps, deterministic pipeline validates/falls back | Hosted providers require API key; `local` does not | Medium | Low-medium |
+| `agentic_full` | Highest autonomy path (explicit opt-in gate required) | Hosted providers require API key; `local` does not | Highest | Highest |
+
+Provider support:
+- Hosted: `openai`, `gemini`, `anthropic` (require `provider_api_key` in agentic modes).
+- Local: `local` (Ollama endpoint compatible, no paid vendor API key required).
+
+Action secret examples:
+- `provider: openai` + `provider_api_key: ${{ secrets.OPENAI_API_KEY }}`
+- `provider: gemini` + `provider_api_key: ${{ secrets.GEMINI_API_KEY }}`
+- `provider: anthropic` + `provider_api_key: ${{ secrets.ANTHROPIC_API_KEY }}`
+- `provider: local` + no `provider_api_key`
+
 ## Purpose
 
 `ci-rootcause` analyzes CI failures and produces:
@@ -268,6 +288,12 @@ Inputs:
 - `min_pr_confidence` (default `0.75`)
 - `rollout_profile` (default empty, supported: `safe-github-rollout`)
 - `offline_only` (default `false`)
+- `mode` (default `deterministic`, supported: `deterministic`, `agentic_assist`, `agentic_full`)
+- `enable_agentic_full` (default `false`, required for `mode=agentic_full`)
+- `provider` (default `local`, supported: `openai`, `gemini`, `anthropic`, `local`)
+- `model` (default provider-specific)
+- `provider_api_key` (required for hosted providers in agentic modes)
+- `validation_commands` (optional `;` or newline separated validation gate commands)
 - Local/adapter detection supports GitHub Actions and GitLab CI context fields
 
 Outputs:
@@ -275,6 +301,15 @@ Outputs:
 - `classification`, `confidence`, `primary_root_cause_title`
 - `rca_json_path`, `rca_md_path`
 - `pr_created`, `pr_url`, `pr_number`, `pr_failure_reason_code`, `pr_failure_reason`
+
+Agentic failure reason code categories surfaced in `pr_failure_reason_code`:
+- `AGENTIC_MISSING_KEY`
+- `AGENTIC_PROVIDER_ERROR`
+- `VALIDATION_FAILED`
+- `AGENTIC_MAX_ATTEMPTS_EXCEEDED`
+
+Reference:
+- [`docs/agentic-failure-codes.md`](docs/agentic-failure-codes.md)
 
 Autonomous PR note:
 

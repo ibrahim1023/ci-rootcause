@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from types import SimpleNamespace
 
 from src.action_entrypoint import main
 
@@ -377,11 +378,147 @@ def test_action_entrypoint_requires_provider_key_for_hosted_agentic_mode(
     payload = _parse_github_output(output_file)
     assert payload["classification"] == "UNKNOWN"
     assert payload["pr_created"] == "false"
-    assert payload["pr_failure_reason_code"] == "ACTION_INPUT_ERROR"
+    assert payload["pr_failure_reason_code"] == "AGENTIC_MISSING_KEY"
     assert (
         "provider_api_key is required for hosted providers in agentic modes"
         in payload["pr_failure_reason"]
     )
+
+
+def test_action_entrypoint_surfaces_agentic_provider_error_when_pr_is_not_attempted(
+    tmp_path: Path, monkeypatch
+) -> None:
+    output_file = tmp_path / "github_output.txt"
+    config_path = tmp_path / "ci-rootcause.yml"
+    config_path.write_text(
+        "\n".join(
+            [
+                "raw_log: pytest failed",
+                "raw_diff: diff --git a/a.py b/a.py",
+                "output_dir: artifacts",
+                "timestamp: 2026-02-24T00:00:00Z",
+                "run_id: gha_8011_mode",
+                "commit: abc123",
+                "base_commit: abc122",
+                "head_commit: abc123",
+                "repository: acme/ci-rootcause",
+                "target_branch: main",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setenv("GITHUB_OUTPUT", str(output_file))
+    monkeypatch.setenv("INPUT_GITHUB_TOKEN", "dummy-token")
+    monkeypatch.setenv("INPUT_CREATE_FIX_PR", "false")
+    monkeypatch.setenv("INPUT_POST_PR_COMMENT", "true")
+    monkeypatch.setenv("INPUT_CONFIG_PATH", str(config_path))
+    monkeypatch.setenv("INPUT_MODE", "agentic_assist")
+    monkeypatch.setenv("INPUT_PROVIDER", "local")
+    monkeypatch.delenv("INPUT_PROVIDER_API_KEY", raising=False)
+
+    state = SimpleNamespace(
+        pipeline_status="completed",
+        agent_outputs={
+            "failure_classification": {"classification": "TYPECHECK"},
+            "root_cause_ranker": {
+                "confidence": 0.91,
+                "primary_root_cause": {"title": "Type mismatch"},
+            },
+            "reporter": {
+                "ci_rca_json_path": "artifacts/ci-rca.json",
+                "ci_rca_md_path": "artifacts/ci-rca.md",
+            },
+            "pr_creation": {
+                "pr_created": False,
+                "failure_reason_code": "",
+                "failure_reason": "",
+            },
+            "fix_planner": {
+                "agentic_proposal": {
+                    "success": False,
+                    "failure_reason_code": "AGENTIC_PROPOSAL_PROVIDER_ERROR",
+                    "failure_reason": "provider unavailable",
+                }
+            },
+        },
+    )
+    monkeypatch.setattr("src.action_entrypoint.run_pipeline", lambda request: state)
+
+    exit_code = main()
+
+    assert exit_code == 0
+    payload = _parse_github_output(output_file)
+    assert payload["pr_failure_reason_code"] == "AGENTIC_PROVIDER_ERROR"
+    assert payload["pr_failure_reason"] == "provider unavailable"
+
+
+def test_action_entrypoint_surfaces_agentic_max_attempts_reason_when_pr_is_not_attempted(
+    tmp_path: Path, monkeypatch
+) -> None:
+    output_file = tmp_path / "github_output.txt"
+    config_path = tmp_path / "ci-rootcause.yml"
+    config_path.write_text(
+        "\n".join(
+            [
+                "raw_log: pytest failed",
+                "raw_diff: diff --git a/a.py b/a.py",
+                "output_dir: artifacts",
+                "timestamp: 2026-02-24T00:00:00Z",
+                "run_id: gha_8012_mode",
+                "commit: abc123",
+                "base_commit: abc122",
+                "head_commit: abc123",
+                "repository: acme/ci-rootcause",
+                "target_branch: main",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setenv("GITHUB_OUTPUT", str(output_file))
+    monkeypatch.setenv("INPUT_GITHUB_TOKEN", "dummy-token")
+    monkeypatch.setenv("INPUT_CREATE_FIX_PR", "false")
+    monkeypatch.setenv("INPUT_POST_PR_COMMENT", "true")
+    monkeypatch.setenv("INPUT_CONFIG_PATH", str(config_path))
+    monkeypatch.setenv("INPUT_MODE", "agentic_assist")
+    monkeypatch.setenv("INPUT_PROVIDER", "local")
+    monkeypatch.delenv("INPUT_PROVIDER_API_KEY", raising=False)
+
+    state = SimpleNamespace(
+        pipeline_status="completed",
+        agent_outputs={
+            "failure_classification": {"classification": "TYPECHECK"},
+            "root_cause_ranker": {
+                "confidence": 0.91,
+                "primary_root_cause": {"title": "Type mismatch"},
+            },
+            "reporter": {
+                "ci_rca_json_path": "artifacts/ci-rca.json",
+                "ci_rca_md_path": "artifacts/ci-rca.md",
+            },
+            "pr_creation": {
+                "pr_created": False,
+                "failure_reason_code": "",
+                "failure_reason": "",
+            },
+            "fix_planner": {
+                "agentic_proposal": {
+                    "success": False,
+                    "failure_reason_code": "AGENTIC_PROPOSAL_MAX_ATTEMPTS_EXCEEDED",
+                    "failure_reason": "exhausted retries",
+                }
+            },
+        },
+    )
+    monkeypatch.setattr("src.action_entrypoint.run_pipeline", lambda request: state)
+
+    exit_code = main()
+
+    assert exit_code == 0
+    payload = _parse_github_output(output_file)
+    assert payload["pr_failure_reason_code"] == "AGENTIC_MAX_ATTEMPTS_EXCEEDED"
+    assert payload["pr_failure_reason"] == "exhausted retries"
 
 
 def test_action_entrypoint_rejects_agentic_full_without_explicit_opt_in(
