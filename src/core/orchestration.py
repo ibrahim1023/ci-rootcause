@@ -637,6 +637,43 @@ def _count_values(items: list[str]) -> dict[str, int]:
     return {key: counts[key] for key in sorted(counts)}
 
 
+def _build_agentic_observability_summary(state: PipelineState) -> dict[str, Any]:
+    fix_output = state.agent_outputs.get("fix_planner", {})
+    pr_output = state.agent_outputs.get("pr_creation", {})
+    if not isinstance(fix_output, dict):
+        return {}
+    proposal = fix_output.get("agentic_proposal", {})
+    if not isinstance(proposal, dict) or not proposal:
+        return {}
+
+    attempt_summaries_raw = proposal.get("attempt_summaries", [])
+    attempt_summaries: list[dict[str, Any]] = []
+    if isinstance(attempt_summaries_raw, list):
+        for item in attempt_summaries_raw:
+            if not isinstance(item, dict):
+                continue
+            attempt_summaries.append(
+                {
+                    "attempt": int(item.get("attempt", 0) or 0),
+                    "status": str(item.get("status", "")).strip(),
+                    "failure_reason_code": str(item.get("failure_reason_code", "")).strip(),
+                }
+            )
+
+    pr_failure_reason_code = ""
+    if isinstance(pr_output, dict):
+        pr_failure_reason_code = str(pr_output.get("failure_reason_code", "")).strip()
+
+    return {
+        "proposal_created": bool(proposal.get("proposal_created", False)),
+        "failure_reason_code": str(proposal.get("failure_reason_code", "")).strip(),
+        "failure_reason": str(proposal.get("failure_reason", "")).strip(),
+        "attempt_count": len(attempt_summaries),
+        "attempt_summaries": attempt_summaries,
+        "pr_failure_reason_code": pr_failure_reason_code,
+    }
+
+
 def _write_observability_artifact(state: PipelineState) -> None:
     try:
         output_root = Path(state.request.output_dir)
@@ -670,6 +707,7 @@ def _write_observability_artifact(state: PipelineState) -> None:
             },
             "structured_log_event_counts": _count_values(log_events),
             "nondeterministic_components": list(state.nondeterministic_components),
+            "agentic": _build_agentic_observability_summary(state),
         }
         path.write_text(
             json.dumps(observability_payload, sort_keys=True, indent=2) + "\n",

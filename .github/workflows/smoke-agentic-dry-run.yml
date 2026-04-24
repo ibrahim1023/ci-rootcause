@@ -1,0 +1,103 @@
+name: smoke-agentic-dry-run
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  smoke-agentic-dry-run:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Prepare smoke inputs
+        run: |
+          cat > ci-rootcause-agentic-smoke.log <<'LOG'
+          ##[group] test
+          Traceback (most recent call last):
+            File "src/app.py", line 7, in <module>
+          AssertionError: expected 1 == 2
+          ##[endgroup]
+          LOG
+
+          cat > ci-rootcause-agentic-smoke.diff <<'DIFF'
+          diff --git a/src/app.py b/src/app.py
+          index 1111111..2222222 100644
+          --- a/src/app.py
+          +++ b/src/app.py
+          @@ -1 +1 @@
+          -value = 1
+          +value = 2
+          DIFF
+
+          cat > .ci-rootcause-agentic-smoke.yml <<EOF2
+          repository: ${{ github.repository }}
+          target_branch: ${{ github.ref_name }}
+          run_id: agentic-smoke-${{ github.run_id }}
+          output_dir: artifacts
+          log_path: ci-rootcause-agentic-smoke.log
+          diff_path: ci-rootcause-agentic-smoke.diff
+          timestamp: 2026-02-24T00:00:00Z
+          commit: ${{ github.sha }}
+          base_commit: ${{ github.sha }}
+          head_commit: ${{ github.sha }}
+          EOF2
+
+      - name: Run agentic assist dry-run via action entrypoint
+        id: agentic
+        env:
+          GITHUB_OUTPUT: ${{ runner.temp }}/gha-output.txt
+          INPUT_GITHUB_TOKEN: ${{ github.token }}
+          INPUT_CREATE_FIX_PR: "false"
+          INPUT_POST_PR_COMMENT: "false"
+          INPUT_CONFIG_PATH: .ci-rootcause-agentic-smoke.yml
+          INPUT_MODE: agentic_assist
+          INPUT_PROVIDER: local
+        run: |
+          python -m src.action_entrypoint
+          cat "$GITHUB_OUTPUT"
+
+      - name: Assert artifacts include attempt metadata and reason codes
+        run: |
+          test -f artifacts/ci-rca-observability.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          observability = json.loads(Path("artifacts/ci-rca-observability.json").read_text(encoding="utf-8"))
+          assert observability.get("execution_mode") == "agentic_assist"
+          agentic = observability.get("agentic", {})
+          assert agentic.get("attempt_count", 0) > 0
+          assert isinstance(agentic.get("attempt_summaries", []), list)
+          assert agentic.get("failure_reason_code") in {
+              "",
+              "AGENTIC_PROPOSAL_PROVIDER_ERROR",
+              "AGENTIC_PROPOSAL_MAX_ATTEMPTS_EXCEEDED",
+              "AGENTIC_PROPOSAL_CONTRACT_ERROR",
+          }
+          assert "pr_failure_reason_code" in agentic
+          PY
+
+      - name: Upload agentic smoke artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-rootcause-agentic-smoke-artifacts
+          path: |
+            artifacts/ci-rca.json
+            artifacts/ci-rca.md
+            artifacts/ci-rca-observability.json

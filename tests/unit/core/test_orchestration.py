@@ -440,6 +440,40 @@ def test_run_pipeline_agentic_assist_falls_back_when_proposal_path_is_unsafe(
     )
 
 
+def test_observability_includes_agentic_attempt_metadata(tmp_path: Path, monkeypatch) -> None:
+    def _raise_provider(self, payload: dict) -> dict:  # noqa: ANN001
+        del self, payload
+        raise AgenticProposalProviderError("provider unavailable")
+
+    monkeypatch.setattr("src.core.orchestration.LocalLlmPatchProposer.propose", _raise_provider)
+
+    request = PipelineRequest(
+        raw_log=_sample_log(),
+        raw_diff=_sample_diff(),
+        timestamp="2026-02-20T00:00:00Z",
+        commit="abc123",
+        run_id="gha_4104",
+        base_commit="abc123",
+        head_commit="def456",
+        output_dir=str(tmp_path),
+        create_fix_pr=False,
+        execution_mode="agentic_assist",
+        llm_provider="local",
+        llm_model="local-default",
+        use_adk_runtime=False,
+    )
+    run_pipeline(request=request)
+
+    observability = json.loads((tmp_path / "ci-rca-observability.json").read_text(encoding="utf-8"))
+    assert observability["agentic"]["proposal_created"] is False
+    assert (
+        observability["agentic"]["failure_reason_code"] == "AGENTIC_PROPOSAL_MAX_ATTEMPTS_EXCEEDED"
+    )
+    assert observability["agentic"]["attempt_count"] > 0
+    assert observability["agentic"]["attempt_summaries"]
+    assert observability["agentic"]["pr_failure_reason_code"] == "CREATE_FIX_PR_DISABLED"
+
+
 def test_observability_artifact_failure_does_not_fail_pipeline(tmp_path: Path) -> None:
     blocked_output = tmp_path / "occupied-path"
     blocked_output.write_text("not-a-directory", encoding="utf-8")
