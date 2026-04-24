@@ -80,7 +80,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--provider",
         default=None,
-        help="Agentic provider: openai | anthropic | local. Default: local.",
+        help="Agentic provider: openai | gemini | anthropic | local. Default: local.",
     )
     parser.add_argument(
         "--model",

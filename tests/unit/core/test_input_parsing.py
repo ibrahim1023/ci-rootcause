@@ -73,6 +73,17 @@ def test_parse_agentic_provider_config_allows_local_without_key() -> None:
     assert config.api_key is None
 
 
+def test_parse_agentic_provider_config_requires_key_for_gemini_in_agentic_modes() -> None:
+    execution_mode = parse_execution_mode("agentic_assist")
+    with pytest.raises(InputParsingError, match="provider_api_key is required"):
+        parse_agentic_provider_config(
+            execution_mode=execution_mode,
+            provider_value="gemini",
+            model_value="",
+            api_key_value="",
+        )
+
+
 def test_load_simple_config_respects_missing_ok(tmp_path: Path) -> None:
     missing = tmp_path / "missing.yml"
     assert load_simple_config(missing, missing_ok=True) == {}

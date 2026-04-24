@@ -1,10 +1,14 @@
 from __future__ import annotations
 
+import json
+
 import pytest
 
 from src.agents.agentic_proposer import (
     AgenticProposalContractError,
     AgenticProposalProviderError,
+    HostedLlmPatchProposer,
+    LocalLlmPatchProposer,
     run_agentic_patch_proposal,
     validate_agentic_patch_proposal,
 )
@@ -41,6 +45,20 @@ class _FlakyThenGoodProposer:
             ],
             "patch_plan": [{"op": "modify", "file": "src/a.py", "content": "print(1)\n"}],
         }
+
+
+class _FakeResponse:
+    def __init__(self, payload: bytes) -> None:
+        self._payload = payload
+
+    def __enter__(self) -> "_FakeResponse":
+        return self
+
+    def __exit__(self, exc_type, exc, tb) -> bool:
+        return False
+
+    def read(self) -> bytes:
+        return self._payload
 
 
 def test_validate_agentic_patch_proposal_accepts_valid_shape() -> None:
@@ -146,3 +164,127 @@ def test_run_agentic_patch_proposal_retries_and_recovers() -> None:
         result["attempt_summaries"][0]["failure_reason_code"] == "AGENTIC_PROPOSAL_PROVIDER_ERROR"
     )
     assert result["attempt_summaries"][1]["status"] == "success"
+
+
+def test_hosted_openai_proposer_parses_response(monkeypatch) -> None:
+    def fake_urlopen(req, timeout: int):  # noqa: ANN001
+        del timeout
+        assert req.full_url == "https://api.openai.com/v1/responses"
+        payload = {
+            "output_text": json.dumps(
+                {
+                    "summary": "openai summary",
+                    "candidate_fix_steps": [
+                        {"file": "src/a.py", "instruction": "fix", "rationale": "because"}
+                    ],
+                    "patch_plan": [{"op": "modify", "file": "src/a.py", "content": "print(1)\n"}],
+                }
+            )
+        }
+        return _FakeResponse(json.dumps(payload).encode("utf-8"))
+
+    monkeypatch.setattr("src.agents.agentic_proposer.urllib_request.urlopen", fake_urlopen)
+    proposer = HostedLlmPatchProposer(provider="openai", model="gpt-5.4-mini", api_key="key")
+
+    payload = proposer.propose({"classification": "TYPECHECK", "allowed_files": ["src/a.py"]})
+    assert payload["summary"] == "openai summary"
+
+
+def test_hosted_gemini_proposer_parses_response(monkeypatch) -> None:
+    def fake_urlopen(req, timeout: int):  # noqa: ANN001
+        del timeout
+        assert ":generateContent?" in req.full_url
+        payload = {
+            "candidates": [
+                {
+                    "content": {
+                        "parts": [
+                            {
+                                "text": json.dumps(
+                                    {
+                                        "summary": "gemini summary",
+                                        "candidate_fix_steps": [
+                                            {
+                                                "file": "src/a.py",
+                                                "instruction": "fix",
+                                                "rationale": "because",
+                                            }
+                                        ],
+                                        "patch_plan": [
+                                            {
+                                                "op": "modify",
+                                                "file": "src/a.py",
+                                                "content": "print(1)\n",
+                                            }
+                                        ],
+                                    }
+                                )
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
+        return _FakeResponse(json.dumps(payload).encode("utf-8"))
+
+    monkeypatch.setattr("src.agents.agentic_proposer.urllib_request.urlopen", fake_urlopen)
+    proposer = HostedLlmPatchProposer(provider="gemini", model="gemini-2.5-flash", api_key="key")
+
+    payload = proposer.propose({"classification": "TYPECHECK", "allowed_files": ["src/a.py"]})
+    assert payload["summary"] == "gemini summary"
+
+
+def test_hosted_anthropic_proposer_parses_response(monkeypatch) -> None:
+    def fake_urlopen(req, timeout: int):  # noqa: ANN001
+        del timeout
+        assert req.full_url == "https://api.anthropic.com/v1/messages"
+        payload = {
+            "content": [
+                {
+                    "text": json.dumps(
+                        {
+                            "summary": "anthropic summary",
+                            "candidate_fix_steps": [
+                                {"file": "src/a.py", "instruction": "fix", "rationale": "because"}
+                            ],
+                            "patch_plan": [
+                                {"op": "modify", "file": "src/a.py", "content": "print(1)\n"}
+                            ],
+                        }
+                    )
+                }
+            ]
+        }
+        return _FakeResponse(json.dumps(payload).encode("utf-8"))
+
+    monkeypatch.setattr("src.agents.agentic_proposer.urllib_request.urlopen", fake_urlopen)
+    proposer = HostedLlmPatchProposer(
+        provider="anthropic", model="claude-sonnet-4.5", api_key="key"
+    )
+
+    payload = proposer.propose({"classification": "TYPECHECK", "allowed_files": ["src/a.py"]})
+    assert payload["summary"] == "anthropic summary"
+
+
+def test_local_ollama_proposer_parses_response(monkeypatch) -> None:
+    def fake_urlopen(req, timeout: int):  # noqa: ANN001
+        del timeout
+        assert req.full_url == "http://localhost:11434/api/generate"
+        payload = {
+            "response": json.dumps(
+                {
+                    "summary": "ollama summary",
+                    "candidate_fix_steps": [
+                        {"file": "src/a.py", "instruction": "fix", "rationale": "because"}
+                    ],
+                    "patch_plan": [{"op": "modify", "file": "src/a.py", "content": "print(1)\n"}],
+                }
+            )
+        }
+        return _FakeResponse(json.dumps(payload).encode("utf-8"))
+
+    monkeypatch.setattr("src.agents.agentic_proposer.urllib_request.urlopen", fake_urlopen)
+    proposer = LocalLlmPatchProposer(model="qwen2.5-coder")
+
+    payload = proposer.propose({"classification": "TYPECHECK", "allowed_files": ["src/a.py"]})
+    assert payload["summary"] == "ollama summary"

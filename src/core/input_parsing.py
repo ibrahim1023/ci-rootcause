@@ -72,7 +72,7 @@ def parse_agentic_provider_config(
     api_key = api_key_value.strip() or None
     if (
         execution_mode in {ExecutionMode.AGENTIC_ASSIST, ExecutionMode.AGENTIC_FULL}
-        and provider in {AgenticProvider.OPENAI, AgenticProvider.ANTHROPIC}
+        and provider in {AgenticProvider.OPENAI, AgenticProvider.GEMINI, AgenticProvider.ANTHROPIC}
         and not api_key
     ):
         raise InputParsingError(

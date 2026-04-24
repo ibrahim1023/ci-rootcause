@@ -6,6 +6,7 @@ from enum import Enum
 
 class AgenticProvider(str, Enum):
     OPENAI = "openai"
+    GEMINI = "gemini"
     ANTHROPIC = "anthropic"
     LOCAL = "local"
 
@@ -29,6 +30,8 @@ def parse_agentic_provider(value: str, *, name: str = "provider") -> AgenticProv
 def default_model_for_provider(provider: AgenticProvider) -> str:
     if provider == AgenticProvider.OPENAI:
         return "gpt-5.4-mini"
+    if provider == AgenticProvider.GEMINI:
+        return "gemini-2.5-flash"
     if provider == AgenticProvider.ANTHROPIC:
         return "claude-sonnet-4.5"
     return "local-default"

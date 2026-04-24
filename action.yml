@@ -52,7 +52,7 @@ inputs:
     required: false
     default: "false"
   provider:
-    description: "Agentic provider (openai, anthropic, local)."
+    description: "Agentic provider (openai, gemini, anthropic, local)."
     required: false
     default: "local"
   model:
