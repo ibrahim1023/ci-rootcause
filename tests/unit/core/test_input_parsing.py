@@ -84,6 +84,51 @@ def test_parse_agentic_provider_config_requires_key_for_gemini_in_agentic_modes(
         )
 
 
+def test_parse_agentic_provider_config_allows_hosted_without_key_in_deterministic_mode() -> None:
+    execution_mode = parse_execution_mode("deterministic")
+    config = parse_agentic_provider_config(
+        execution_mode=execution_mode,
+        provider_value="openai",
+        model_value="",
+        api_key_value="",
+    )
+    assert config.provider.value == "openai"
+    assert config.api_key is None
+
+
+@pytest.mark.parametrize(
+    ("provider", "expected_model"),
+    [
+        ("openai", "gpt-5.4-mini"),
+        ("gemini", "gemini-2.5-flash"),
+        ("anthropic", "claude-sonnet-4.5"),
+        ("local", "local-default"),
+    ],
+)
+def test_parse_agentic_provider_config_applies_provider_default_models(
+    provider: str, expected_model: str
+) -> None:
+    execution_mode = parse_execution_mode("deterministic")
+    config = parse_agentic_provider_config(
+        execution_mode=execution_mode,
+        provider_value=provider,
+        model_value="",
+        api_key_value="",
+    )
+    assert config.model == expected_model
+
+
+def test_parse_agentic_provider_config_rejects_unknown_provider() -> None:
+    execution_mode = parse_execution_mode("agentic_assist")
+    with pytest.raises(InputParsingError, match="Invalid value for provider"):
+        parse_agentic_provider_config(
+            execution_mode=execution_mode,
+            provider_value="unknown-provider",
+            model_value="",
+            api_key_value="",
+        )
+
+
 def test_load_simple_config_respects_missing_ok(tmp_path: Path) -> None:
     missing = tmp_path / "missing.yml"
     assert load_simple_config(missing, missing_ok=True) == {}
