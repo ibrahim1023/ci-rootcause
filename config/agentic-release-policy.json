@@ -1,0 +1,14 @@
+{
+  "stage": 1,
+  "agentic_enabled": false,
+  "stage2_allowed_classifications": [
+    "TYPECHECK"
+  ],
+  "thresholds": {
+    "classification_match_rate_min": 0.95,
+    "artifact_hash_reproducibility_min": 1.0,
+    "confidence_reproducibility_min": 1.0,
+    "completion_rate_min": 1.0,
+    "agentic_validation_pass_rate_min": 1.0
+  }
+}

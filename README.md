@@ -399,6 +399,7 @@ This workflow is isolated from default CI and is intended only for manual valida
 - Benchmark report JSON: `docs/reports/mvp-benchmark-report.json`
 - Benchmark report summary: `docs/reports/mvp-benchmark-report.md`
 - Release checklist: `docs/release-checklist-v0.1.1.md`
+- Agentic release plan + thresholds: `docs/agentic-release-plan.md`
 - Benchmark metrics include classification/primary RCA accuracy, confidence reproducibility,
   artifact-hash reproducibility, timing distribution (`mean`/`median`/`p95`), and
   deterministic lift against `basic-log-summarizer-v1` baseline classification accuracy.

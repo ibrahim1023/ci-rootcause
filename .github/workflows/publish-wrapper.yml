@@ -42,6 +42,10 @@ jobs:
           test -f docs/reports/mvp-benchmark-report.md
           pytest tests/unit/contracts/test_schema_compatibility_matrix.py
           pytest tests/unit/contracts/test_samples.py
+          python -m src.release_gate \
+            --benchmark docs/reports/mvp-benchmark-report.json \
+            --policy config/agentic-release-policy.json \
+            --validation-passed
 
       - name: Resolve release tag
         id: tag
