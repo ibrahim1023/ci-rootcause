@@ -38,4 +38,3 @@ python -m src.release_gate \
 
 Enforced in:
 - `.github/workflows/prepare-release.yml`
-- `.github/workflows/publish-wrapper.yml`

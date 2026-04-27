@@ -16,16 +16,10 @@
 
 ## Release Workflows
 - [ ] `prepare-release` completed and created new tag
-- [ ] `publish-wrapper` completed for the same tag
-- [ ] Wrapper repo updated:
-  - [ ] `main` synced
-  - [ ] tag `vX.Y.Z` exists
-  - [ ] major alias `v0` points to same commit as `vX.Y.Z`
-  - [ ] wrapper release exists/updated
+- [ ] Source GitHub Release created/updated for the same tag
 
 ## Smoke Validation
 - [ ] `smoke-agentic-dry-run` passed
-- [ ] `smoke-marketplace` passed
 - [ ] Artifacts verified (`ci-rca.json`, `ci-rca.md`, `ci-rca-observability.json`)
 
 ## Product Signals For Announcement
@@ -37,7 +31,6 @@
 - [ ] Announcement copy prepared (X/GitHub/Discord)
 
 ## Rollback Plan
-- [ ] If wrapper publish fails: rerun `publish-wrapper` with explicit tag input
 - [ ] If release gate fails: do not retag; fix thresholds/regression first
 - [ ] If smoke fails: hold announcement, patch, and rerun workflows
 
@@ -54,9 +47,8 @@ Release `vX.Y.Z` readiness update:
 
 - Local checks: ✅
 - CI (`lint-and-test`, `packaging-smoke`): ✅
-- Release workflows (`prepare-release`, `publish-wrapper`): ✅
-- Wrapper sync (`vX.Y.Z` + `v0`): ✅
-- Smoke workflows (`smoke-agentic-dry-run`, `smoke-marketplace`): ✅
+- Release workflow (`prepare-release`) + source release: ✅
+- Smoke workflow (`smoke-agentic-dry-run`): ✅
 
 Top metrics (README):
 - Classification accuracy: XX%

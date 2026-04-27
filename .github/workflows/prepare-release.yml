@@ -125,4 +125,4 @@ jobs:
         run: |
           echo "Created release tag: ${{ steps.next.outputs.tag }}"
           echo "Previous semver tag: ${{ steps.next.outputs.latest }}"
-          echo "publish-wrapper will run automatically from the new tag push."
+          echo "Source release flow complete for ${{ steps.next.outputs.tag }}."
