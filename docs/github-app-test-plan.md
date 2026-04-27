@@ -184,3 +184,14 @@ Expected:
 - [ ] Run Phase 6 load/soak sample.
 - [ ] Run Phase 7 operational drills.
 - [ ] Produce test report with failures and action items.
+
+## Quick Trigger Workflow
+
+Use `.github/workflows/app-failure-fixtures.yml` to generate controlled failed `workflow_run`
+events from the Actions UI (`workflow_dispatch`).
+
+Scenarios:
+- `typecheck`
+- `syntax`
+- `dependency`
+- `infra`
