@@ -212,6 +212,21 @@ def process_github_app_webhook(
             api_base=api_base,
         )
     except GitHubAppIngestionError as exc:
+        if exc.reason_code == "MISSING_BASE_SHA":
+            outcome = build_outcome(
+                status=STATUS_SKIPPED,
+                reason_code=exc.reason_code,
+                reason=str(exc),
+            )
+            return {
+                "status": outcome.status,
+                "reason_code": outcome.reason_code,
+                "reason": outcome.reason,
+                "event": str(webhook_result.get("event", "")),
+                "delivery": str(webhook_result.get("delivery", "")),
+                "repository": repository,
+                "workflow_run_id": workflow_run_id,
+            }
         outcome = build_outcome(
             status=STATUS_ERROR,
             reason_code=exc.reason_code,
