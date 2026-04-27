@@ -86,10 +86,16 @@ jobs:
           EOF
 
       - name: Preflight action input contract
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           echo "SMOKE_CREATE_FIX_PR=${SMOKE_CREATE_FIX_PR}"
           if [ "${SMOKE_CREATE_FIX_PR}" != "true" ]; then
             echo "Expected SMOKE_CREATE_FIX_PR=true before running action."
+            exit 1
+          fi
+          if [ -z "$GH_TOKEN" ]; then
+            echo "GITHUB_TOKEN is empty."
             exit 1
           fi
 
@@ -97,7 +103,7 @@ jobs:
         id: rca
         uses: ibrahim1023/ci-rootcause-action@v0
         env:
-          INPUT_GITHUB_TOKEN: ${{ github.token }}
+          INPUT_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           INPUT_CREATE_FIX_PR: ${{ env.SMOKE_CREATE_FIX_PR }}
           CI_ROOTCAUSE_LOG_PATH: ci-rootcause-smoke.log
           CI_ROOTCAUSE_DIFF_PATH: ci-rootcause-smoke.diff
@@ -107,7 +113,7 @@ jobs:
             Found 1 error in 1 file (checked 1 source file)
             ##[endgroup]
         with:
-          github_token: ${{ github.token }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
           create_fix_pr: ${{ env.SMOKE_CREATE_FIX_PR }}
           post_pr_comment: "false"
           config_path: .ci-rootcause-smoke.yml

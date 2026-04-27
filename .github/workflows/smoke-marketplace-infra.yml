@@ -30,15 +30,24 @@ jobs:
           diff_path: fixtures/diffs/refactor-only.diff
           EOF
 
+      - name: Preflight token availability
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "GITHUB_TOKEN is empty."
+            exit 1
+          fi
+
       - name: Run published ci-rootcause action
         id: rca
         uses: ibrahim1023/ci-rootcause-action@v0
         env:
-          INPUT_GITHUB_TOKEN: ${{ github.token }}
+          INPUT_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           INPUT_CREATE_FIX_PR: "false"
           INPUT_POST_PR_COMMENT: "false"
         with:
-          github_token: ${{ github.token }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
           create_fix_pr: "false"
           post_pr_comment: "false"
           config_path: .ci-rootcause-smoke-infra.yml
