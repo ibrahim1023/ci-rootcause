@@ -56,6 +56,13 @@ jobs:
       - name: CLI help smoke test
         run: ci-rootcause --help
 
+      - name: Agentic flag parity smoke test
+        run: |
+          ci-rootcause --help | grep -q -- "--mode"
+          ci-rootcause --help | grep -q -- "--provider"
+          ci-rootcause --help | grep -q -- "--provider-api-key"
+          ci-rootcause --help | grep -q -- "--enable-agentic-full"
+
       - name: Fixture run smoke test
         run: |
           ci-rootcause \
@@ -67,6 +74,8 @@ jobs:
             --run-id gha_ci_smoke_1 \
             --base-commit abc122 \
             --head-commit abc123 \
-            --repository owner/repo
+            --repository owner/repo \
+            --mode agentic_assist \
+            --provider local
           test -f artifacts/ci-smoke/ci-rca.json
           test -f artifacts/ci-smoke/ci-rca.md
