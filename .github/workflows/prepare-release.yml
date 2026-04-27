@@ -106,6 +106,21 @@ jobs:
           git tag -a "$NEXT_TAG" -m "release ${NEXT_TAG}"
           git push origin "$NEXT_TAG"
 
+      - name: Create or update source release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          NEXT_TAG="${{ steps.next.outputs.tag }}"
+          if gh release view "$NEXT_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Source release already exists for ${NEXT_TAG}; leaving existing notes unchanged."
+          else
+            gh release create "$NEXT_TAG" \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "$NEXT_TAG" \
+              --generate-notes
+            echo "Created source release for ${NEXT_TAG}"
+          fi
+
       - name: Summary
         run: |
           echo "Created release tag: ${{ steps.next.outputs.tag }}"

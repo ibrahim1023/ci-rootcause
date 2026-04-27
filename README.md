@@ -336,6 +336,7 @@ Marketplace wrapper sync automation:
 
 - Source repo keeps development workflows; Marketplace wrapper is
   [ibrahim1023/ci-rootcause-action](https://github.com/ibrahim1023/ci-rootcause-action).
+- `prepare-release` now creates/updates the source repo GitHub Release for the new tag.
 - Release tags (`v*`) trigger `.github/workflows/publish-wrapper.yml` to sync
   `src/`, `action.yml`, `README.md`, and `requirements.txt` into the wrapper repo.
 - Wrapper tags are updated to the same release tag and major alias `v0`.
