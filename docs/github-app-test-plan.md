@@ -188,10 +188,14 @@ Expected:
 ## Quick Trigger Workflow
 
 Use `.github/workflows/app-failure-fixtures.yml` to generate controlled failed `workflow_run`
-events from the Actions UI (`workflow_dispatch`).
+events either from Actions UI (`workflow_dispatch`) or from PR runs (`pull_request` to `main`).
 
 Scenarios:
 - `typecheck`
 - `syntax`
 - `dependency`
 - `infra`
+
+Notes:
+- `workflow_dispatch` lets you pick scenario explicitly.
+- `pull_request` uses default scenario `typecheck` so events include PR base context.

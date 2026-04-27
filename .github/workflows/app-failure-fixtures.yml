@@ -1,6 +1,8 @@
 name: app-failure-fixtures
 
 on:
+  pull_request:
+    branches: [main]
   workflow_dispatch:
     inputs:
       scenario:
@@ -21,7 +23,7 @@ jobs:
   trigger-failure:
     runs-on: ubuntu-latest
     env:
-      SCENARIO: ${{ inputs.scenario }}
+      SCENARIO: ${{ github.event_name == 'workflow_dispatch' && inputs.scenario || 'typecheck' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
