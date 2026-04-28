@@ -62,3 +62,26 @@ def test_log_ingest_supports_cancelled_partial_fixture() -> None:
         "timed out and was canceled" in event["error_signature"].lower()
         for event in output["failure_events"]
     )
+
+
+def test_log_ingest_prefers_real_error_over_github_actions_noise() -> None:
+    error_line = (
+        "2026-04-28T11:14:15.0895487Z app_failure_typecheck.py:4: error: Argument 1 to "
+        '"needs_int" has incompatible type "str"; expected "int"'
+    )
+    raw_log = "\n".join(
+        [
+            "# trigger-failure/1_Set up job.txt",
+            "2026-04-28T11:14:09.3020359Z Current runner version: '2.334.0'",
+            "2026-04-28T11:14:09.9863921Z Complete job name: trigger-failure",
+            error_line,
+            "2026-04-28T11:14:15.0967796Z ##[error]Process completed with exit code 1.",
+            "",
+        ]
+    )
+    output = run_log_ingest(raw_log, timestamp="2026-04-28T00:00:00Z")
+
+    first = output["first_failure_event"]
+    assert first is not None
+    assert "app_failure_typecheck.py:4: error:" in first["error_signature"]
+    assert first["file"] == "app_failure_typecheck.py"
