@@ -44,6 +44,14 @@ def _parse_csv(value: str) -> tuple[str, ...]:
     return tuple(item.strip() for item in value.split(",") if item.strip())
 
 
+def _get_header(headers: dict[str, str], name: str) -> str:
+    target = name.strip().lower()
+    for key, value in headers.items():
+        if key.strip().lower() == target:
+            return str(value)
+    return ""
+
+
 def load_repo_config_from_env() -> GitHubAppRepoConfig:
     return GitHubAppRepoConfig(
         enabled=_parse_bool(os.getenv("CI_ROOTCAUSE_APP_ENABLED", "true"), default=True),
@@ -122,7 +130,7 @@ def process_webhook_request(
     server_config: GitHubAppServerConfig,
     repo_config: GitHubAppRepoConfig,
 ) -> ProcessResult:
-    event_name = headers.get("X-GitHub-Event", "").strip().lower()
+    event_name = _get_header(headers, "X-GitHub-Event").strip().lower()
 
     if event_name != "workflow_run":
         result = process_github_app_webhook(
