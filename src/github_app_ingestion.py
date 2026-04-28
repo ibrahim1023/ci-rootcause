@@ -95,7 +95,7 @@ class GitHubAppIngestionClient:
             method=method,
             headers={
                 "Accept": accept,
-                "Authorization": f"token {self._token}",
+                "Authorization": f"Bearer {self._token}",
                 "X-GitHub-Api-Version": "2022-11-28",
             },
         )
