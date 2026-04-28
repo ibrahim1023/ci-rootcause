@@ -10,10 +10,19 @@ ERROR_PATTERNS: tuple[re.Pattern[str], ...] = (
     ),
 )
 
-STACK_FRAME_PATTERN = re.compile(
-    r"\s*File \"(?P<file>[^\"]+)\", line (?P<line>\d+)|"
-    r"\s*at (?P<js_file>[^:\s]+):(\d+):(\d+)|"
-    r"(?P<mypy_file>[A-Za-z0-9_./-]+):(?P<mypy_line>\d+):\s*error:"
+LOCATION_PATTERNS: tuple[re.Pattern[str], ...] = (
+    re.compile(r"\s*File \"(?P<file>[^\"]+)\", line (?P<line>\d+)"),
+    re.compile(r"\s*at (?P<file>[^:\s]+):(?P<line>\d+):\d+"),
+    re.compile(r"(?P<file>[A-Za-z0-9_./-]+):(?P<line>\d+):\s*error:"),
+    re.compile(r"(?P<file>[A-Za-z0-9_./-]+):(?P<line>\d+):\d+:\s*[A-Z]\d+"),
+    re.compile(r"(?P<file>[A-Za-z0-9_./-]+):(?P<line>\d+):\s*AssertionError"),
+    re.compile(r"(?P<file>tests/[A-Za-z0-9_./-]+\.py)::[A-Za-z0-9_:\[\]-]+"),
+)
+
+RUFF_ARROW_PATTERN = re.compile(r"-->\s+(?P<file>[A-Za-z0-9_./-]+):(?P<line>\d+):\d+")
+DEPENDENCY_REQUIREMENT_PATTERN = re.compile(
+    r"(?:requirement|package)\s+(?P<package>[A-Za-z0-9_.-]+)",
+    re.IGNORECASE,
 )
 
 
@@ -58,27 +67,43 @@ def _find_stack_context(lines: list[str], idx: int) -> tuple[str | None, int | N
     frames: list[str] = []
 
     for probe in lines[start:end]:
-        match = STACK_FRAME_PATTERN.search(probe)
-        if not match:
+        arrow_match = RUFF_ARROW_PATTERN.search(probe)
+        if arrow_match:
+            file_path = arrow_match.group("file")
+            line_no = int(arrow_match.group("line"))
+            frames.append(f"{file_path}:{line_no}")
             continue
 
-        if match.group("file") is not None:
+        dependency_match = DEPENDENCY_REQUIREMENT_PATTERN.search(probe)
+        if dependency_match:
+            package_name = dependency_match.group("package")
+            package_frame = f"package:{package_name}"
+            if package_frame not in frames:
+                frames.append(package_frame)
+
+        for pattern in LOCATION_PATTERNS:
+            match = pattern.search(probe)
+            if not match:
+                continue
+
             file_path = match.group("file")
-            line_no = int(match.group("line"))
-            frames.append(f"{file_path}:{line_no}")
-        elif match.group("js_file") is not None:
-            js_file = match.group("js_file")
-            js_line_match = re.search(r":(\d+):(\d+)", probe)
-            if js_line_match:
-                line_no = int(js_line_match.group(1))
-                file_path = js_file
+            raw_line = match.groupdict().get("line")
+            if raw_line is not None:
+                line_no = int(raw_line)
                 frames.append(f"{file_path}:{line_no}")
-        elif match.group("mypy_file") is not None and match.group("mypy_line") is not None:
-            file_path = match.group("mypy_file")
-            line_no = int(match.group("mypy_line"))
-            frames.append(f"{file_path}:{line_no}")
+            else:
+                frames.append(file_path)
+            break
 
     return file_path, line_no, frames
+
+
+def _is_error_line(raw_line: str) -> bool:
+    if any(pattern.search(raw_line) for pattern in ERROR_PATTERNS):
+        return True
+    if RUFF_ARROW_PATTERN.search(raw_line):
+        return True
+    return any(pattern.search(raw_line) for pattern in LOCATION_PATTERNS)
 
 
 def parse_ci_log(raw_log: str, timestamp: str = "1970-01-01T00:00:00Z") -> ParsedLog:
@@ -92,7 +117,7 @@ def parse_ci_log(raw_log: str, timestamp: str = "1970-01-01T00:00:00Z") -> Parse
         if current_stage not in stages:
             stages.append(current_stage)
 
-        if not any(pattern.search(raw_line) for pattern in ERROR_PATTERNS):
+        if not _is_error_line(raw_line):
             continue
 
         file_path, line_no, frames = _find_stack_context(lines, idx)

@@ -85,3 +85,15 @@ def test_log_ingest_prefers_real_error_over_github_actions_noise() -> None:
     assert first is not None
     assert "app_failure_typecheck.py:4: error:" in first["error_signature"]
     assert first["file"] == "app_failure_typecheck.py"
+
+
+def test_log_ingest_preserves_fallback_for_sparse_failure_logs() -> None:
+    raw_log = """# trigger-failure/1_Set up job.txt
+2026-04-28T11:14:09.3020359Z Current runner version: '2.334.0'
+2026-04-28T11:14:15.0967796Z ##[error]Process completed with exit code 1.
+"""
+
+    output = run_log_ingest(raw_log, timestamp="2026-04-28T00:00:00Z")
+
+    assert output["first_failure_event"] is not None
+    assert len(output["failure_graph"]["nodes"]) >= 1
