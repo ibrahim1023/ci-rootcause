@@ -53,6 +53,10 @@ def _get_header(headers: dict[str, str], name: str) -> str:
 
 
 def load_repo_config_from_env() -> GitHubAppRepoConfig:
+    llm_provider = os.getenv("CI_ROOTCAUSE_APP_LLM_PROVIDER", "").strip() or None
+    llm_model = os.getenv("CI_ROOTCAUSE_APP_LLM_MODEL", "").strip() or None
+    llm_api_key = os.getenv("CI_ROOTCAUSE_APP_LLM_API_KEY", "").strip() or None
+    llm_base_url = os.getenv("CI_ROOTCAUSE_APP_LLM_BASE_URL", "").strip() or None
     return GitHubAppRepoConfig(
         enabled=_parse_bool(os.getenv("CI_ROOTCAUSE_APP_ENABLED", "true"), default=True),
         allow_repositories=_parse_csv(os.getenv("CI_ROOTCAUSE_APP_ALLOW_REPOSITORIES", "")),
@@ -68,6 +72,10 @@ def load_repo_config_from_env() -> GitHubAppRepoConfig:
         min_pr_confidence=float(os.getenv("CI_ROOTCAUSE_APP_MIN_PR_CONFIDENCE", "0.75")),
         execution_mode=os.getenv("CI_ROOTCAUSE_APP_MODE", "deterministic").strip()
         or "deterministic",
+        llm_provider=llm_provider,
+        llm_model=llm_model,
+        llm_api_key=llm_api_key,
+        llm_base_url=llm_base_url,
         output_dir=os.getenv("CI_ROOTCAUSE_APP_OUTPUT_DIR", "artifacts/app").strip()
         or "artifacts/app",
         post_comment=_parse_bool(os.getenv("CI_ROOTCAUSE_APP_POST_COMMENT", "true"), default=True),

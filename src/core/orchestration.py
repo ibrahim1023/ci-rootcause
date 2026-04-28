@@ -169,6 +169,7 @@ class PipelineRequest:
     llm_provider: str | None = None
     llm_model: str | None = None
     llm_api_key: str | None = None
+    llm_base_url: str | None = None
     validation_commands: list[str] = field(default_factory=list)
     create_fix_pr_disabled_reason: str | None = None
     ci_provider: str | None = None
@@ -254,7 +255,8 @@ def _run_fix_planner_agent(state: PipelineState) -> dict[str, Any]:
     provider = (state.request.llm_provider or "local").strip().lower()
     model = (state.request.llm_model or "local-default").strip() or "local-default"
     if provider == "local":
-        proposer = LocalLlmPatchProposer(model=model)
+        base_url = (state.request.llm_base_url or "").strip() or "http://localhost:11434"
+        proposer = LocalLlmPatchProposer(model=model, base_url=base_url)
     else:
         proposer = HostedLlmPatchProposer(
             provider=provider,

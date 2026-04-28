@@ -1,7 +1,11 @@
 from __future__ import annotations
 
 from src.github_app_runtime import GitHubAppRepoConfig
-from src.github_app_server import GitHubAppServerConfig, process_webhook_request
+from src.github_app_server import (
+    GitHubAppServerConfig,
+    load_repo_config_from_env,
+    process_webhook_request,
+)
 
 
 def _server_config() -> GitHubAppServerConfig:
@@ -77,3 +81,15 @@ def test_process_webhook_request_missing_installation_returns_auth_error() -> No
     assert result.payload["status"] == "error"
     assert result.payload["reason_code"] == "APP_AUTH_ERROR"
     assert "installation" in result.payload["reason"].lower()
+
+
+def test_load_repo_config_from_env_reads_llm_settings(monkeypatch) -> None:
+    monkeypatch.setenv("CI_ROOTCAUSE_APP_LLM_PROVIDER", "local")
+    monkeypatch.setenv("CI_ROOTCAUSE_APP_LLM_MODEL", "qwen2.5-coder:7b")
+    monkeypatch.setenv("CI_ROOTCAUSE_APP_LLM_BASE_URL", "http://localhost:11434")
+
+    config = load_repo_config_from_env()
+
+    assert config.llm_provider == "local"
+    assert config.llm_model == "qwen2.5-coder:7b"
+    assert config.llm_base_url == "http://localhost:11434"

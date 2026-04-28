@@ -34,6 +34,10 @@ class GitHubAppRepoConfig:
     create_fix_pr: bool = False
     min_pr_confidence: float = 0.75
     execution_mode: str = "deterministic"
+    llm_provider: str | None = None
+    llm_model: str | None = None
+    llm_api_key: str | None = None
+    llm_base_url: str | None = None
     output_dir: str = "artifacts/app"
     post_comment: bool = True
 
@@ -261,6 +265,10 @@ def process_github_app_webhook(
         fail_fast=False,
         min_pr_confidence=config.min_pr_confidence,
         execution_mode=config.execution_mode,
+        llm_provider=config.llm_provider,
+        llm_model=config.llm_model,
+        llm_api_key=config.llm_api_key,
+        llm_base_url=config.llm_base_url,
         create_fix_pr_disabled_reason=disabled_reason,
     )
 
