@@ -13,8 +13,8 @@ DIFF_FIXTURES = [
     Path("fixtures/diffs/node-mixed-code-lock.diff"),
 ]
 REFRACTOR_ONLY_FIXED_HASHES = {
-    "ci_rca_json_sha256": "92462dd31f9569404ce733514126b632312959522ad37fa0b1c78ff828d2150f",
-    "ci_rca_md_sha256": "a9123fe3a2736070c0b9387b56ebc4ba06d8fd42e3d9323eb32ba55384c2fb46",
+    "ci_rca_json_sha256": "67deac349118ff5973a8b2378446e7d62c739f27f30c5065b83d2161a319bdb7",
+    "ci_rca_md_sha256": "6145d90981f31d018bb75c03950d8bd6565b056eb58f978bc5779d9ee49bdc2f",
 }
 
 

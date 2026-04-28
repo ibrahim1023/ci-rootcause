@@ -33,7 +33,9 @@ def build_app_comment_body(
     run_id: str,
     rca_json_path: str,
     rca_md_path: str,
+    confidence_reason: str = "",
 ) -> str:
+    reason = confidence_reason.strip() or "No confidence explanation recorded."
     return "\n".join(
         [
             APP_COMMENT_MARKER,
@@ -41,6 +43,7 @@ def build_app_comment_body(
             f"- Classification: `{classification}`",
             f"- Confidence: `{confidence:.4f}`",
             f"- Primary Root Cause: {primary_root_cause_title or 'unknown'}",
+            f"- Confidence reason: {reason}",
             f"- Run ID: `{run_id}`",
             "",
             "Artifacts:",

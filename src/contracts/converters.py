@@ -62,6 +62,11 @@ def rca_output_from_agent_outputs(payload: dict) -> RCAOutput:
                 title=cause["title"],
                 evidence=cause_evidence,
                 score=float(cause["score"]),
+                score_breakdown={
+                    str(key): float(value)
+                    for key, value in cause.get("score_breakdown", {}).items()
+                },
+                confidence_reasons=[str(item) for item in cause.get("confidence_reasons", [])],
             )
         )
 
@@ -72,6 +77,10 @@ def rca_output_from_agent_outputs(payload: dict) -> RCAOutput:
             title=primary["title"],
             evidence=primary_evidence,
             confidence=float(primary["confidence"]),
+            score_breakdown={
+                str(key): float(value) for key, value in primary.get("score_breakdown", {}).items()
+            },
+            confidence_reasons=[str(item) for item in primary.get("confidence_reasons", [])],
         ),
         ranked_alternatives=alternatives,
         suggested_fix=list(payload.get("suggested_fix", [])),

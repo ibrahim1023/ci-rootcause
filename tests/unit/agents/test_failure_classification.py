@@ -34,6 +34,21 @@ from src.agents.failure_classification import (
             "pattern:ts2345",
         ),
         (
+            "mypy-arg-type",
+            [
+                {
+                    "error_signature": (
+                        "app.py:4: error: Argument 1 has incompatible type "
+                        '"str"; expected "int" [arg-type]'
+                    ),
+                    "log_excerpt": "mypy app.py",
+                }
+            ],
+            None,
+            "TYPECHECK",
+            "pattern:incompatible type",
+        ),
+        (
             "lint",
             [{"error_signature": "ruff failed", "log_excerpt": "style violation"}],
             None,

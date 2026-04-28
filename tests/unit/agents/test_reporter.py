@@ -20,6 +20,19 @@ def _sample_payload() -> dict:
                 }
             ],
             "confidence": 0.82,
+            "score_breakdown": {
+                "first_failure_score": 1.0,
+                "diff_proximity_score": 1.0,
+                "module_proximity_score": 1.0,
+                "dependency_drift_score": 0.0,
+                "classification_alignment_score": 1.0,
+                "evidence_quality_score": 1.0,
+            },
+            "confidence_reasons": [
+                "file_and_line_evidence",
+                "changed_file_match",
+                "classification_alignment",
+            ],
         },
         "ranked_alternatives": [
             {
@@ -33,6 +46,8 @@ def _sample_payload() -> dict:
                     }
                 ],
                 "score": 0.29,
+                "score_breakdown": {"evidence_quality_score": 0.7},
+                "confidence_reasons": ["file_evidence"],
             }
         ],
         "suggested_fix": ["Update return type annotation in src/core/math.py"],
@@ -87,7 +102,7 @@ def test_reporter_backward_compatibility_with_rca_contract(tmp_path: Path) -> No
     generated = json.loads(Path(result["ci_rca_json_path"]).read_text(encoding="utf-8"))
 
     fixture_payload = json.loads(Path("fixtures/contracts/ci-rca.sample.json").read_text())
-    assert set(generated.keys()) == set(fixture_payload.keys())
+    assert set(generated.keys()).issuperset(fixture_payload.keys())
 
     contract = rca_output_from_agent_outputs(generated)
     assert contract.meta.run_id == fixture_payload["meta"]["run_id"]

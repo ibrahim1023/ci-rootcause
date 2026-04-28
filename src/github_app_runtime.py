@@ -83,6 +83,7 @@ def _pipeline_summary(state: Any) -> dict[str, Any]:
     pr_created = False
     pr_failure_reason_code = ""
     pr_failure_reason = ""
+    confidence_reasons: list[str] = []
 
     classification_output = state.agent_outputs.get("failure_classification", {})
     ranker_output = state.agent_outputs.get("root_cause_ranker", {})
@@ -96,6 +97,7 @@ def _pipeline_summary(state: Any) -> dict[str, Any]:
         primary = ranker_output.get("primary_root_cause")
         if isinstance(primary, dict):
             title = str(primary.get("title", title))
+            confidence_reasons = [str(item) for item in primary.get("confidence_reasons", [])]
     if isinstance(reporter_output, dict):
         json_path = str(reporter_output.get("ci_rca_json_path", json_path))
         md_path = str(reporter_output.get("ci_rca_md_path", md_path))
@@ -115,6 +117,7 @@ def _pipeline_summary(state: Any) -> dict[str, Any]:
         "pr_created": pr_created,
         "pr_failure_reason_code": pr_failure_reason_code,
         "pr_failure_reason": pr_failure_reason,
+        "confidence_reasons": confidence_reasons,
     }
 
 
@@ -296,6 +299,7 @@ def process_github_app_webhook(
             run_id=run_id,
             rca_json_path=str(summary["rca_json_path"]),
             rca_md_path=str(summary["rca_md_path"]),
+            confidence_reason=", ".join(str(item) for item in summary["confidence_reasons"]),
         )
         client = GitHubAppCommentClient(token=github_token, api_base=api_base)
         pull_request_number_raw = webhook_result.get("pull_request_number")

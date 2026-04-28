@@ -33,11 +33,13 @@ def test_build_app_comment_body_contains_marker_and_summary_fields() -> None:
         run_id="gha_123",
         rca_json_path="artifacts/app/ci-rca.json",
         rca_md_path="artifacts/app/ci-rca.md",
+        confidence_reason="file_and_line_evidence, classification_alignment",
     )
 
     assert APP_COMMENT_MARKER in body
     assert "Classification: `TEST`" in body
     assert "Confidence: `0.8750`" in body
+    assert "Confidence reason: file_and_line_evidence, classification_alignment" in body
     assert "Run ID: `gha_123`" in body
 
 

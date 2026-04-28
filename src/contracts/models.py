@@ -36,6 +36,8 @@ class RankedCause:
     title: str
     evidence: list[Evidence]
     score: float
+    score_breakdown: dict[str, float] = field(default_factory=dict)
+    confidence_reasons: list[str] = field(default_factory=list)
 
     def validate(self) -> None:
         if not self.title:
@@ -93,6 +95,8 @@ class PrimaryRootCause:
     title: str
     evidence: list[Evidence]
     confidence: float
+    score_breakdown: dict[str, float] = field(default_factory=dict)
+    confidence_reasons: list[str] = field(default_factory=list)
 
     def validate(self) -> None:
         if not self.title:

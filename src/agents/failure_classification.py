@@ -52,6 +52,8 @@ RULE_PATTERNS: dict[FailureClass, tuple[str, ...]] = {
         "pyright",
         "type error",
         "incompatible types",
+        "incompatible type",
+        "arg-type",
         "typescript error",
         "ts2322",
         "ts2345",

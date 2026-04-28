@@ -12,6 +12,11 @@ Type error in changed module
 ## Evidence
 - src/core/math.py:42 (mypy)
 
+## Confidence Reasons
+- file_and_line_evidence
+- changed_file_match
+- classification_alignment
+
 ## Ranked Alternatives
 1. Outdated lockfile (score: 0.2900)
 

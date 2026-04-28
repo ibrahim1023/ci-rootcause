@@ -34,6 +34,8 @@ def test_rca_output_converter() -> None:
             "title": "Invalid return type",
             "evidence": [{"file": "src/core/math.py", "line": 42}],
             "confidence": 0.8,
+            "score_breakdown": {"evidence_quality_score": 1.0},
+            "confidence_reasons": ["file_and_line_evidence"],
         },
         "ranked_alternatives": [
             {
@@ -49,6 +51,8 @@ def test_rca_output_converter() -> None:
     output = rca_output_from_agent_outputs(payload)
     assert output.classification.value == "TYPECHECK"
     assert output.primary_root_cause.confidence == 0.8
+    assert output.primary_root_cause.score_breakdown["evidence_quality_score"] == 1.0
+    assert output.primary_root_cause.confidence_reasons == ["file_and_line_evidence"]
 
 
 def test_pr_result_converter() -> None:

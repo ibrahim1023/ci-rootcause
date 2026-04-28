@@ -11,15 +11,18 @@ class CandidateScore:
     module_proximity_score: float
     dependency_drift_score: float
     classification_alignment_score: float
+    evidence_quality_score: float
+    confidence_reasons: tuple[str, ...]
 
     @property
     def confidence(self) -> float:
         return round(
-            (0.40 * self.first_failure_score)
-            + (0.30 * self.diff_proximity_score)
-            + (0.15 * self.module_proximity_score)
+            (0.30 * self.first_failure_score)
+            + (0.25 * self.diff_proximity_score)
+            + (0.10 * self.module_proximity_score)
             + (0.10 * self.dependency_drift_score)
-            + (0.05 * self.classification_alignment_score),
+            + (0.10 * self.classification_alignment_score)
+            + (0.15 * self.evidence_quality_score),
             4,
         )
 
@@ -39,7 +42,10 @@ def _classification_alignment(classification: str, signature: str) -> float:
     ):
         return 1.0
     if classification == "TYPECHECK" and (
-        "type" in signature_l or "ts" in signature_l or "mypy" in signature_l
+        "type" in signature_l
+        or "ts" in signature_l
+        or "mypy" in signature_l
+        or "arg-type" in signature_l
     ):
         return 1.0
     if classification == "LINT" and (
@@ -58,6 +64,48 @@ def _classification_alignment(classification: str, signature: str) -> float:
     return 0.2
 
 
+def _evidence_quality(node: dict) -> tuple[float, tuple[str, ...]]:
+    reasons: list[str] = []
+    file_path = str(node.get("file") or "").strip()
+    signature = str(node.get("error_signature", "")).strip().lower()
+
+    if file_path and node.get("line"):
+        reasons.append("file_and_line_evidence")
+        score = 1.0
+    elif file_path:
+        reasons.append("file_evidence")
+        score = 0.7
+    else:
+        reasons.append("unknown_file")
+        score = 0.15
+
+    if signature.startswith("# ") or "process completed with exit code" in signature:
+        reasons.append("generic_ci_wrapper_signal")
+        score = min(score, 0.2)
+
+    return score, tuple(reasons)
+
+
+def _score_reasons(
+    *,
+    first_failure_score: float,
+    diff_proximity_score: float,
+    module_proximity_score: float,
+    classification_alignment_score: float,
+    evidence_reasons: tuple[str, ...],
+) -> tuple[str, ...]:
+    reasons = list(evidence_reasons)
+    if first_failure_score >= 1.0:
+        reasons.append("first_failure")
+    if diff_proximity_score >= 1.0:
+        reasons.append("changed_file_match")
+    if module_proximity_score >= 1.0:
+        reasons.append("changed_module_match")
+    if classification_alignment_score >= 1.0:
+        reasons.append("classification_alignment")
+    return tuple(reasons)
+
+
 def _score_candidate(
     node: dict,
     changed_files: list[str],
@@ -71,9 +119,13 @@ def _score_candidate(
     first_failure_score = 1.0 if node.get("is_first_failure") else 0.3
 
     diff_proximity_score = 1.0 if file_path and file_path in changed_files else 0.2
+    if not file_path:
+        diff_proximity_score = 0.0
 
     module = _module_name(file_path)
     module_proximity_score = 1.0 if module and module in changed_modules else 0.2
+    if not module:
+        module_proximity_score = 0.0
 
     dependency_drift_score = (
         1.0
@@ -83,6 +135,14 @@ def _score_candidate(
     )
 
     classification_alignment_score = _classification_alignment(classification, signature)
+    evidence_quality_score, evidence_reasons = _evidence_quality(node)
+    confidence_reasons = _score_reasons(
+        first_failure_score=first_failure_score,
+        diff_proximity_score=diff_proximity_score,
+        module_proximity_score=module_proximity_score,
+        classification_alignment_score=classification_alignment_score,
+        evidence_reasons=evidence_reasons,
+    )
 
     return CandidateScore(
         first_failure_score=first_failure_score,
@@ -90,6 +150,8 @@ def _score_candidate(
         module_proximity_score=module_proximity_score,
         dependency_drift_score=dependency_drift_score,
         classification_alignment_score=classification_alignment_score,
+        evidence_quality_score=evidence_quality_score,
+        confidence_reasons=confidence_reasons,
     )
 
 
@@ -160,7 +222,9 @@ def run_root_cause_ranker(
                     "module_proximity_score": score.module_proximity_score,
                     "dependency_drift_score": score.dependency_drift_score,
                     "classification_alignment_score": score.classification_alignment_score,
+                    "evidence_quality_score": score.evidence_quality_score,
                 },
+                "confidence_reasons": list(score.confidence_reasons),
             }
         )
 
@@ -172,6 +236,7 @@ def run_root_cause_ranker(
             "evidence": candidate["evidence"],
             "score": candidate["confidence"],
             "score_breakdown": candidate["score_breakdown"],
+            "confidence_reasons": candidate["confidence_reasons"],
         }
         for candidate in ranked
     ]

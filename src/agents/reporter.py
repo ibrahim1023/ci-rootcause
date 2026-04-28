@@ -30,6 +30,8 @@ def _normalize_primary_root_cause(payload: dict[str, Any]) -> dict[str, Any]:
         "title": str(primary["title"]),
         "evidence": list(primary.get("evidence", [])),
         "confidence": float(confidence),
+        "score_breakdown": dict(primary.get("score_breakdown", {})),
+        "confidence_reasons": [str(item) for item in primary.get("confidence_reasons", [])],
     }
 
 
@@ -41,6 +43,10 @@ def _normalize_ranked_alternatives(payload: dict[str, Any]) -> list[dict[str, An
                 "title": str(item["title"]),
                 "evidence": list(item.get("evidence", [])),
                 "score": float(item["score"]),
+                "score_breakdown": dict(item.get("score_breakdown", {})),
+                "confidence_reasons": [
+                    str(reason) for reason in item.get("confidence_reasons", [])
+                ],
             }
             for item in provided
         ]
@@ -51,6 +57,8 @@ def _normalize_ranked_alternatives(payload: dict[str, Any]) -> list[dict[str, An
             "title": str(item["title"]),
             "evidence": list(item.get("evidence", [])),
             "score": float(item.get("score", item.get("confidence", 0.0))),
+            "score_breakdown": dict(item.get("score_breakdown", {})),
+            "confidence_reasons": [str(reason) for reason in item.get("confidence_reasons", [])],
         }
         for item in ranked_causes[1:]
     ]
@@ -112,6 +120,14 @@ def _render_markdown(rca_payload: dict[str, Any]) -> str:
                 lines.append(f"- {location}")
     else:
         lines.append("- No evidence recorded")
+
+    confidence_reasons = list(rca_payload["primary_root_cause"].get("confidence_reasons", []))
+    lines.extend(["", "## Confidence Reasons"])
+    if confidence_reasons:
+        for reason in confidence_reasons:
+            lines.append(f"- {reason}")
+    else:
+        lines.append("- No score reasons recorded")
 
     lines.extend(["", "## Ranked Alternatives"])
     alternatives = list(rca_payload.get("ranked_alternatives", []))
