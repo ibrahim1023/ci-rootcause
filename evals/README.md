@@ -50,6 +50,15 @@ Thresholds should rise as the dataset grows.
 - `rubrics/`: deterministic and optional judge rubrics.
 - `results/`: generated eval outputs; keep only intentional snapshots.
 
+## Running Evals
+Run the current RCA quality suite:
+
+```bash
+python scripts/run_evals.py
+```
+
+The command writes the latest summary to `evals/results/rca-quality.latest.json`.
+
 ## Operating Rules
 - Every real behavior failure becomes an eval case.
 - Prefer small high-signal datasets over broad noisy data.

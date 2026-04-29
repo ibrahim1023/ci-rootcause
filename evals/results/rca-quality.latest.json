@@ -1,0 +1,143 @@
+{
+  "cases": [
+    {
+      "checks": {
+        "classification": true,
+        "comment_actionable": true,
+        "evidence_grounded": true,
+        "top1_root_cause": true
+      },
+      "details": {
+        "classification": "TYPECHECK",
+        "comment_preview": "<!-- ci-rootcause:app-comment:v1 -->\n## ci-rootcause RCA\n\n## Likely cause\n2026-04-28T11:14:15.0895487Z app_failure_typecheck.py:4: error: Argument 1 to \"needs_int\" has incompatible type \"str\"; expected \"int\" [arg-type] at app_failure_typecheck.py:4\n\n## Evidence\n- `app_failure_typecheck.py:4`: 2026-04-28T11:14:09.9863921Z Complete job name: trigger-failure 2026-04-28T11:14:15.0895487Z app_failure_typecheck.py:4: error: Argument 1 to \"needs_int\" has incompatible type \"str\"; expected \"int\" [arg-type] 2026-04-28T11:14:15.0967796Z ##\n\n## Suggested fix\n- Update type annotations and value flow to satisfy static type checks.\n\n## Confidence\n- Score: `0.9000`\n- Classification: `TYPECHECK`\n- Reason: file_and_line_evidence, first_failure, changed_file_match, changed_module_match, classification_alignment\n\n## App outcome\n- Comment-only RCA generated; fix PR creation was not requested. PR gate: `CREATE_FIX_PR_DISABLED` - create_fix_pr=false\n- Run ID: `eval_noisy-gha-typecheck`\n\nArtifacts:\n- JSON: `evals/results/artifacts/noisy-gha-typecheck/ci-rca.json`\n- Markdown: `evals/results/artifacts/noisy-gha-typecheck/ci-rca.md`",
+        "confidence": 0.9,
+        "primary_title": "2026-04-28T11:14:15.0895487Z app_failure_typecheck.py:4: error: Argument 1 to \"needs_int\" has incompatible type \"str\"; expected \"int\" [arg-type] at app_failure_typecheck.py:4"
+      },
+      "id": "noisy-gha-typecheck",
+      "passed": true,
+      "type": "pipeline"
+    },
+    {
+      "checks": {
+        "classification": true,
+        "comment_actionable": true,
+        "evidence_grounded": true,
+        "top1_root_cause": true
+      },
+      "details": {
+        "classification": "LINT",
+        "comment_preview": "<!-- ci-rootcause:app-comment:v1 -->\n## ci-rootcause RCA\n\n## Likely cause\nsrc/app.py:7:5: F401 `os` imported but unused at src/app.py:7\n\n## Evidence\n- `src/app.py:7`: ##[group]Run ruff src/app.py:7:5: F401 `os` imported but unused Found 1 error.\n\n## Suggested fix\n- Apply minimal lint-compliant formatting and naming adjustments.\n\n## Confidence\n- Score: `0.8200`\n- Classification: `LINT`\n- Reason: file_and_line_evidence, first_failure, changed_file_match, changed_module_match\n\n## App outcome\n- Comment-only RCA generated; fix PR creation was not requested. PR gate: `CREATE_FIX_PR_DISABLED` - create_fix_pr=false\n- Run ID: `eval_ruff-lint-location`\n\nArtifacts:\n- JSON: `evals/results/artifacts/ruff-lint-location/ci-rca.json`\n- Markdown: `evals/results/artifacts/ruff-lint-location/ci-rca.md`",
+        "confidence": 0.82,
+        "primary_title": "src/app.py:7:5: F401 `os` imported but unused at src/app.py:7"
+      },
+      "id": "ruff-lint-location",
+      "passed": true,
+      "type": "pipeline"
+    },
+    {
+      "checks": {
+        "classification": true,
+        "comment_actionable": true,
+        "evidence_grounded": true,
+        "top1_root_cause": true
+      },
+      "details": {
+        "classification": "TEST",
+        "comment_preview": "<!-- ci-rootcause:app-comment:v1 -->\n## ci-rootcause RCA\n\n## Likely cause\nE AssertionError: assert 3 == 4 at tests/test_math.py:12\n\n## Evidence\n- `tests/test_math.py:12`: > assert add(1, 2) == 4 E AssertionError: assert 3 == 4\n\n## Suggested fix\n- Adjust implementation or assertion so observed behavior matches expected test contract.\n\n## Confidence\n- Score: `0.9000`\n- Classification: `TEST`\n- Reason: file_and_line_evidence, first_failure, changed_file_match, changed_module_match, classification_alignment\n\n## App outcome\n- Comment-only RCA generated; fix PR creation was not requested. PR gate: `CREATE_FIX_PR_DISABLED` - create_fix_pr=false\n- Run ID: `eval_pytest-assertion-location`\n\nArtifacts:\n- JSON: `evals/results/artifacts/pytest-assertion-location/ci-rca.json`\n- Markdown: `evals/results/artifacts/pytest-assertion-location/ci-rca.md`",
+        "confidence": 0.9,
+        "primary_title": "E AssertionError: assert 3 == 4 at tests/test_math.py:12"
+      },
+      "id": "pytest-assertion-location",
+      "passed": true,
+      "type": "pipeline"
+    },
+    {
+      "checks": {
+        "classification": true,
+        "comment_actionable": true,
+        "evidence_grounded": true,
+        "top1_root_cause": true
+      },
+      "details": {
+        "classification": "DEPENDENCY",
+        "comment_preview": "<!-- ci-rootcause:app-comment:v1 -->\n## ci-rootcause RCA\n\n## Likely cause\nERROR: Could not find a version that satisfies the requirement missing-package-abc123 at unknown file\n\n## Evidence\n- `unknown`: ##[group]Install dependencies ERROR: Could not find a version that satisfies the requirement missing-package-abc123 ERROR: No matching distribution found for missing-package-abc123\n\n## Suggested fix\n- Align dependency references with lockfile and import expectations.\n\n## Confidence\n- Score: `0.4425`\n- Classification: `DEPENDENCY`\n- Reason: unknown_file, first_failure\n\n## App outcome\n- Comment-only RCA generated; fix PR creation was not requested. PR gate: `CREATE_FIX_PR_DISABLED` - create_fix_pr=false\n- Run ID: `eval_dependency-install-missing-package`\n\nArtifacts:\n- JSON: `evals/results/artifacts/dependency-install-missing-package/ci-rca.json`\n- Markdown: `evals/results/artifacts/dependency-install-missing-package/ci-rca.md`",
+        "confidence": 0.4425,
+        "primary_title": "ERROR: Could not find a version that satisfies the requirement missing-package-abc123 at unknown file"
+      },
+      "id": "dependency-install-missing-package",
+      "passed": true,
+      "type": "pipeline"
+    },
+    {
+      "checks": {
+        "classification": true,
+        "comment_actionable": true,
+        "evidence_grounded": true,
+        "top1_root_cause": true
+      },
+      "details": {
+        "classification": "INFRA",
+        "comment_preview": "<!-- ci-rootcause:app-comment:v1 -->\n## ci-rootcause RCA\n\n## Likely cause\nERROR: connection reset by peer while contacting package mirror at unknown file\n\n## Evidence\n- `unknown`: ##[group]Run tests ERROR: connection reset by peer while contacting package mirror request timed out while downloading dependency index\n\n## Suggested fix\n- Apply the smallest change that resolves the evidenced failure signature.\n\n## Confidence\n- Score: `0.4225`\n- Classification: `INFRA`\n- Reason: unknown_file, first_failure, classification_alignment\n\n## App outcome\n- Comment-only RCA generated; fix PR creation was not requested. PR gate: `CREATE_FIX_PR_DISABLED` - create_fix_pr=false\n- Run ID: `eval_infra-network-reset`\n\nArtifacts:\n- JSON: `evals/results/artifacts/infra-network-reset/ci-rca.json`\n- Markdown: `evals/results/artifacts/infra-network-reset/ci-rca.md`",
+        "confidence": 0.4225,
+        "primary_title": "ERROR: connection reset by peer while contacting package mirror at unknown file"
+      },
+      "id": "infra-network-reset",
+      "passed": true,
+      "type": "pipeline"
+    },
+    {
+      "checks": {
+        "reason_code": true,
+        "reason_contains": true,
+        "status": true
+      },
+      "details": {
+        "observed": {
+          "reason": "base_sha is required for compare diff retrieval",
+          "reason_code": "MISSING_BASE_SHA",
+          "status": "skipped"
+        }
+      },
+      "id": "missing-base-sha-diagnostic",
+      "passed": true,
+      "type": "diagnostic"
+    },
+    {
+      "checks": {
+        "reason_code": true,
+        "reason_contains": true,
+        "status": true
+      },
+      "details": {
+        "observed": {
+          "reason": "GitHub API HTTP error for GET /repos/ibrahim1023/ci-rootcause/actions/runs/25044451608/logs: 401: {\"message\":\"Bad credentials\"}",
+          "reason_code": "GITHUB_API_HTTP_ERROR",
+          "status": "error"
+        }
+      },
+      "id": "github-app-auth-401-diagnostic",
+      "passed": true,
+      "type": "diagnostic"
+    }
+  ],
+  "suite_name": "rca-quality-v1",
+  "summary": {
+    "failed_cases": 0,
+    "gates": {
+      "classification_accuracy": true,
+      "comment_actionability_pass_rate": true,
+      "evidence_grounding_pass_rate": true,
+      "top1_root_cause_accuracy": true
+    },
+    "metrics": {
+      "classification_accuracy": 1.0,
+      "comment_actionability_pass_rate": 1.0,
+      "evidence_grounding_pass_rate": 1.0,
+      "pass_rate": 1.0,
+      "top1_root_cause_accuracy": 1.0
+    },
+    "passed": true,
+    "passed_cases": 7,
+    "total_cases": 7
+  }
+}

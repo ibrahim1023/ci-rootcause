@@ -34,12 +34,26 @@ def test_build_app_comment_body_contains_marker_and_summary_fields() -> None:
         rca_json_path="artifacts/app/ci-rca.json",
         rca_md_path="artifacts/app/ci-rca.md",
         confidence_reason="file_and_line_evidence, classification_alignment",
+        evidence=[
+            {
+                "file": "tests/test_math.py",
+                "line": 12,
+                "excerpt": "E AssertionError: assert 3 == 4",
+            }
+        ],
+        suggested_fix="Adjust implementation or assertion.",
+        app_outcome="Comment-only RCA generated.",
     )
 
     assert APP_COMMENT_MARKER in body
-    assert "Classification: `TEST`" in body
-    assert "Confidence: `0.8750`" in body
-    assert "Confidence reason: file_and_line_evidence, classification_alignment" in body
+    assert "## Likely cause" in body
+    assert "## Evidence" in body
+    assert "`tests/test_math.py:12`" in body
+    assert "## Suggested fix" in body
+    assert "Adjust implementation or assertion." in body
+    assert "Score: `0.8750`" in body
+    assert "Reason: file_and_line_evidence, classification_alignment" in body
+    assert "## App outcome" in body
     assert "Run ID: `gha_123`" in body
 
 

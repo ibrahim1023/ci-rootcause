@@ -34,16 +34,59 @@ def build_app_comment_body(
     rca_json_path: str,
     rca_md_path: str,
     confidence_reason: str = "",
+    evidence: list[dict[str, object]] | None = None,
+    suggested_fix: str = "",
+    app_outcome: str = "",
+    pr_created: bool = False,
+    pr_failure_reason: str = "",
+    pr_failure_reason_code: str = "",
 ) -> str:
     reason = confidence_reason.strip() or "No confidence explanation recorded."
+    evidence_items = list(evidence or [])
+    evidence_lines: list[str] = []
+    for item in evidence_items[:3]:
+        file_path = str(item.get("file", "unknown")).strip() or "unknown"
+        line = item.get("line")
+        location = f"{file_path}:{line}" if isinstance(line, int) and line > 0 else file_path
+        excerpt = " ".join(str(item.get("excerpt", "")).strip().split())
+        if excerpt:
+            evidence_lines.append(f"- `{location}`: {excerpt[:240]}")
+        else:
+            evidence_lines.append(f"- `{location}`")
+    if not evidence_lines:
+        evidence_lines.append("- No concrete file evidence was captured.")
+
+    fix_text = suggested_fix.strip() or "No safe fix suggestion was generated."
+    outcome = app_outcome.strip()
+    if not outcome:
+        outcome = "Fix PR created." if pr_created else "Comment-only RCA generated."
+    if not pr_created and (pr_failure_reason_code or pr_failure_reason):
+        outcome = (
+            f"{outcome} PR gate: `{pr_failure_reason_code or 'not_created'}`"
+            f" - {pr_failure_reason or 'not specified'}"
+        )
+
     return "\n".join(
         [
             APP_COMMENT_MARKER,
             "## ci-rootcause RCA",
+            "",
+            "## Likely cause",
+            f"{primary_root_cause_title or 'unknown'}",
+            "",
+            "## Evidence",
+            *evidence_lines,
+            "",
+            "## Suggested fix",
+            f"- {fix_text}",
+            "",
+            "## Confidence",
+            f"- Score: `{confidence:.4f}`",
             f"- Classification: `{classification}`",
-            f"- Confidence: `{confidence:.4f}`",
-            f"- Primary Root Cause: {primary_root_cause_title or 'unknown'}",
-            f"- Confidence reason: {reason}",
+            f"- Reason: {reason}",
+            "",
+            "## App outcome",
+            f"- {outcome}",
             f"- Run ID: `{run_id}`",
             "",
             "Artifacts:",

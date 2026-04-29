@@ -84,6 +84,8 @@ def _pipeline_summary(state: Any) -> dict[str, Any]:
     pr_failure_reason_code = ""
     pr_failure_reason = ""
     confidence_reasons: list[str] = []
+    evidence: list[dict[str, object]] = []
+    suggested_fix = ""
 
     classification_output = state.agent_outputs.get("failure_classification", {})
     ranker_output = state.agent_outputs.get("root_cause_ranker", {})
@@ -98,6 +100,16 @@ def _pipeline_summary(state: Any) -> dict[str, Any]:
         if isinstance(primary, dict):
             title = str(primary.get("title", title))
             confidence_reasons = [str(item) for item in primary.get("confidence_reasons", [])]
+            raw_evidence = primary.get("evidence", [])
+            if isinstance(raw_evidence, list):
+                evidence = [item for item in raw_evidence if isinstance(item, dict)]
+    fix_output = state.agent_outputs.get("fix_planner", {})
+    if isinstance(fix_output, dict):
+        fix_steps = fix_output.get("fix_steps", [])
+        if isinstance(fix_steps, list) and fix_steps:
+            first_step = fix_steps[0]
+            if isinstance(first_step, dict):
+                suggested_fix = str(first_step.get("instruction", suggested_fix))
     if isinstance(reporter_output, dict):
         json_path = str(reporter_output.get("ci_rca_json_path", json_path))
         md_path = str(reporter_output.get("ci_rca_md_path", md_path))
@@ -118,6 +130,8 @@ def _pipeline_summary(state: Any) -> dict[str, Any]:
         "pr_failure_reason_code": pr_failure_reason_code,
         "pr_failure_reason": pr_failure_reason,
         "confidence_reasons": confidence_reasons,
+        "evidence": evidence,
+        "suggested_fix": suggested_fix,
     }
 
 
@@ -300,6 +314,14 @@ def process_github_app_webhook(
             rca_json_path=str(summary["rca_json_path"]),
             rca_md_path=str(summary["rca_md_path"]),
             confidence_reason=", ".join(str(item) for item in summary["confidence_reasons"]),
+            evidence=summary["evidence"],
+            suggested_fix=str(summary["suggested_fix"]),
+            app_outcome=(
+                "Fix PR created." if bool(summary["pr_created"]) else "Comment-only RCA generated."
+            ),
+            pr_created=bool(summary["pr_created"]),
+            pr_failure_reason=str(summary["pr_failure_reason"]),
+            pr_failure_reason_code=str(summary["pr_failure_reason_code"]),
         )
         client = GitHubAppCommentClient(token=github_token, api_base=api_base)
         pull_request_number_raw = webhook_result.get("pull_request_number")

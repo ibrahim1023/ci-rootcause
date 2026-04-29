@@ -1,0 +1,130 @@
+{
+  "suite_name": "rca-quality-v1",
+  "thresholds": {
+    "classification_accuracy_min": 0.9,
+    "top1_root_cause_accuracy_min": 0.8,
+    "evidence_grounding_pass_rate_min": 0.9,
+    "comment_actionability_pass_rate_min": 0.8
+  },
+  "cases": [
+    {
+      "id": "noisy-gha-typecheck",
+      "type": "pipeline",
+      "description": "Noisy GitHub Actions setup lines should not outrank a mypy error.",
+      "raw_log": "# trigger-failure/1_Set up job.txt\n2026-04-28T11:14:09.3020359Z Current runner version: '2.334.0'\n2026-04-28T11:14:09.9863921Z Complete job name: trigger-failure\n2026-04-28T11:14:15.0895487Z app_failure_typecheck.py:4: error: Argument 1 to \"needs_int\" has incompatible type \"str\"; expected \"int\"  [arg-type]\n2026-04-28T11:14:15.0967796Z ##[error]Process completed with exit code 1.\n",
+      "raw_diff": "diff --git a/app_failure_typecheck.py b/app_failure_typecheck.py\n--- a/app_failure_typecheck.py\n+++ b/app_failure_typecheck.py\n@@ -1,4 +1,4 @@\n def needs_int(value: int) -> int:\n     return value\n-result: int = needs_int(7)\n+result: int = needs_int(\"7\")\n",
+      "expected": {
+        "classification": "TYPECHECK",
+        "primary_file": "app_failure_typecheck.py",
+        "primary_line": 4,
+        "primary_contains": "incompatible type",
+        "evidence_grounded": true,
+        "comment_actionable": true
+      },
+      "failure_modes": ["irrelevant_context", "incorrect_answer", "regression"],
+      "must_pass": true
+    },
+    {
+      "id": "ruff-lint-location",
+      "type": "pipeline",
+      "description": "Ruff-style file:line:column output should identify the linted file.",
+      "raw_log": "##[group]Run ruff\nsrc/app.py:7:5: F401 `os` imported but unused\nFound 1 error.\n##[endgroup]\n",
+      "raw_diff": "diff --git a/src/app.py b/src/app.py\n--- a/src/app.py\n+++ b/src/app.py\n@@ -1,2 +1,3 @@\n+import os\n def main():\n     return 1\n",
+      "expected": {
+        "classification": "LINT",
+        "primary_file": "src/app.py",
+        "primary_line": 7,
+        "primary_contains": "F401",
+        "evidence_grounded": true,
+        "comment_actionable": true
+      },
+      "failure_modes": ["incorrect_answer", "formatting_failure"],
+      "must_pass": true
+    },
+    {
+      "id": "pytest-assertion-location",
+      "type": "pipeline",
+      "description": "Pytest assertion output should identify the failing test file and line.",
+      "raw_log": "##[group]Run pytest\n=================================== FAILURES ===================================\n    def test_returns_sum():\n>       assert add(1, 2) == 4\nE       AssertionError: assert 3 == 4\n\ntests/test_math.py:12: AssertionError\n##[endgroup]\n",
+      "raw_diff": "diff --git a/tests/test_math.py b/tests/test_math.py\n--- a/tests/test_math.py\n+++ b/tests/test_math.py\n@@ -10,3 +10,3 @@\n def test_returns_sum():\n-    assert add(1, 2) == 3\n+    assert add(1, 2) == 4\n",
+      "expected": {
+        "classification": "TEST",
+        "primary_file": "tests/test_math.py",
+        "primary_line": 12,
+        "primary_contains": "AssertionError",
+        "evidence_grounded": true,
+        "comment_actionable": true
+      },
+      "failure_modes": ["incorrect_answer", "irrelevant_context"],
+      "must_pass": true
+    },
+    {
+      "id": "dependency-install-missing-package",
+      "type": "pipeline",
+      "description": "Dependency installation failures should classify as dependency failures.",
+      "raw_log": "##[group]Install dependencies\nERROR: Could not find a version that satisfies the requirement missing-package-abc123\nERROR: No matching distribution found for missing-package-abc123\n##[endgroup]\n",
+      "raw_diff": "diff --git a/requirements.txt b/requirements.txt\n--- a/requirements.txt\n+++ b/requirements.txt\n@@ -1,2 +1,3 @@\n pytest\n+missing-package-abc123\n",
+      "expected": {
+        "classification": "DEPENDENCY",
+        "primary_file": null,
+        "primary_line": null,
+        "primary_contains": "missing-package-abc123",
+        "evidence_grounded": true,
+        "comment_actionable": true
+      },
+      "failure_modes": ["incorrect_answer", "retrieval_failure"],
+      "must_pass": true
+    },
+    {
+      "id": "infra-network-reset",
+      "type": "pipeline",
+      "description": "Network reset failures should classify as infra and avoid speculative code fixes.",
+      "raw_log": "##[group]Run tests\nERROR: connection reset by peer while contacting package mirror\nrequest timed out while downloading dependency index\n##[endgroup]\n",
+      "raw_diff": "diff --git a/src/app.py b/src/app.py\n--- a/src/app.py\n+++ b/src/app.py\n@@ -1,2 +1,2 @@\n-print('old')\n+print('new')\n",
+      "expected": {
+        "classification": "INFRA",
+        "primary_file": null,
+        "primary_line": null,
+        "primary_contains": "connection reset",
+        "evidence_grounded": true,
+        "comment_actionable": true
+      },
+      "failure_modes": ["incorrect_answer", "unsafe_output"],
+      "must_pass": true
+    },
+    {
+      "id": "missing-base-sha-diagnostic",
+      "type": "diagnostic",
+      "description": "Missing base SHA should be a clear skipped diagnostic, not an app crash.",
+      "observed": {
+        "status": "skipped",
+        "reason_code": "MISSING_BASE_SHA",
+        "reason": "base_sha is required for compare diff retrieval"
+      },
+      "expected": {
+        "status": "skipped",
+        "reason_code": "MISSING_BASE_SHA",
+        "reason_contains": "base_sha"
+      },
+      "failure_modes": ["tool-use_failure", "regression"],
+      "must_pass": true
+    },
+    {
+      "id": "github-app-auth-401-diagnostic",
+      "type": "diagnostic",
+      "description": "Bad credentials from GitHub API should preserve an actionable HTTP diagnostic.",
+      "observed": {
+        "status": "error",
+        "reason_code": "GITHUB_API_HTTP_ERROR",
+        "reason": "GitHub API HTTP error for GET /repos/ibrahim1023/ci-rootcause/actions/runs/25044451608/logs: 401: {\"message\":\"Bad credentials\"}"
+      },
+      "expected": {
+        "status": "error",
+        "reason_code": "GITHUB_API_HTTP_ERROR",
+        "reason_contains": "401"
+      },
+      "failure_modes": ["tool-use_failure", "regression"],
+      "must_pass": true
+    }
+  ]
+}
