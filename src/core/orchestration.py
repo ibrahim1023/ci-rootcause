@@ -36,6 +36,11 @@ TYPECHECK_INT_ASSIGNMENT_PATTERN = re.compile(
     r"(?P<quote>['\"])(?P<number>-?\d+)(?P=quote)"
     r"(?P<suffix>\s*(?:#.*)?)$"
 )
+OBSERVABILITY_SECRET_PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = (
+    (re.compile(r"(?i)([?&](?:key|api_key|token|access_token)=)[^&\s]+"), r"\1<redacted>"),
+    (re.compile(r"(?i)(Bearer\s+)[A-Za-z0-9._~+/=-]+"), r"\1<redacted>"),
+    (re.compile(r"(?i)((?:authorization|x-api-key|api-key)[:=]\s*)[^\s,;]+"), r"\1<redacted>"),
+)
 
 
 def _module_exists(module_name: str) -> bool:
@@ -639,6 +644,13 @@ def _count_values(items: list[str]) -> dict[str, int]:
     return {key: counts[key] for key in sorted(counts)}
 
 
+def _sanitize_observability_text(value: Any) -> str:
+    text = str(value or "").strip()
+    for pattern, replacement in OBSERVABILITY_SECRET_PATTERNS:
+        text = pattern.sub(replacement, text)
+    return text
+
+
 def _build_agentic_observability_summary(state: PipelineState) -> dict[str, Any]:
     fix_output = state.agent_outputs.get("fix_planner", {})
     pr_output = state.agent_outputs.get("pr_creation", {})
@@ -659,6 +671,7 @@ def _build_agentic_observability_summary(state: PipelineState) -> dict[str, Any]
                     "attempt": int(item.get("attempt", 0) or 0),
                     "status": str(item.get("status", "")).strip(),
                     "failure_reason_code": str(item.get("failure_reason_code", "")).strip(),
+                    "failure_reason": _sanitize_observability_text(item.get("failure_reason", "")),
                 }
             )
 
@@ -667,9 +680,11 @@ def _build_agentic_observability_summary(state: PipelineState) -> dict[str, Any]
         pr_failure_reason_code = str(pr_output.get("failure_reason_code", "")).strip()
 
     return {
+        "provider": state.request.llm_provider or "",
+        "model": state.request.llm_model or "",
         "proposal_created": bool(proposal.get("proposal_created", False)),
         "failure_reason_code": str(proposal.get("failure_reason_code", "")).strip(),
-        "failure_reason": str(proposal.get("failure_reason", "")).strip(),
+        "failure_reason": _sanitize_observability_text(proposal.get("failure_reason", "")),
         "attempt_count": len(attempt_summaries),
         "attempt_summaries": attempt_summaries,
         "pr_failure_reason_code": pr_failure_reason_code,

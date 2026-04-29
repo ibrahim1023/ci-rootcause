@@ -443,7 +443,10 @@ def test_run_pipeline_agentic_assist_falls_back_when_proposal_path_is_unsafe(
 def test_observability_includes_agentic_attempt_metadata(tmp_path: Path, monkeypatch) -> None:
     def _raise_provider(self, payload: dict) -> dict:  # noqa: ANN001
         del self, payload
-        raise AgenticProposalProviderError("provider unavailable")
+        raise AgenticProposalProviderError(
+            "provider HTTP error 401 for "
+            "https://example.invalid/generate?key=secret-token: Bearer secret-token"
+        )
 
     monkeypatch.setattr("src.core.orchestration.LocalLlmPatchProposer.propose", _raise_provider)
 
@@ -465,12 +468,18 @@ def test_observability_includes_agentic_attempt_metadata(tmp_path: Path, monkeyp
     run_pipeline(request=request)
 
     observability = json.loads((tmp_path / "ci-rca-observability.json").read_text(encoding="utf-8"))
+    assert observability["agentic"]["provider"] == "local"
+    assert observability["agentic"]["model"] == "local-default"
     assert observability["agentic"]["proposal_created"] is False
     assert (
         observability["agentic"]["failure_reason_code"] == "AGENTIC_PROPOSAL_MAX_ATTEMPTS_EXCEEDED"
     )
     assert observability["agentic"]["attempt_count"] > 0
     assert observability["agentic"]["attempt_summaries"]
+    serialized_agentic = json.dumps(observability["agentic"], sort_keys=True)
+    assert "secret-token" not in serialized_agentic
+    assert "key=<redacted>" in serialized_agentic
+    assert "Bearer <redacted>" in serialized_agentic
     assert observability["agentic"]["pr_failure_reason_code"] == "CREATE_FIX_PR_DISABLED"
 
 
