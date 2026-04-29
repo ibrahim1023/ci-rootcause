@@ -267,9 +267,14 @@ def test_hosted_anthropic_proposer_parses_response(monkeypatch) -> None:
 
 
 def test_local_ollama_proposer_parses_response(monkeypatch) -> None:
+    captured_prompt = ""
+
     def fake_urlopen(req, timeout: int):  # noqa: ANN001
+        nonlocal captured_prompt
         del timeout
         assert req.full_url == "http://localhost:11434/api/generate"
+        request_payload = json.loads(req.data.decode("utf-8"))
+        captured_prompt = request_payload["prompt"]
         payload = {
             "response": json.dumps(
                 {
@@ -288,3 +293,10 @@ def test_local_ollama_proposer_parses_response(monkeypatch) -> None:
 
     payload = proposer.propose({"classification": "TYPECHECK", "allowed_files": ["src/a.py"]})
     assert payload["summary"] == "ollama summary"
+    assert (
+        "Allowed patch_plan op values are exactly: modify, create, delete, rename"
+        in captured_prompt
+    )
+    assert "Never use unsupported operations such as append" in captured_prompt
+    assert '"patch_plan"' in captured_prompt
+    assert '"candidate_fix_steps"' in captured_prompt

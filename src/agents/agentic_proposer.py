@@ -48,12 +48,36 @@ class AgenticPatchProposal:
 
 
 def _provider_prompt(payload: dict[str, Any]) -> str:
+    schema_example = {
+        "summary": "One sentence diagnosis grounded in the supplied CI evidence.",
+        "candidate_fix_steps": [
+            {
+                "file": "src/example.py",
+                "instruction": "Describe the smallest evidence-backed change.",
+                "rationale": "Explain which log or diff evidence supports this step.",
+            }
+        ],
+        "patch_plan": [
+            {
+                "op": "modify",
+                "file": "src/example.py",
+                "content": "Complete replacement file content when a patch is proposed.",
+            }
+        ],
+    }
     return (
-        "You are a CI fix planner. Return STRICT JSON only with keys: "
-        "summary, candidate_fix_steps, patch_plan. "
-        "candidate_fix_steps items require file, instruction, rationale. "
-        "patch_plan items require op, file, content. "
-        "Use only evidence-backed paths from allowed_files.\n\n"
+        "You are a CI fix planner. Return STRICT JSON only. "
+        "Do not wrap the response in Markdown. Do not include commentary outside JSON.\n\n"
+        "Required top-level keys: summary, candidate_fix_steps, patch_plan.\n"
+        "candidate_fix_steps items require: file, instruction, rationale.\n"
+        "patch_plan items require: op, file, content.\n"
+        "Allowed patch_plan op values are exactly: modify, create, delete, rename.\n"
+        "Never use unsupported operations such as append, replace, update, insert, or edit.\n"
+        "Use only repo-relative paths listed in allowed_files. "
+        "If no evidence-backed change is possible, return empty arrays for "
+        "candidate_fix_steps and patch_plan with a summary explaining why.\n\n"
+        "Valid JSON shape example:\n"
+        f"{json.dumps(schema_example, indent=2, sort_keys=True)}\n\n"
         f"INPUT:\n{json.dumps(payload, sort_keys=True)}"
     )
 
