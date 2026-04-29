@@ -47,6 +47,37 @@ class _FlakyThenGoodProposer:
         }
 
 
+class _BadContractThenGoodProposer:
+    def __init__(self) -> None:
+        self.calls: list[dict] = []
+
+    def propose(self, payload: dict) -> dict:  # noqa: ANN001
+        self.calls.append(dict(payload))
+        if len(self.calls) == 1:
+            return {
+                "summary": "bad op",
+                "candidate_fix_steps": [
+                    {"file": "src/a.py", "instruction": "fix", "rationale": "ci evidence"}
+                ],
+                "patch_plan": [{"op": "append", "file": "src/a.py", "content": "print(1)\n"}],
+            }
+
+        retry_payload = self.calls[-1]
+        assert (
+            "must be one of: modify, create, delete, rename" in retry_payload["repair_instructions"]
+        )
+        assert "original allowed_files and CI evidence" in retry_payload["repair_instructions"]
+        assert retry_payload["allowed_files"] == ["src/a.py"]
+        assert retry_payload["primary_root_cause"]["evidence"] == "src/a.py:1: error"
+        return {
+            "summary": "recovered",
+            "candidate_fix_steps": [
+                {"file": "src/a.py", "instruction": "fix", "rationale": "ci evidence"}
+            ],
+            "patch_plan": [{"op": "modify", "file": "src/a.py", "content": "print(1)\n"}],
+        }
+
+
 class _FakeResponse:
     def __init__(self, payload: bytes) -> None:
         self._payload = payload
@@ -164,6 +195,33 @@ def test_run_agentic_patch_proposal_retries_and_recovers() -> None:
         result["attempt_summaries"][0]["failure_reason_code"] == "AGENTIC_PROPOSAL_PROVIDER_ERROR"
     )
     assert result["attempt_summaries"][1]["status"] == "success"
+
+
+def test_run_agentic_patch_proposal_retries_contract_error_with_repair_context() -> None:
+    proposer = _BadContractThenGoodProposer()
+    result = run_agentic_patch_proposal(
+        payload={
+            "allowed_files": ["src/a.py"],
+            "primary_root_cause": {
+                "file": "src/a.py",
+                "line": 1,
+                "evidence": "src/a.py:1: error",
+            },
+        },
+        proposer=proposer,
+        max_attempts=2,
+    )
+
+    assert result["proposal_created"] is True
+    assert result["attempt_count"] == 2
+    assert len(proposer.calls) == 2
+    assert (
+        result["attempt_summaries"][0]["failure_reason_code"] == "AGENTIC_PROPOSAL_CONTRACT_ERROR"
+    )
+    assert "repair_instructions" not in proposer.calls[0]
+    assert proposer.calls[1]["previous_attempts"][0]["failure_reason"] == (
+        "patch_plan[0].op must be one of: modify, create, delete, rename"
+    )
 
 
 def test_hosted_openai_proposer_parses_response(monkeypatch) -> None:

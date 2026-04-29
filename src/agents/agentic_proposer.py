@@ -344,6 +344,20 @@ def validate_agentic_patch_proposal(payload: dict[str, Any]) -> AgenticPatchProp
     )
 
 
+def _build_repair_instructions(attempt_summaries: list[dict[str, Any]]) -> str:
+    if not attempt_summaries:
+        return ""
+    last = attempt_summaries[-1]
+    if last.get("failure_reason_code") != "AGENTIC_PROPOSAL_CONTRACT_ERROR":
+        return ""
+    reason = str(last.get("failure_reason", "")).strip()
+    return (
+        "Previous response failed schema validation. Return a corrected STRICT JSON object. "
+        "Use the original allowed_files and CI evidence from this retry payload; do not invent "
+        f"new files or claims. Contract error: {reason}"
+    )
+
+
 def run_agentic_patch_proposal(
     payload: dict[str, Any],
     *,
@@ -358,6 +372,9 @@ def run_agentic_patch_proposal(
             candidate_payload = dict(payload)
             candidate_payload["agentic_attempt"] = attempt
             candidate_payload["previous_attempts"] = list(attempt_summaries)
+            repair_instructions = _build_repair_instructions(attempt_summaries)
+            if repair_instructions:
+                candidate_payload["repair_instructions"] = repair_instructions
             raw = proposer.propose(candidate_payload)
             proposal = validate_agentic_patch_proposal(raw)
             attempt_summaries.append(
