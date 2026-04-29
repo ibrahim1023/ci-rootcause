@@ -1,0 +1,12 @@
+# Eval Rubrics
+
+Rubrics define how behavior is scored.
+
+First-version rubrics should be deterministic:
+- exact classification match,
+- primary file/line match or allowed substring match,
+- evidence references observed logs or diffs,
+- comment includes likely cause, evidence, confidence, suggested fix, and app outcome,
+- agentic proposal contains only allowed operations and repo-relative paths.
+
+LLM-as-judge may be added later only with strict structured output and calibrated good/bad examples.
