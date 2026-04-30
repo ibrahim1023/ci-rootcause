@@ -15,6 +15,7 @@ from src.core.input_parsing import (
     parse_bool,
     parse_confidence_threshold,
     parse_execution_mode,
+    parse_positive_int,
     read_text_file,
 )
 from src.core.orchestration import PipelineRequest, run_pipeline
@@ -191,6 +192,11 @@ def _build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
+        "--max-fix-files",
+        default=None,
+        help="Maximum number of files allowed in a guarded fix PR. Default: 5.",
+    )
+    parser.add_argument(
         "--offline-only",
         action="store_true",
         help="Enable offline-only mode (skip any remote PR creation/network calls).",
@@ -310,6 +316,11 @@ def main(argv: Sequence[str] | None = None) -> int:
             min_pr_confidence_raw,
             name="min_pr_confidence",
         )
+        max_fix_files_raw = _coalesce(args.max_fix_files, config.get("max_fix_files")) or "5"
+        max_fix_files = parse_positive_int(
+            max_fix_files_raw,
+            name="max_fix_files",
+        )
         if profile == SAFE_ROLLOUT_PROFILE and min_pr_confidence < 0.9:
             min_pr_confidence = 0.9
         if profile == SAFE_ROLLOUT_PROFILE and execution_mode.value == "agentic_full":
@@ -367,6 +378,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             fail_fast=bool(args.fail_fast),
             historical_runs=historical_runs,
             min_pr_confidence=min_pr_confidence,
+            max_fix_files=max_fix_files,
             offline_only=offline_only,
             execution_mode=execution_mode.value,
             llm_provider=provider_config.provider.value,

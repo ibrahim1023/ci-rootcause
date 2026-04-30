@@ -181,6 +181,22 @@ def _extract_evidence_files(payload: dict[str, Any]) -> set[str]:
     return files
 
 
+def _extract_planned_files(payload: dict[str, Any]) -> set[str]:
+    files: set[str] = set()
+    for key in ("patch_plan", "fix_steps"):
+        raw = payload.get(key, [])
+        if not isinstance(raw, list):
+            continue
+        for item in raw:
+            if not isinstance(item, dict):
+                continue
+            file_path = str(item.get("file", "")).strip()
+            if not file_path:
+                continue
+            files.add(_normalize_repo_relative_path(file_path))
+    return files
+
+
 def _extract_validated_changes(payload: dict[str, Any]) -> list[ValidatedFileChange]:
     raw_changes = payload.get("validated_changes", [])
     changes: list[ValidatedFileChange] = []
@@ -191,19 +207,41 @@ def _extract_validated_changes(payload: dict[str, Any]) -> list[ValidatedFileCha
     return sorted(changes, key=lambda item: item.file)
 
 
+def _resolve_max_fix_files(payload: dict[str, Any]) -> int:
+    raw = payload.get("max_fix_files", 5)
+    try:
+        value = int(raw)
+    except (TypeError, ValueError) as exc:
+        raise GuardrailViolationError("max_fix_files must be > 0") from exc
+    if value <= 0:
+        raise GuardrailViolationError("max_fix_files must be > 0")
+    return value
+
+
 def _validate_changes_against_evidence(
     changes: list[ValidatedFileChange],
     evidence_files: set[str],
+    planned_files: set[str],
+    max_fix_files: int,
 ) -> None:
     if not evidence_files:
         raise PatchApplicationError("No evidence-backed files available for PR creation")
     if not changes:
         raise PatchApplicationError("No validated_changes provided for PR creation")
+    if len(changes) > max_fix_files:
+        raise GuardrailViolationError("validated changes exceed max_fix_files limit")
+
+    if planned_files and not planned_files.issubset(evidence_files):
+        raise PatchApplicationError("Fix plan contains files outside evidence scope")
 
     for change in changes:
         if change.file not in evidence_files:
             raise PatchApplicationError(
                 f"Validated change file is outside evidence scope: {change.file}"
+            )
+        if planned_files and change.file not in planned_files:
+            raise PatchApplicationError(
+                f"Validated change file is outside fix plan scope: {change.file}"
             )
 
 
@@ -692,8 +730,29 @@ def run_pr_creation(
     plan = build_branch_creation_plan(payload)
 
     evidence_files = _extract_evidence_files(payload)
+    planned_files = _extract_planned_files(payload)
     changes = _extract_validated_changes(payload)
-    _validate_changes_against_evidence(changes=changes, evidence_files=evidence_files)
+    max_fix_files = _resolve_max_fix_files(payload)
+    try:
+        _validate_changes_against_evidence(
+            changes=changes,
+            evidence_files=evidence_files,
+            planned_files=planned_files,
+            max_fix_files=max_fix_files,
+        )
+    except GuardrailViolationError as exc:
+        if str(exc) == "validated changes exceed max_fix_files limit":
+            return {
+                "pr_created": False,
+                "pr_url": None,
+                "pr_number": None,
+                "pr_branch": None,
+                **_build_reason(
+                    PR_REASON_MAX_FIX_FILES_EXCEEDED,
+                    "validated changes exceed max_fix_files limit",
+                ),
+            }
+        raise
 
     client = github_client
     if not bool(payload.get("dry_run", False)):

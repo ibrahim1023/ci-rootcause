@@ -33,6 +33,7 @@ class GitHubAppRepoConfig:
     enable_pr_mode: bool = False
     create_fix_pr: bool = False
     min_pr_confidence: float = 0.75
+    max_fix_files: int = 5
     execution_mode: str = "deterministic"
     llm_provider: str | None = None
     llm_model: str | None = None
@@ -281,6 +282,7 @@ def process_github_app_webhook(
         target_branch=str(webhook_result.get("head_branch", "")).strip() or "main",
         fail_fast=False,
         min_pr_confidence=config.min_pr_confidence,
+        max_fix_files=config.max_fix_files,
         execution_mode=config.execution_mode,
         llm_provider=config.llm_provider,
         llm_model=config.llm_model,

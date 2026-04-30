@@ -242,6 +242,29 @@ def test_run_pr_creation_uses_stable_max_fix_files_disabled_reason_code() -> Non
     assert result["failure_reason"] == "validated changes exceed max_fix_files limit"
 
 
+def test_run_pr_creation_enforces_max_fix_files_on_final_changes() -> None:
+    result = run_pr_creation(
+        payload={
+            "create_fix_pr": True,
+            "confidence": 0.9,
+            "min_pr_confidence": 0.75,
+            "max_fix_files": 1,
+            "base_ref": "abc123deadbeef",
+            "head_ref": "def456feedface",
+            "allowed_files": ["src/a.py", "src/b.py"],
+            "validated_changes": [
+                {"file": "src/a.py", "content": "print('a')\n"},
+                {"file": "src/b.py", "content": "print('b')\n"},
+            ],
+        }
+    )
+
+    assert result["pr_created"] is False
+    assert result["pr_branch"] is None
+    assert result["failure_reason_code"] == PR_REASON_MAX_FIX_FILES_EXCEEDED
+    assert result["failure_reason"] == "validated changes exceed max_fix_files limit"
+
+
 def test_run_pr_creation_reports_app_pr_mode_not_enabled_reason() -> None:
     result = run_pr_creation(
         payload={
@@ -450,6 +473,38 @@ def test_run_pr_creation_rejects_non_evidence_file(tmp_path: Path) -> None:
     }
 
     with pytest.raises(PatchApplicationError, match="outside evidence scope"):
+        run_pr_creation(
+            payload=payload,
+            repo_path=str(tmp_path),
+            git_runner=FakeGitRunner(set(), []),
+        )
+
+
+def test_run_pr_creation_rejects_change_outside_fix_plan_scope(tmp_path: Path) -> None:
+    payload = {
+        "create_fix_pr": True,
+        "confidence": 0.9,
+        "base_ref": "abc123deadbeef",
+        "head_ref": "def456feedface",
+        "allowed_files": ["src/evidence.py", "src/other.py"],
+        "fix_steps": [
+            {
+                "file": "src/evidence.py",
+                "instruction": "adjust behavior",
+                "reason": "root cause evidence",
+            }
+        ],
+        "patch_plan": [
+            {
+                "file": "src/evidence.py",
+                "operation": "modify",
+                "summary": "adjust behavior",
+            }
+        ],
+        "validated_changes": [{"file": "src/other.py", "content": "print('x')\n"}],
+    }
+
+    with pytest.raises(PatchApplicationError, match="outside fix plan scope"):
         run_pr_creation(
             payload=payload,
             repo_path=str(tmp_path),

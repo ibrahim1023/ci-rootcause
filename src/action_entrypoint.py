@@ -323,6 +323,7 @@ def main() -> int:
             fail_fast=False,
             historical_runs=historical_runs,
             min_pr_confidence=min_pr_confidence,
+            max_fix_files=max_fix_files,
             execution_mode=execution_mode.value,
             llm_provider=provider_config.provider.value,
             llm_model=provider_config.model,

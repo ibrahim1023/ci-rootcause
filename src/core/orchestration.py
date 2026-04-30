@@ -169,6 +169,7 @@ class PipelineRequest:
     fail_fast: bool = False
     historical_runs: list[dict[str, Any]] = field(default_factory=list)
     min_pr_confidence: float = 0.75
+    max_fix_files: int = 5
     offline_only: bool = False
     execution_mode: str = "deterministic"
     llm_provider: str | None = None
@@ -436,6 +437,7 @@ def _run_pr_creation_agent(state: PipelineState) -> dict[str, Any]:
         "execution_mode": state.request.execution_mode,
         "validation_commands": list(state.request.validation_commands),
         "min_pr_confidence": state.request.min_pr_confidence,
+        "max_fix_files": state.request.max_fix_files,
         "offline_only": state.request.offline_only,
         "dry_run": state.request.dry_run,
         "github_token": state.request.github_token or "",
@@ -451,6 +453,8 @@ def _run_pr_creation_agent(state: PipelineState) -> dict[str, Any]:
             "head_commit": state.config.commit.head_commit,
         },
         "allowed_files": allowed_files,
+        "fix_steps": list(fix_output.get("fix_steps", [])),
+        "patch_plan": list(fix_output.get("patch_plan", [])),
         "validated_changes": validated_changes,
     }
     return run_pr_creation(payload=payload)
