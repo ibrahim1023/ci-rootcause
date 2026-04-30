@@ -8,11 +8,13 @@ Deterministic CI root-cause analysis for failed CI runs.
 
 ## Proven Results (MVP Suite)
 
-From the curated MVP benchmark (`7` cases):
-- Classification accuracy: `100%` (`7/7`)
-- Baseline classification accuracy: `71.43%` (`5/7`)
-- Improvement: `+28.57` percentage points (about `40%` relative lift vs baseline)
-- Top-1 root-cause accuracy: `100%` (`6/6` applicable cases)
+From the curated MVP benchmark (`9` cases):
+- Classification accuracy: `100%` (`9/9`)
+- Baseline classification accuracy: `77.78%` (`7/9`)
+- Improvement: `+22.22` percentage points (about `28.6%` relative lift vs baseline)
+- Top-1 root-cause accuracy: `100%` (`8/8` applicable cases)
+- Agentic proposal validity: `100%` (`2/2` exercised cases)
+- Guarded validation pass rate: `50%` (`1/2`, one good fix passed and one bad fix was blocked)
 - Artifact hash reproducibility: `100%`
 - Confidence reproducibility: `100%`
 
