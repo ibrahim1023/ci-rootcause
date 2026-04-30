@@ -22,6 +22,18 @@ If mismatch is found, do not guess. Document it in `progress.md` and resolve exp
 4. Inspect recent git history (`git log --oneline -n 10`).
 5. Run baseline validation.
 
+## Retrieval And Context Rules
+- Search the codebase and tests before making non-trivial changes.
+- Prefer targeted reads over loading large files wholesale.
+- Do not rely on docs alone when code or tests disagree.
+
+## Output Compression
+- Compress noisy command output before reusing it as agent context when the raw output is large or repetitive.
+- Prioritize preserving errors, exit codes, file paths, line numbers, failing assertions, and other deterministic diagnosis signals.
+- Do not compress small targeted outputs unnecessarily.
+- Expand raw output only when debugging requires exact detail.
+- Prefer `ztk` when available for large diffs, recursive listings, test logs, build logs, typecheck output, lint output, CI logs, stack traces, and package manager output.
+
 ## Required Validation Commands
 - Lint: `ruff check .`
 - Format check: `ruff format --check .`
