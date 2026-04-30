@@ -16,28 +16,32 @@ def test_run_benchmark_suite_executes_curated_cases(tmp_path: Path) -> None:
         use_adk_runtime=False,
     )
 
-    assert result["suite_name"] == "mvp-curated-v2"
-    assert result["total_cases"] == 6
-    assert result["completed_cases"] == 6
+    assert result["suite_name"] == "mvp-curated-v3"
+    assert result["total_cases"] == 7
+    assert result["completed_cases"] == 7
     assert result["completion_rate"] == 1.0
-    assert result["classification_matches"] == 6
+    assert result["classification_matches"] == 7
     assert result["classification_match_rate"] == 1.0
-    assert result["baseline_classification_matches"] == 4
-    assert result["baseline_classification_match_rate"] == 0.6667
-    assert result["classification_match_lift"] == 0.3333
+    assert result["baseline_classification_matches"] == 5
+    assert result["baseline_classification_match_rate"] == 0.7143
+    assert result["classification_match_lift"] == 0.2857
     assert "classification_confusion_matrix" in result
     assert result["classification_confusion_matrix"]["DEPENDENCY"]["DEPENDENCY"] == 2
     assert result["classification_confusion_matrix"]["INFRA"]["INFRA"] == 1
+    assert result["classification_confusion_matrix"]["LINT"]["LINT"] == 1
     assert result["classification_confusion_matrix"]["TEST"]["TEST"] == 2
     assert result["classification_confusion_matrix"]["TYPECHECK"]["TYPECHECK"] == 1
-    assert result["primary_root_cause_matches"] == 6
+    assert result["primary_root_cause_matches"] == 7
     assert result["primary_root_cause_accuracy"] == 1.0
-    assert result["baseline_primary_root_cause_matches"] == 6
+    assert result["baseline_primary_root_cause_matches"] == 7
     assert result["baseline_primary_root_cause_accuracy"] == 1.0
     assert result["primary_root_cause_accuracy_lift"] == 0.0
-    assert result["confidence_reproducible_cases"] == 6
+    assert result["top1_root_cause_cases"] == 6
+    assert result["top1_root_cause_matches"] == 6
+    assert result["top1_root_cause_accuracy"] == 1.0
+    assert result["confidence_reproducible_cases"] == 7
     assert result["confidence_reproducibility"] == 1.0
-    assert result["artifact_hash_reproducible_cases"] == 6
+    assert result["artifact_hash_reproducible_cases"] == 7
     assert result["artifact_hash_reproducibility"] == 1.0
     assert result["mean_time_to_diagnosis_ms"] >= 0.0
     assert result["median_time_to_diagnosis_ms"] >= 0.0
@@ -56,6 +60,8 @@ def test_run_benchmark_suite_executes_curated_cases(tmp_path: Path) -> None:
         assert item["baseline_primary_root_cause_title"]
         assert isinstance(item["baseline_primary_root_cause_match"], bool)
         assert item["expected_primary_root_cause_contains"] is not None
+        assert "top1_root_cause_applicable" in item
+        assert "top1_root_cause_match" in item
         assert item["confidence_is_reproducible"] is True
         assert len(item["confidence_values"]) == 2
         assert item["confidence_values"][0] == item["confidence_values"][1]
@@ -93,6 +99,7 @@ def test_run_benchmark_suite_is_repeatable_for_same_inputs(tmp_path: Path) -> No
         item["primary_root_cause_title"] for item in second["cases"]
     ]
     assert first["confidence_reproducibility"] == second["confidence_reproducibility"] == 1.0
+    assert first["top1_root_cause_accuracy"] == second["top1_root_cause_accuracy"] == 1.0
 
 
 def test_run_benchmark_suite_rejects_non_positive_repeat_runs(tmp_path: Path) -> None:

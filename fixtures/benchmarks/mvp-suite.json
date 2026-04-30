@@ -1,5 +1,5 @@
 {
-  "suite_name": "mvp-curated-v2",
+  "suite_name": "mvp-curated-v3",
   "cases": [
     {
       "case_id": "case-node-mixed-lock",
@@ -12,7 +12,9 @@
       "base_commit": "abc122",
       "head_commit": "abc123",
       "expected_classification": "DEPENDENCY",
-      "expected_primary_root_cause_contains": "AssertionError"
+      "expected_primary_root_cause_contains": "AssertionError",
+      "expected_primary_root_cause_file": "tests/test_math.py",
+      "expected_primary_root_cause_line": 12
     },
     {
       "case_id": "case-python-lock-only",
@@ -25,7 +27,9 @@
       "base_commit": "abc122",
       "head_commit": "abc123",
       "expected_classification": "DEPENDENCY",
-      "expected_primary_root_cause_contains": "AssertionError"
+      "expected_primary_root_cause_contains": "AssertionError",
+      "expected_primary_root_cause_file": "tests/test_math.py",
+      "expected_primary_root_cause_line": 12
     },
     {
       "case_id": "case-refactor-only",
@@ -38,7 +42,9 @@
       "base_commit": "abc122",
       "head_commit": "abc123",
       "expected_classification": "TEST",
-      "expected_primary_root_cause_contains": "AssertionError"
+      "expected_primary_root_cause_contains": "AssertionError",
+      "expected_primary_root_cause_file": "tests/test_math.py",
+      "expected_primary_root_cause_line": 12
     },
     {
       "case_id": "case-rename-and-modify",
@@ -51,7 +57,24 @@
       "base_commit": "abc122",
       "head_commit": "abc123",
       "expected_classification": "TEST",
-      "expected_primary_root_cause_contains": "AssertionError"
+      "expected_primary_root_cause_contains": "AssertionError",
+      "expected_primary_root_cause_file": "tests/test_math.py",
+      "expected_primary_root_cause_line": 12
+    },
+    {
+      "case_id": "case-ruff-f401",
+      "description": "Ruff F401 lint failure with refactor-only diff",
+      "log_path": "fixtures/ci-logs/github-actions-ruff-failure.log",
+      "diff_path": "fixtures/diffs/refactor-only.diff",
+      "timestamp": "2026-02-22T00:00:00Z",
+      "commit": "ghi223",
+      "run_id": "bench_005",
+      "base_commit": "ghi222",
+      "head_commit": "ghi223",
+      "expected_classification": "LINT",
+      "expected_primary_root_cause_contains": "F401",
+      "expected_primary_root_cause_file": "src/app.py",
+      "expected_primary_root_cause_line": 7
     },
     {
       "case_id": "case-typecheck-ts2345",
@@ -60,11 +83,13 @@
       "diff_path": "fixtures/diffs/refactor-only.diff",
       "timestamp": "2026-02-22T00:00:00Z",
       "commit": "def123",
-      "run_id": "bench_005",
+      "run_id": "bench_006",
       "base_commit": "def122",
       "head_commit": "def123",
       "expected_classification": "TYPECHECK",
-      "expected_primary_root_cause_contains": "TS2345"
+      "expected_primary_root_cause_contains": "TS2345",
+      "expected_primary_root_cause_file": "src/app.ts",
+      "expected_primary_root_cause_line": 14
     },
     {
       "case_id": "case-infra-timeout",
@@ -73,7 +98,7 @@
       "diff_path": "fixtures/diffs/refactor-only.diff",
       "timestamp": "2026-02-22T00:00:00Z",
       "commit": "ghi123",
-      "run_id": "bench_006",
+      "run_id": "bench_007",
       "base_commit": "ghi122",
       "head_commit": "ghi123",
       "expected_classification": "INFRA",

@@ -102,6 +102,25 @@ tests/test_api.py:14: AssertionError
     assert event.line == 14
 
 
+def test_parse_ci_log_extracts_typescript_parenthesized_location() -> None:
+    raw_log = "\n".join(
+        [
+            "##[group]Run typecheck",
+            "src/app.ts(14,5): error TS2345: Argument of type 'number' "
+            "is not assignable to parameter of type 'string'.",
+            "error Command failed with exit code 2.",
+            "##[endgroup]",
+        ]
+    )
+
+    result = parse_ci_log(raw_log)
+
+    event = result.failure_events[0]
+    assert event.file == "src/app.ts"
+    assert event.line == 14
+    assert "src/app.ts:14" in event.stack_frames
+
+
 def test_parse_ci_log_extracts_dependency_package_name() -> None:
     raw_log = """##[group]Install dependencies
 ERROR: Could not find a version that satisfies the requirement missing-package-abc123

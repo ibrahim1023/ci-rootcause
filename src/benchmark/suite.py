@@ -27,6 +27,8 @@ class BenchmarkCase:
     head_commit: str
     expected_classification: str | None = None
     expected_primary_root_cause_contains: str | None = None
+    expected_primary_root_cause_file: str | None = None
+    expected_primary_root_cause_line: int | None = None
 
 
 def _require_text(value: Any, field_name: str) -> str:
@@ -156,6 +158,16 @@ def load_benchmark_suite(suite_path: str) -> tuple[str, list[BenchmarkCase]]:
                 if item.get("expected_primary_root_cause_contains") is not None
                 else None
             ),
+            expected_primary_root_cause_file=(
+                str(item.get("expected_primary_root_cause_file")).strip()
+                if item.get("expected_primary_root_cause_file") is not None
+                else None
+            ),
+            expected_primary_root_cause_line=(
+                int(item["expected_primary_root_cause_line"])
+                if item.get("expected_primary_root_cause_line") is not None
+                else None
+            ),
         )
 
         if case.case_id in seen_ids:
@@ -239,6 +251,19 @@ def run_benchmark_suite(
         primary_root_cause_title = str(
             (ranker_output.get("primary_root_cause") or {}).get("title", "")
         )
+        primary_root_cause = ranker_output.get("primary_root_cause") or {}
+        primary_evidence = primary_root_cause.get("evidence", [])
+        actual_primary_file = None
+        actual_primary_line = None
+        if isinstance(primary_evidence, list) and primary_evidence:
+            first_evidence = primary_evidence[0]
+            if isinstance(first_evidence, dict):
+                candidate_file = str(first_evidence.get("file", "")).strip()
+                if candidate_file and candidate_file != "unknown":
+                    actual_primary_file = candidate_file
+                line_value = first_evidence.get("line")
+                if isinstance(line_value, int) and line_value > 0:
+                    actual_primary_line = line_value
         baseline_classification = _basic_log_baseline_classification(first_failure_event)
         baseline_root_cause_title = _basic_log_baseline_root_cause(first_failure_event)
         expected = case.expected_classification
@@ -252,6 +277,17 @@ def run_benchmark_suite(
         baseline_primary_root_cause_match = (
             expected_primary_contains is None
             or expected_primary_contains.lower() in baseline_root_cause_title.lower()
+        )
+        expected_primary_file = case.expected_primary_root_cause_file
+        expected_primary_line = case.expected_primary_root_cause_line
+        top1_root_cause_applicable = (
+            expected_primary_file is not None or expected_primary_line is not None
+        )
+        top1_root_cause_match = (
+            (actual_primary_file == expected_primary_file)
+            and (actual_primary_line == expected_primary_line)
+            if top1_root_cause_applicable
+            else None
         )
 
         json_path = Path(str(reporter_output.get("ci_rca_json_path", "")))
@@ -282,6 +318,12 @@ def run_benchmark_suite(
                 "primary_root_cause_match": primary_root_cause_match,
                 "baseline_primary_root_cause_title": baseline_root_cause_title,
                 "baseline_primary_root_cause_match": baseline_primary_root_cause_match,
+                "expected_primary_root_cause_file": expected_primary_file,
+                "expected_primary_root_cause_line": expected_primary_line,
+                "actual_primary_root_cause_file": actual_primary_file,
+                "actual_primary_root_cause_line": actual_primary_line,
+                "top1_root_cause_applicable": top1_root_cause_applicable,
+                "top1_root_cause_match": top1_root_cause_match,
                 "confidence": float(ranker_output.get("confidence", 0.0)),
                 "confidence_values": confidence_values,
                 "confidence_is_reproducible": confidence_is_reproducible,
@@ -305,6 +347,10 @@ def run_benchmark_suite(
     matched = sum(1 for item in case_results if item["classification_match"])
     baseline_matched = sum(1 for item in case_results if item["baseline_classification_match"])
     root_cause_matched = sum(1 for item in case_results if item["primary_root_cause_match"])
+    top1_root_cause_cases = sum(1 for item in case_results if item["top1_root_cause_applicable"])
+    top1_root_cause_matches = sum(
+        1 for item in case_results if item["top1_root_cause_match"] is True
+    )
     baseline_root_cause_matched = sum(
         1 for item in case_results if item["baseline_primary_root_cause_match"]
     )
@@ -338,6 +384,13 @@ def run_benchmark_suite(
         "primary_root_cause_accuracy_lift": (
             round((root_cause_matched - baseline_root_cause_matched) / total_cases, 4)
             if total_cases
+            else 0.0
+        ),
+        "top1_root_cause_cases": top1_root_cause_cases,
+        "top1_root_cause_matches": top1_root_cause_matches,
+        "top1_root_cause_accuracy": (
+            round(top1_root_cause_matches / top1_root_cause_cases, 4)
+            if top1_root_cause_cases
             else 0.0
         ),
         "confidence_reproducible_cases": confidence_reproducible_count,

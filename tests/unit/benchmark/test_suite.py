@@ -12,15 +12,19 @@ SUITE_PATH = "fixtures/benchmarks/mvp-suite.json"
 def test_load_benchmark_suite_returns_sorted_cases() -> None:
     suite_name, cases = load_benchmark_suite(SUITE_PATH)
 
-    assert suite_name == "mvp-curated-v2"
-    assert len(cases) == 6
+    assert suite_name == "mvp-curated-v3"
+    assert len(cases) == 7
     assert [case.case_id for case in cases] == sorted(case.case_id for case in cases)
     assert {case.expected_classification for case in cases} == {
         "DEPENDENCY",
+        "LINT",
         "TEST",
         "TYPECHECK",
         "INFRA",
     }
+    typecheck_case = next(case for case in cases if case.case_id == "case-typecheck-ts2345")
+    assert typecheck_case.expected_primary_root_cause_file == "src/app.ts"
+    assert typecheck_case.expected_primary_root_cause_line == 14
 
 
 def test_load_benchmark_suite_rejects_duplicate_case_ids(tmp_path: Path) -> None:

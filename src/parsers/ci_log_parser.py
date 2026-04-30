@@ -15,6 +15,7 @@ LOCATION_PATTERNS: tuple[re.Pattern[str], ...] = (
     re.compile(r"\s*at (?P<file>[^:\s]+):(?P<line>\d+):\d+"),
     re.compile(r"(?P<file>[A-Za-z0-9_./-]+):(?P<line>\d+):\s*error:"),
     re.compile(r"(?P<file>[A-Za-z0-9_./-]+):(?P<line>\d+):\d+:\s*[A-Z]\d+"),
+    re.compile(r"(?P<file>[A-Za-z0-9_./-]+)\((?P<line>\d+),(?P<column>\d+)\):\s*error"),
     re.compile(r"(?P<file>[A-Za-z0-9_./-]+):(?P<line>\d+):\s*AssertionError"),
     re.compile(r"(?P<file>tests/[A-Za-z0-9_./-]+\.py)::[A-Za-z0-9_:\[\]-]+"),
 )
