@@ -196,6 +196,10 @@ def test_run_pr_creation_returns_skip_when_disabled() -> None:
         "pr_branch": None,
         "failure_reason_code": PR_REASON_CREATE_FIX_PR_DISABLED,
         "failure_reason": "create_fix_pr=false",
+        "validation_attempted": False,
+        "validation_passed": None,
+        "validation_commands": [],
+        "commit_message": None,
     }
 
 

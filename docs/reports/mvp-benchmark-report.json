@@ -1,14 +1,126 @@
 {
-  "agentic_proposal_valid_cases": 0,
-  "agentic_proposal_valid_matches": 0,
-  "agentic_proposal_valid_rate": null,
+  "agentic_proposal_valid_cases": 2,
+  "agentic_proposal_valid_matches": 2,
+  "agentic_proposal_valid_rate": 1.0,
   "artifact_hash_reproducibility": 1.0,
-  "artifact_hash_reproducible_cases": 7,
-  "baseline_classification_match_rate": 0.7143,
-  "baseline_classification_matches": 5,
+  "artifact_hash_reproducible_cases": 9,
+  "baseline_classification_match_rate": 0.7778,
+  "baseline_classification_matches": 7,
   "baseline_primary_root_cause_accuracy": 1.0,
-  "baseline_primary_root_cause_matches": 7,
+  "baseline_primary_root_cause_matches": 9,
   "cases": [
+    {
+      "actual_primary_root_cause_file": "src/app.py",
+      "actual_primary_root_cause_line": 7,
+      "agentic_proposal_applicable": true,
+      "agentic_proposal_valid": true,
+      "artifact_hash_is_reproducible": true,
+      "artifact_json_hash_values": [
+        "62bbc8c293877cec4c73f352f9bb75832f0bcfecc56deb49d7f674c18280ba84",
+        "62bbc8c293877cec4c73f352f9bb75832f0bcfecc56deb49d7f674c18280ba84"
+      ],
+      "artifact_md_hash_values": [
+        "76879f25602e50b2a1dd9413005a2307c82628397d9286fc91651905d4f9f8de",
+        "76879f25602e50b2a1dd9413005a2307c82628397d9286fc91651905d4f9f8de"
+      ],
+      "baseline_classification": "LINT",
+      "baseline_classification_match": true,
+      "baseline_primary_root_cause_match": true,
+      "baseline_primary_root_cause_title": "src/app.py:7:5: F401 `os` imported but unused",
+      "case_id": "case-agentic-ruff-fail",
+      "ci_rca_json_sha256": "62bbc8c293877cec4c73f352f9bb75832f0bcfecc56deb49d7f674c18280ba84",
+      "ci_rca_md_sha256": "76879f25602e50b2a1dd9413005a2307c82628397d9286fc91651905d4f9f8de",
+      "classification": "LINT",
+      "classification_match": true,
+      "confidence": 0.54,
+      "confidence_is_reproducible": true,
+      "confidence_values": [
+        0.54,
+        0.54
+      ],
+      "description": "Agentic lint fix proposal that fails validation in dry-run PR mode",
+      "expected_classification": "LINT",
+      "expected_primary_root_cause_contains": "F401",
+      "expected_primary_root_cause_file": "src/app.py",
+      "expected_primary_root_cause_line": 7,
+      "pipeline_status": "completed",
+      "pipeline_timing_ms": 10.796,
+      "primary_root_cause_match": true,
+      "primary_root_cause_title": "src/app.py:7:5: F401 `os` imported but unused at src/app.py:7",
+      "status_values": [
+        "completed",
+        "completed"
+      ],
+      "timing_spread_ms": 0.363,
+      "timing_values_ms": [
+        10.796,
+        10.433
+      ],
+      "top1_root_cause_applicable": true,
+      "top1_root_cause_match": true,
+      "trace_id": "f2868bbfa3f9a602333ee980",
+      "validation_commands_used": [
+        "ruff check src/app.py"
+      ],
+      "validation_pass_applicable": true,
+      "validation_passed": false
+    },
+    {
+      "actual_primary_root_cause_file": "src/app.py",
+      "actual_primary_root_cause_line": 7,
+      "agentic_proposal_applicable": true,
+      "agentic_proposal_valid": true,
+      "artifact_hash_is_reproducible": true,
+      "artifact_json_hash_values": [
+        "09c8706d1711ed0fb67d053fd36bfda426cff985c01b96b134de60b980f4251e",
+        "09c8706d1711ed0fb67d053fd36bfda426cff985c01b96b134de60b980f4251e"
+      ],
+      "artifact_md_hash_values": [
+        "4ca3bb7c87fb06ee70a639898c7a5b32fb573fc921fc87d1ee20b8bba33c4fdb",
+        "4ca3bb7c87fb06ee70a639898c7a5b32fb573fc921fc87d1ee20b8bba33c4fdb"
+      ],
+      "baseline_classification": "LINT",
+      "baseline_classification_match": true,
+      "baseline_primary_root_cause_match": true,
+      "baseline_primary_root_cause_title": "src/app.py:7:5: F401 `os` imported but unused",
+      "case_id": "case-agentic-ruff-pass",
+      "ci_rca_json_sha256": "09c8706d1711ed0fb67d053fd36bfda426cff985c01b96b134de60b980f4251e",
+      "ci_rca_md_sha256": "4ca3bb7c87fb06ee70a639898c7a5b32fb573fc921fc87d1ee20b8bba33c4fdb",
+      "classification": "LINT",
+      "classification_match": true,
+      "confidence": 0.54,
+      "confidence_is_reproducible": true,
+      "confidence_values": [
+        0.54,
+        0.54
+      ],
+      "description": "Agentic lint fix proposal that passes validation in dry-run PR mode",
+      "expected_classification": "LINT",
+      "expected_primary_root_cause_contains": "F401",
+      "expected_primary_root_cause_file": "src/app.py",
+      "expected_primary_root_cause_line": 7,
+      "pipeline_status": "completed",
+      "pipeline_timing_ms": 10.676,
+      "primary_root_cause_match": true,
+      "primary_root_cause_title": "src/app.py:7:5: F401 `os` imported but unused at src/app.py:7",
+      "status_values": [
+        "completed",
+        "completed"
+      ],
+      "timing_spread_ms": 1.868,
+      "timing_values_ms": [
+        10.676,
+        8.808
+      ],
+      "top1_root_cause_applicable": true,
+      "top1_root_cause_match": true,
+      "trace_id": "8aab9294042cdc9fd1325994",
+      "validation_commands_used": [
+        "ruff check src/app.py"
+      ],
+      "validation_pass_applicable": true,
+      "validation_passed": true
+    },
     {
       "actual_primary_root_cause_file": null,
       "actual_primary_root_cause_line": null,
@@ -44,21 +156,22 @@
       "expected_primary_root_cause_file": null,
       "expected_primary_root_cause_line": null,
       "pipeline_status": "completed",
-      "pipeline_timing_ms": 0.593,
+      "pipeline_timing_ms": 0.444,
       "primary_root_cause_match": true,
       "primary_root_cause_title": "ERROR: connection reset by peer while contacting package mirror at unknown file",
       "status_values": [
         "completed",
         "completed"
       ],
-      "timing_spread_ms": 0.245,
+      "timing_spread_ms": 0.124,
       "timing_values_ms": [
-        0.593,
-        0.348
+        0.444,
+        0.32
       ],
       "top1_root_cause_applicable": false,
       "top1_root_cause_match": null,
       "trace_id": "7027da369170dcd4a7124202",
+      "validation_commands_used": [],
       "validation_pass_applicable": false,
       "validation_passed": null
     },
@@ -97,21 +210,22 @@
       "expected_primary_root_cause_file": "tests/test_math.py",
       "expected_primary_root_cause_line": 12,
       "pipeline_status": "completed",
-      "pipeline_timing_ms": 0.594,
+      "pipeline_timing_ms": 0.545,
       "primary_root_cause_match": true,
       "primary_root_cause_title": "E AssertionError: assert 3 == 4 at tests/test_math.py:12",
       "status_values": [
         "completed",
         "completed"
       ],
-      "timing_spread_ms": 0.072,
+      "timing_spread_ms": 0.057,
       "timing_values_ms": [
-        0.594,
-        0.522
+        0.545,
+        0.488
       ],
       "top1_root_cause_applicable": true,
       "top1_root_cause_match": true,
       "trace_id": "72a95cb98a7478ca24426b9a",
+      "validation_commands_used": [],
       "validation_pass_applicable": false,
       "validation_passed": null
     },
@@ -150,21 +264,22 @@
       "expected_primary_root_cause_file": "tests/test_math.py",
       "expected_primary_root_cause_line": 12,
       "pipeline_status": "completed",
-      "pipeline_timing_ms": 0.489,
+      "pipeline_timing_ms": 0.459,
       "primary_root_cause_match": true,
       "primary_root_cause_title": "E AssertionError: assert 3 == 4 at tests/test_math.py:12",
       "status_values": [
         "completed",
         "completed"
       ],
-      "timing_spread_ms": 0.024,
+      "timing_spread_ms": 0.003,
       "timing_values_ms": [
-        0.489,
-        0.465
+        0.459,
+        0.462
       ],
       "top1_root_cause_applicable": true,
       "top1_root_cause_match": true,
       "trace_id": "dd3348b6f6ff3d97f5e87557",
+      "validation_commands_used": [],
       "validation_pass_applicable": false,
       "validation_passed": null
     },
@@ -203,21 +318,22 @@
       "expected_primary_root_cause_file": "tests/test_math.py",
       "expected_primary_root_cause_line": 12,
       "pipeline_status": "completed",
-      "pipeline_timing_ms": 0.489,
+      "pipeline_timing_ms": 0.495,
       "primary_root_cause_match": true,
       "primary_root_cause_title": "E AssertionError: assert 3 == 4 at tests/test_math.py:12",
       "status_values": [
         "completed",
         "completed"
       ],
-      "timing_spread_ms": 0.127,
+      "timing_spread_ms": 0.046,
       "timing_values_ms": [
-        0.489,
-        0.616
+        0.495,
+        0.541
       ],
       "top1_root_cause_applicable": true,
       "top1_root_cause_match": true,
       "trace_id": "6e45066e2a28befba20cc4e3",
+      "validation_commands_used": [],
       "validation_pass_applicable": false,
       "validation_passed": null
     },
@@ -256,21 +372,22 @@
       "expected_primary_root_cause_file": "tests/test_math.py",
       "expected_primary_root_cause_line": 12,
       "pipeline_status": "completed",
-      "pipeline_timing_ms": 0.554,
+      "pipeline_timing_ms": 0.533,
       "primary_root_cause_match": true,
       "primary_root_cause_title": "E AssertionError: assert 3 == 4 at tests/test_math.py:12",
       "status_values": [
         "completed",
         "completed"
       ],
-      "timing_spread_ms": 0.057,
+      "timing_spread_ms": 0.034,
       "timing_values_ms": [
-        0.554,
-        0.497
+        0.533,
+        0.499
       ],
       "top1_root_cause_applicable": true,
       "top1_root_cause_match": true,
       "trace_id": "efbd3cba9a602400f9c344bd",
+      "validation_commands_used": [],
       "validation_pass_applicable": false,
       "validation_passed": null
     },
@@ -309,21 +426,22 @@
       "expected_primary_root_cause_file": "src/app.py",
       "expected_primary_root_cause_line": 7,
       "pipeline_status": "completed",
-      "pipeline_timing_ms": 0.397,
+      "pipeline_timing_ms": 0.327,
       "primary_root_cause_match": true,
       "primary_root_cause_title": "src/app.py:7:5: F401 `os` imported but unused at src/app.py:7",
       "status_values": [
         "completed",
         "completed"
       ],
-      "timing_spread_ms": 0.006,
+      "timing_spread_ms": 0.026,
       "timing_values_ms": [
-        0.397,
-        0.403
+        0.327,
+        0.301
       ],
       "top1_root_cause_applicable": true,
       "top1_root_cause_match": true,
       "trace_id": "b136182012002230ccfc48ce",
+      "validation_commands_used": [],
       "validation_pass_applicable": false,
       "validation_passed": null
     },
@@ -362,21 +480,22 @@
       "expected_primary_root_cause_file": "src/app.ts",
       "expected_primary_root_cause_line": 14,
       "pipeline_status": "completed",
-      "pipeline_timing_ms": 0.493,
+      "pipeline_timing_ms": 0.424,
       "primary_root_cause_match": true,
       "primary_root_cause_title": "src/app.ts(14,5): error TS2345: Argument of type 'number' is not assignable to parameter of type 'string'. at src/app.ts:14",
       "status_values": [
         "completed",
         "completed"
       ],
-      "timing_spread_ms": 0.035,
+      "timing_spread_ms": 0.056,
       "timing_values_ms": [
-        0.493,
-        0.458
+        0.424,
+        0.368
       ],
       "top1_root_cause_applicable": true,
       "top1_root_cause_match": true,
       "trace_id": "901927202f92c55ef0e04379",
+      "validation_commands_used": [],
       "validation_pass_applicable": false,
       "validation_passed": null
     }
@@ -389,7 +508,7 @@
       "INFRA": 1
     },
     "LINT": {
-      "LINT": 1
+      "LINT": 3
     },
     "TEST": {
       "TEST": 2
@@ -398,25 +517,25 @@
       "TYPECHECK": 1
     }
   },
-  "classification_match_lift": 0.2857,
+  "classification_match_lift": 0.2222,
   "classification_match_rate": 1.0,
-  "classification_matches": 7,
-  "completed_cases": 7,
+  "classification_matches": 9,
+  "completed_cases": 9,
   "completion_rate": 1.0,
   "confidence_reproducibility": 1.0,
-  "confidence_reproducible_cases": 7,
-  "mean_time_to_diagnosis_ms": 0.516,
-  "median_time_to_diagnosis_ms": 0.493,
-  "p95_time_to_diagnosis_ms": 0.593,
+  "confidence_reproducible_cases": 9,
+  "mean_time_to_diagnosis_ms": 2.744,
+  "median_time_to_diagnosis_ms": 0.495,
+  "p95_time_to_diagnosis_ms": 10.676,
   "primary_root_cause_accuracy": 1.0,
   "primary_root_cause_accuracy_lift": 0.0,
-  "primary_root_cause_matches": 7,
+  "primary_root_cause_matches": 9,
   "suite_name": "mvp-curated-v3",
   "top1_root_cause_accuracy": 1.0,
-  "top1_root_cause_cases": 6,
-  "top1_root_cause_matches": 6,
-  "total_cases": 7,
-  "validation_pass_cases": 0,
-  "validation_pass_matches": 0,
-  "validation_pass_rate": null
+  "top1_root_cause_cases": 8,
+  "top1_root_cause_matches": 8,
+  "total_cases": 9,
+  "validation_pass_cases": 2,
+  "validation_pass_matches": 1,
+  "validation_pass_rate": 0.5
 }

@@ -185,6 +185,9 @@ class PipelineRequest:
     provider_adapter: str | None = None
     config: PipelineConfig | None = None
     use_adk_runtime: bool | None = None
+    pr_repo_path: str | None = None
+    pr_git_runner: Any = None
+    pr_github_client: Any = None
 
 
 @dataclass
@@ -463,7 +466,12 @@ def _run_pr_creation_agent(state: PipelineState) -> dict[str, Any]:
         "patch_plan": list(fix_output.get("patch_plan", [])),
         "validated_changes": validated_changes,
     }
-    return run_pr_creation(payload=payload)
+    return run_pr_creation(
+        payload=payload,
+        repo_path=state.request.pr_repo_path or ".",
+        git_runner=state.request.pr_git_runner,
+        github_client=state.request.pr_github_client,
+    )
 
 
 def build_default_registry() -> DeterministicAgentRegistry:

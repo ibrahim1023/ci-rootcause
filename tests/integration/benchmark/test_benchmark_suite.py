@@ -17,37 +17,37 @@ def test_run_benchmark_suite_executes_curated_cases(tmp_path: Path) -> None:
     )
 
     assert result["suite_name"] == "mvp-curated-v3"
-    assert result["total_cases"] == 7
-    assert result["completed_cases"] == 7
+    assert result["total_cases"] == 9
+    assert result["completed_cases"] == 9
     assert result["completion_rate"] == 1.0
-    assert result["classification_matches"] == 7
+    assert result["classification_matches"] == 9
     assert result["classification_match_rate"] == 1.0
-    assert result["baseline_classification_matches"] == 5
-    assert result["baseline_classification_match_rate"] == 0.7143
-    assert result["classification_match_lift"] == 0.2857
+    assert result["baseline_classification_matches"] == 7
+    assert result["baseline_classification_match_rate"] == 0.7778
+    assert result["classification_match_lift"] == 0.2222
     assert "classification_confusion_matrix" in result
     assert result["classification_confusion_matrix"]["DEPENDENCY"]["DEPENDENCY"] == 2
     assert result["classification_confusion_matrix"]["INFRA"]["INFRA"] == 1
-    assert result["classification_confusion_matrix"]["LINT"]["LINT"] == 1
+    assert result["classification_confusion_matrix"]["LINT"]["LINT"] == 3
     assert result["classification_confusion_matrix"]["TEST"]["TEST"] == 2
     assert result["classification_confusion_matrix"]["TYPECHECK"]["TYPECHECK"] == 1
-    assert result["primary_root_cause_matches"] == 7
+    assert result["primary_root_cause_matches"] == 9
     assert result["primary_root_cause_accuracy"] == 1.0
-    assert result["baseline_primary_root_cause_matches"] == 7
+    assert result["baseline_primary_root_cause_matches"] == 9
     assert result["baseline_primary_root_cause_accuracy"] == 1.0
     assert result["primary_root_cause_accuracy_lift"] == 0.0
-    assert result["top1_root_cause_cases"] == 6
-    assert result["top1_root_cause_matches"] == 6
+    assert result["top1_root_cause_cases"] == 8
+    assert result["top1_root_cause_matches"] == 8
     assert result["top1_root_cause_accuracy"] == 1.0
-    assert result["agentic_proposal_valid_cases"] == 0
-    assert result["agentic_proposal_valid_matches"] == 0
-    assert result["agentic_proposal_valid_rate"] is None
-    assert result["validation_pass_cases"] == 0
-    assert result["validation_pass_matches"] == 0
-    assert result["validation_pass_rate"] is None
-    assert result["confidence_reproducible_cases"] == 7
+    assert result["agentic_proposal_valid_cases"] == 2
+    assert result["agentic_proposal_valid_matches"] == 2
+    assert result["agentic_proposal_valid_rate"] == 1.0
+    assert result["validation_pass_cases"] == 2
+    assert result["validation_pass_matches"] == 1
+    assert result["validation_pass_rate"] == 0.5
+    assert result["confidence_reproducible_cases"] == 9
     assert result["confidence_reproducibility"] == 1.0
-    assert result["artifact_hash_reproducible_cases"] == 7
+    assert result["artifact_hash_reproducible_cases"] == 9
     assert result["artifact_hash_reproducibility"] == 1.0
     assert result["mean_time_to_diagnosis_ms"] >= 0.0
     assert result["median_time_to_diagnosis_ms"] >= 0.0
@@ -81,6 +81,25 @@ def test_run_benchmark_suite_executes_curated_cases(tmp_path: Path) -> None:
         assert item["pipeline_timing_ms"] >= 0.0
         assert len(item["ci_rca_json_sha256"]) == 64
         assert len(item["ci_rca_md_sha256"]) == 64
+        assert "validation_commands_used" in item
+
+    case_pass = next(
+        item for item in result["cases"] if item["case_id"] == "case-agentic-ruff-pass"
+    )
+    assert case_pass["agentic_proposal_applicable"] is True
+    assert case_pass["agentic_proposal_valid"] is True
+    assert case_pass["validation_pass_applicable"] is True
+    assert case_pass["validation_passed"] is True
+    assert case_pass["validation_commands_used"] == ["ruff check src/app.py"]
+
+    case_fail = next(
+        item for item in result["cases"] if item["case_id"] == "case-agentic-ruff-fail"
+    )
+    assert case_fail["agentic_proposal_applicable"] is True
+    assert case_fail["agentic_proposal_valid"] is True
+    assert case_fail["validation_pass_applicable"] is True
+    assert case_fail["validation_passed"] is False
+    assert case_fail["validation_commands_used"] == ["ruff check src/app.py"]
 
 
 def test_run_benchmark_suite_is_repeatable_for_same_inputs(tmp_path: Path) -> None:

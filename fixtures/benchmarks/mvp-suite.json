@@ -2,6 +2,80 @@
   "suite_name": "mvp-curated-v3",
   "cases": [
     {
+      "case_id": "case-agentic-ruff-fail",
+      "description": "Agentic lint fix proposal that fails validation in dry-run PR mode",
+      "log_path": "fixtures/ci-logs/github-actions-ruff-failure.log",
+      "diff_path": "fixtures/diffs/refactor-only.diff",
+      "timestamp": "2026-02-22T00:00:00Z",
+      "commit": "ghi224",
+      "run_id": "bench_000",
+      "base_commit": "ghi223",
+      "head_commit": "ghi224",
+      "expected_classification": "LINT",
+      "expected_primary_root_cause_contains": "F401",
+      "expected_primary_root_cause_file": "src/app.py",
+      "expected_primary_root_cause_line": 7,
+      "create_fix_pr": true,
+      "dry_run": true,
+      "execution_mode": "agentic_assist",
+      "llm_provider": "local",
+      "llm_model": "benchmark-local",
+      "min_pr_confidence": 0.5,
+      "lint_validation_commands": [
+        "ruff check src/app.py"
+      ],
+      "validated_changes": [
+        {
+          "file": "src/app.py",
+          "content": "import os\n\n\ndef main():\n    return 'ok'\n"
+        }
+      ],
+      "repo_fixture_files": [
+        {
+          "file": "src/app.py",
+          "content": "import os\n\n\ndef main():\n    return 'ok'\n"
+        }
+      ],
+      "mocked_agentic_proposal_path": "fixtures/agentic-proposals/ruff-f401-fix.json"
+    },
+    {
+      "case_id": "case-agentic-ruff-pass",
+      "description": "Agentic lint fix proposal that passes validation in dry-run PR mode",
+      "log_path": "fixtures/ci-logs/github-actions-ruff-failure.log",
+      "diff_path": "fixtures/diffs/refactor-only.diff",
+      "timestamp": "2026-02-22T00:00:00Z",
+      "commit": "ghi225",
+      "run_id": "bench_000a",
+      "base_commit": "ghi224",
+      "head_commit": "ghi225",
+      "expected_classification": "LINT",
+      "expected_primary_root_cause_contains": "F401",
+      "expected_primary_root_cause_file": "src/app.py",
+      "expected_primary_root_cause_line": 7,
+      "create_fix_pr": true,
+      "dry_run": true,
+      "execution_mode": "agentic_assist",
+      "llm_provider": "local",
+      "llm_model": "benchmark-local",
+      "min_pr_confidence": 0.5,
+      "lint_validation_commands": [
+        "ruff check src/app.py"
+      ],
+      "validated_changes": [
+        {
+          "file": "src/app.py",
+          "content": "def main():\n    return 'ok'\n"
+        }
+      ],
+      "repo_fixture_files": [
+        {
+          "file": "src/app.py",
+          "content": "import os\n\n\ndef main():\n    return 'ok'\n"
+        }
+      ],
+      "mocked_agentic_proposal_path": "fixtures/agentic-proposals/ruff-f401-fix.json"
+    },
+    {
       "case_id": "case-node-mixed-lock",
       "description": "Python assertion failure with mixed Node lockfile/code diff",
       "log_path": "fixtures/ci-logs/github-actions-python-failure.log",

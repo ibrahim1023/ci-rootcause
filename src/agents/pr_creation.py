@@ -104,6 +104,33 @@ def _build_reason(code: str, message: str) -> dict[str, str]:
     return {"failure_reason_code": code, "failure_reason": message}
 
 
+def _base_result(
+    *,
+    pr_created: bool,
+    pr_url: str | None,
+    pr_number: int | None,
+    pr_branch: str | None,
+    failure_reason_code: str,
+    failure_reason: str | None,
+    validation_attempted: bool = False,
+    validation_passed: bool | None = None,
+    validation_commands: list[str] | None = None,
+    commit_message: str | None = None,
+) -> dict[str, Any]:
+    return {
+        "pr_created": pr_created,
+        "pr_url": pr_url,
+        "pr_number": pr_number,
+        "pr_branch": pr_branch,
+        "failure_reason_code": failure_reason_code,
+        "failure_reason": failure_reason,
+        "validation_attempted": validation_attempted,
+        "validation_passed": validation_passed,
+        "validation_commands": list(validation_commands or []),
+        "commit_message": commit_message,
+    }
+
+
 def _coerce_validation_commands(raw: Any) -> list[str]:
     if isinstance(raw, str):
         normalized = raw.replace("\r\n", "\n").replace(";", "\n")
@@ -714,54 +741,53 @@ def run_pr_creation(
                 PR_REASON_CREATE_FIX_PR_DISABLED,
                 "create_fix_pr=false",
             )
-        return {
-            "pr_created": False,
-            "pr_url": None,
-            "pr_number": None,
-            "pr_branch": None,
-            **reason,
-        }
+        return _base_result(
+            pr_created=False,
+            pr_url=None,
+            pr_number=None,
+            pr_branch=None,
+            failure_reason_code=reason["failure_reason_code"],
+            failure_reason=reason["failure_reason"],
+        )
     if bool(payload.get("offline_only", False)):
-        return {
-            "pr_created": False,
-            "pr_url": None,
-            "pr_number": None,
-            "pr_branch": None,
-            **_build_reason(
-                PR_REASON_OFFLINE_ONLY,
-                "offline_only=true",
-            ),
-        }
+        return _base_result(
+            pr_created=False,
+            pr_url=None,
+            pr_number=None,
+            pr_branch=None,
+            failure_reason_code=PR_REASON_OFFLINE_ONLY,
+            failure_reason="offline_only=true",
+        )
 
     execution_mode = str(payload.get("execution_mode", "deterministic")).strip().lower()
     requires_validation = execution_mode in {"agentic_assist", "agentic_full"}
     validation_commands = _resolve_validation_commands(payload)
     if requires_validation and not validation_commands:
-        return {
-            "pr_created": False,
-            "pr_url": None,
-            "pr_number": None,
-            "pr_branch": None,
-            **_build_reason(
-                PR_REASON_VALIDATION_FAILED,
-                "no validation commands configured for agentic mode",
-            ),
-        }
+        return _base_result(
+            pr_created=False,
+            pr_url=None,
+            pr_number=None,
+            pr_branch=None,
+            failure_reason_code=PR_REASON_VALIDATION_FAILED,
+            failure_reason="no validation commands configured for agentic mode",
+            validation_attempted=False,
+            validation_passed=None,
+        )
 
     _enforce_pr_guardrails(payload)
     min_pr_confidence = _resolve_min_pr_confidence(payload)
     confidence = float(payload.get("confidence", 0.0))
     if confidence < min_pr_confidence:
-        return {
-            "pr_created": False,
-            "pr_url": None,
-            "pr_number": None,
-            "pr_branch": None,
-            **_build_reason(
-                PR_REASON_CONFIDENCE_BELOW_THRESHOLD,
-                f"confidence {confidence:.4f} is below threshold {min_pr_confidence:.4f}",
+        return _base_result(
+            pr_created=False,
+            pr_url=None,
+            pr_number=None,
+            pr_branch=None,
+            failure_reason_code=PR_REASON_CONFIDENCE_BELOW_THRESHOLD,
+            failure_reason=(
+                f"confidence {confidence:.4f} is below threshold {min_pr_confidence:.4f}"
             ),
-        }
+        )
 
     plan = build_branch_creation_plan(payload)
 
@@ -778,16 +804,14 @@ def run_pr_creation(
         )
     except GuardrailViolationError as exc:
         if str(exc) == "validated changes exceed max_fix_files limit":
-            return {
-                "pr_created": False,
-                "pr_url": None,
-                "pr_number": None,
-                "pr_branch": None,
-                **_build_reason(
-                    PR_REASON_MAX_FIX_FILES_EXCEEDED,
-                    "validated changes exceed max_fix_files limit",
-                ),
-            }
+            return _base_result(
+                pr_created=False,
+                pr_url=None,
+                pr_number=None,
+                pr_branch=None,
+                failure_reason_code=PR_REASON_MAX_FIX_FILES_EXCEEDED,
+                failure_reason="validated changes exceed max_fix_files limit",
+            )
         raise
 
     client = github_client
@@ -801,15 +825,17 @@ def run_pr_creation(
             github_client=client,
         )
         if existing is not None:
-            return {
-                "pr_created": True,
-                "pr_url": str(existing["html_url"]),
-                "pr_number": int(existing["number"]),
-                "pr_branch": plan.pr_branch,
-                "failure_reason_code": "",
-                "failure_reason": None,
-                "commit_message": None,
-            }
+            return _base_result(
+                pr_created=True,
+                pr_url=str(existing["html_url"]),
+                pr_number=int(existing["number"]),
+                pr_branch=plan.pr_branch,
+                failure_reason_code="",
+                failure_reason=None,
+                validation_attempted=requires_validation,
+                validation_passed=True if requires_validation else None,
+                validation_commands=validation_commands,
+            )
 
     created_branch = create_fix_branch(plan=plan, repo_path=repo_path, git_runner=git_runner)
     checkout_fix_branch(plan=plan, repo_path=repo_path, git_runner=git_runner)
@@ -825,27 +851,32 @@ def run_pr_creation(
         try:
             _run_validation_commands(validation_commands, repo_path=repo_path)
         except GuardrailViolationError as exc:
-            return {
-                "pr_created": False,
-                "pr_url": None,
-                "pr_number": None,
-                "pr_branch": created_branch,
-                **_build_reason(PR_REASON_VALIDATION_FAILED, str(exc)),
-                "commit_message": commit_message,
-            }
+            return _base_result(
+                pr_created=False,
+                pr_url=None,
+                pr_number=None,
+                pr_branch=created_branch,
+                failure_reason_code=PR_REASON_VALIDATION_FAILED,
+                failure_reason=str(exc),
+                validation_attempted=True,
+                validation_passed=False,
+                validation_commands=validation_commands,
+                commit_message=commit_message,
+            )
 
     if bool(payload.get("dry_run", False)):
-        return {
-            "pr_created": False,
-            "pr_url": None,
-            "pr_number": None,
-            "pr_branch": created_branch,
-            **_build_reason(
-                PR_REASON_DRY_RUN,
-                "dry_run=true",
-            ),
-            "commit_message": commit_message,
-        }
+        return _base_result(
+            pr_created=False,
+            pr_url=None,
+            pr_number=None,
+            pr_branch=created_branch,
+            failure_reason_code=PR_REASON_DRY_RUN,
+            failure_reason="dry_run=true",
+            validation_attempted=requires_validation,
+            validation_passed=True if requires_validation else None,
+            validation_commands=validation_commands,
+            commit_message=commit_message,
+        )
 
     push_fix_branch(plan=plan, repo_path=repo_path, git_runner=git_runner)
     pr_payload = create_or_reuse_pull_request(
@@ -855,12 +886,15 @@ def run_pr_creation(
         github_client=client,
     )
 
-    return {
-        "pr_created": True,
-        "pr_url": str(pr_payload["html_url"]),
-        "pr_number": int(pr_payload["number"]),
-        "pr_branch": created_branch,
-        "failure_reason_code": "",
-        "failure_reason": None,
-        "commit_message": commit_message,
-    }
+    return _base_result(
+        pr_created=True,
+        pr_url=str(pr_payload["html_url"]),
+        pr_number=int(pr_payload["number"]),
+        pr_branch=created_branch,
+        failure_reason_code="",
+        failure_reason=None,
+        validation_attempted=requires_validation,
+        validation_passed=True if requires_validation else None,
+        validation_commands=validation_commands,
+        commit_message=commit_message,
+    )

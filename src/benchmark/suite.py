@@ -3,10 +3,14 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from typing import Any
+from unittest.mock import patch
 
+from src.agents.pr_creation import ProviderAdapterError
 from src.core.orchestration import PipelineRequest, run_pipeline
 
 
@@ -29,6 +33,95 @@ class BenchmarkCase:
     expected_primary_root_cause_contains: str | None = None
     expected_primary_root_cause_file: str | None = None
     expected_primary_root_cause_line: int | None = None
+    create_fix_pr: bool = False
+    dry_run: bool = False
+    execution_mode: str = "deterministic"
+    llm_provider: str | None = None
+    llm_model: str | None = None
+    min_pr_confidence: float = 0.75
+    validation_commands: tuple[str, ...] = ()
+    typecheck_validation_commands: tuple[str, ...] = ()
+    lint_validation_commands: tuple[str, ...] = ()
+    test_validation_commands: tuple[str, ...] = ()
+    validated_changes: tuple[dict[str, str], ...] = ()
+    repo_fixture_files: tuple[dict[str, str], ...] = ()
+    mocked_agentic_proposal_path: str | None = None
+
+
+class _BenchmarkGitRunner:
+    def run(self, args: list[str], cwd: Path) -> None:
+        del cwd
+        joined = " ".join(args)
+        if "show-ref" in joined:
+            raise ProviderAdapterError("Git command failed (show-ref): 1")
+
+
+def _coerce_string_tuple(raw: Any, field_name: str) -> tuple[str, ...]:
+    if raw is None:
+        return ()
+    if isinstance(raw, str):
+        values = [line.strip() for line in raw.replace("\r\n", "\n").splitlines() if line.strip()]
+        return tuple(values)
+    if not isinstance(raw, list):
+        raise BenchmarkSuiteError(f"Benchmark case field '{field_name}' must be a list of strings")
+    return tuple(str(item).strip() for item in raw if str(item).strip())
+
+
+def _coerce_file_records(raw: Any, field_name: str) -> tuple[dict[str, str], ...]:
+    if raw is None:
+        return ()
+    if not isinstance(raw, list):
+        raise BenchmarkSuiteError(f"Benchmark case field '{field_name}' must be a list")
+    records: list[dict[str, str]] = []
+    for item in raw:
+        if not isinstance(item, dict):
+            raise BenchmarkSuiteError(f"Benchmark case field '{field_name}' items must be objects")
+        file_path = _require_text(item.get("file", ""), f"{field_name}.file")
+        content = str(item.get("content", ""))
+        records.append({"file": file_path, "content": content})
+    return tuple(records)
+
+
+@contextmanager
+def _patched_agentic_proposer(case: BenchmarkCase):
+    if not case.mocked_agentic_proposal_path:
+        yield
+        return
+
+    proposal_path = Path(case.mocked_agentic_proposal_path)
+    try:
+        proposal = json.loads(proposal_path.read_text(encoding="utf-8"))
+    except OSError as exc:
+        raise BenchmarkSuiteError(
+            f"Unable to read mocked agentic proposal '{proposal_path}': {exc}"
+        ) from exc
+    except json.JSONDecodeError as exc:
+        raise BenchmarkSuiteError(
+            f"Invalid JSON in mocked agentic proposal '{proposal_path}': {exc}"
+        ) from exc
+    if not isinstance(proposal, dict):
+        raise BenchmarkSuiteError("Mocked agentic proposal must be a JSON object")
+
+    def _propose(self, payload: dict[str, Any]) -> dict[str, Any]:
+        del self, payload
+        return dict(proposal)
+
+    with patch("src.core.orchestration.LocalLlmPatchProposer.propose", _propose):
+        yield
+
+
+@contextmanager
+def _repo_fixture_dir(case: BenchmarkCase):
+    if not case.repo_fixture_files:
+        yield None
+        return
+    with TemporaryDirectory(prefix=f"ci-rootcause-bench-{case.case_id}-") as repo_dir:
+        repo_root = Path(repo_dir)
+        for item in case.repo_fixture_files:
+            target = repo_root / item["file"]
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(item["content"], encoding="utf-8")
+        yield str(repo_root)
 
 
 def _require_text(value: Any, field_name: str) -> str:
@@ -174,6 +267,51 @@ def load_benchmark_suite(suite_path: str) -> tuple[str, list[BenchmarkCase]]:
                 if item.get("expected_primary_root_cause_line") is not None
                 else None
             ),
+            create_fix_pr=bool(item.get("create_fix_pr", False)),
+            dry_run=bool(item.get("dry_run", False)),
+            execution_mode=str(item.get("execution_mode", "deterministic")).strip()
+            or "deterministic",
+            llm_provider=(
+                str(item.get("llm_provider")).strip()
+                if item.get("llm_provider") is not None
+                else None
+            ),
+            llm_model=(
+                str(item.get("llm_model")).strip() if item.get("llm_model") is not None else None
+            ),
+            min_pr_confidence=(
+                float(item.get("min_pr_confidence", 0.75))
+                if item.get("min_pr_confidence") is not None
+                else 0.75
+            ),
+            validation_commands=_coerce_string_tuple(
+                item.get("validation_commands"), "validation_commands"
+            ),
+            typecheck_validation_commands=_coerce_string_tuple(
+                item.get("typecheck_validation_commands"),
+                "typecheck_validation_commands",
+            ),
+            lint_validation_commands=_coerce_string_tuple(
+                item.get("lint_validation_commands"),
+                "lint_validation_commands",
+            ),
+            test_validation_commands=_coerce_string_tuple(
+                item.get("test_validation_commands"),
+                "test_validation_commands",
+            ),
+            validated_changes=_coerce_file_records(
+                item.get("validated_changes"),
+                "validated_changes",
+            ),
+            repo_fixture_files=_coerce_file_records(
+                item.get("repo_fixture_files"),
+                "repo_fixture_files",
+            ),
+            mocked_agentic_proposal_path=(
+                str(item.get("mocked_agentic_proposal_path")).strip()
+                if item.get("mocked_agentic_proposal_path") is not None
+                else None
+            ),
         )
 
         if case.case_id in seen_ids:
@@ -218,31 +356,44 @@ def run_benchmark_suite(
         json_hash_values: list[str] = []
         md_hash_values: list[str] = []
         first_state: Any = None
-        for _ in range(repeat_runs):
-            request = PipelineRequest(
-                raw_log=log_path.read_text(encoding="utf-8"),
-                raw_diff=diff_path.read_text(encoding="utf-8"),
-                timestamp=case.timestamp,
-                commit=case.commit,
-                run_id=case.run_id,
-                base_commit=case.base_commit,
-                head_commit=case.head_commit,
-                output_dir=str(case_output_dir),
-                create_fix_pr=False,
-                use_adk_runtime=use_adk_runtime,
-            )
-            state = run_pipeline(request=request)
-            reporter_output = state.agent_outputs.get("reporter", {})
-            ranker_output = state.agent_outputs.get("root_cause_ranker", {})
-            json_path = Path(str(reporter_output.get("ci_rca_json_path", "")))
-            md_path = Path(str(reporter_output.get("ci_rca_md_path", "")))
-            confidence_values.append(float(ranker_output.get("confidence", 0.0)))
-            timing_values.append(float(state.pipeline_timing_ms))
-            status_values.append(str(state.pipeline_status))
-            json_hash_values.append(_sha256_file(json_path) if json_path.exists() else "")
-            md_hash_values.append(_sha256_file(md_path) if md_path.exists() else "")
-            if first_state is None:
-                first_state = state
+        with _patched_agentic_proposer(case), _repo_fixture_dir(case) as repo_path:
+            for _ in range(repeat_runs):
+                request = PipelineRequest(
+                    raw_log=log_path.read_text(encoding="utf-8"),
+                    raw_diff=diff_path.read_text(encoding="utf-8"),
+                    timestamp=case.timestamp,
+                    commit=case.commit,
+                    run_id=case.run_id,
+                    base_commit=case.base_commit,
+                    head_commit=case.head_commit,
+                    output_dir=str(case_output_dir),
+                    create_fix_pr=case.create_fix_pr,
+                    dry_run=case.dry_run,
+                    execution_mode=case.execution_mode,
+                    llm_provider=case.llm_provider,
+                    llm_model=case.llm_model,
+                    min_pr_confidence=case.min_pr_confidence,
+                    validation_commands=list(case.validation_commands),
+                    typecheck_validation_commands=list(case.typecheck_validation_commands),
+                    lint_validation_commands=list(case.lint_validation_commands),
+                    test_validation_commands=list(case.test_validation_commands),
+                    validated_changes=[dict(item) for item in case.validated_changes],
+                    use_adk_runtime=use_adk_runtime,
+                    pr_repo_path=repo_path,
+                    pr_git_runner=_BenchmarkGitRunner() if case.create_fix_pr else None,
+                )
+                state = run_pipeline(request=request)
+                reporter_output = state.agent_outputs.get("reporter", {})
+                ranker_output = state.agent_outputs.get("root_cause_ranker", {})
+                json_path = Path(str(reporter_output.get("ci_rca_json_path", "")))
+                md_path = Path(str(reporter_output.get("ci_rca_md_path", "")))
+                confidence_values.append(float(ranker_output.get("confidence", 0.0)))
+                timing_values.append(float(state.pipeline_timing_ms))
+                status_values.append(str(state.pipeline_status))
+                json_hash_values.append(_sha256_file(json_path) if json_path.exists() else "")
+                md_hash_values.append(_sha256_file(md_path) if md_path.exists() else "")
+                if first_state is None:
+                    first_state = state
 
         state = first_state
         log_output = state.agent_outputs.get("log_ingest", {})
@@ -323,12 +474,16 @@ def run_benchmark_suite(
         )
         validation_pass_applicable = False
         validation_passed = None
+        validation_commands_used: list[str] = []
         if isinstance(pr_output, dict):
-            pr_reason = str(pr_output.get("failure_reason_code", "")).strip()
-            pr_created = bool(pr_output.get("pr_created", False))
-            validation_pass_applicable = pr_created or pr_reason == "VALIDATION_FAILED"
+            validation_pass_applicable = bool(pr_output.get("validation_attempted", False))
             if validation_pass_applicable:
-                validation_passed = pr_reason != "VALIDATION_FAILED"
+                validation_passed = bool(pr_output.get("validation_passed", False))
+            validation_commands_used = [
+                str(item).strip()
+                for item in pr_output.get("validation_commands", [])
+                if str(item).strip()
+            ]
 
         case_results.append(
             {
@@ -370,6 +525,7 @@ def run_benchmark_suite(
                 "agentic_proposal_valid": agentic_proposal_valid,
                 "validation_pass_applicable": validation_pass_applicable,
                 "validation_passed": validation_passed,
+                "validation_commands_used": validation_commands_used,
             }
         )
 
