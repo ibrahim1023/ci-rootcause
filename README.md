@@ -8,14 +8,16 @@ Deterministic CI root-cause analysis for failed CI runs.
 
 ## Proven Results (MVP Suite)
 
-From the curated MVP benchmark (`6` cases):
-- Classification accuracy: `100%` (`6/6`)
-- Baseline classification accuracy: `66.67%` (`4/6`)
-- Improvement: `+33.33` percentage points (about `50%` relative lift vs baseline)
+From the curated MVP benchmark (`7` cases):
+- Classification accuracy: `100%` (`7/7`)
+- Baseline classification accuracy: `71.43%` (`5/7`)
+- Improvement: `+28.57` percentage points (about `40%` relative lift vs baseline)
+- Top-1 root-cause accuracy: `100%` (`6/6` applicable cases)
 - Artifact hash reproducibility: `100%`
 - Confidence reproducibility: `100%`
 
 Benchmark source:
+- Reproduce locally: `python scripts/run_benchmark.py --suite fixtures/benchmarks/mvp-suite.json --output-root artifacts/benchmark-mvp --report-json docs/reports/mvp-benchmark-report.json --report-md docs/reports/mvp-benchmark-report.md`
 - [`docs/reports/mvp-benchmark-report.md`](docs/reports/mvp-benchmark-report.md)
 - [`docs/reports/mvp-benchmark-report.json`](docs/reports/mvp-benchmark-report.json)
 - [`docs/limitations.md`](docs/limitations.md)
