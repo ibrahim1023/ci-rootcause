@@ -177,6 +177,9 @@ class PipelineRequest:
     llm_api_key: str | None = None
     llm_base_url: str | None = None
     validation_commands: list[str] = field(default_factory=list)
+    typecheck_validation_commands: list[str] = field(default_factory=list)
+    lint_validation_commands: list[str] = field(default_factory=list)
+    test_validation_commands: list[str] = field(default_factory=list)
     create_fix_pr_disabled_reason: str | None = None
     ci_provider: str | None = None
     provider_adapter: str | None = None
@@ -436,6 +439,9 @@ def _run_pr_creation_agent(state: PipelineState) -> dict[str, Any]:
         "create_fix_pr_disabled_reason": state.request.create_fix_pr_disabled_reason or "",
         "execution_mode": state.request.execution_mode,
         "validation_commands": list(state.request.validation_commands),
+        "typecheck_validation_commands": list(state.request.typecheck_validation_commands),
+        "lint_validation_commands": list(state.request.lint_validation_commands),
+        "test_validation_commands": list(state.request.test_validation_commands),
         "min_pr_confidence": state.request.min_pr_confidence,
         "max_fix_files": state.request.max_fix_files,
         "offline_only": state.request.offline_only,

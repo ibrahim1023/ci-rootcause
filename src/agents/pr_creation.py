@@ -104,14 +104,50 @@ def _build_reason(code: str, message: str) -> dict[str, str]:
     return {"failure_reason_code": code, "failure_reason": message}
 
 
-def _resolve_validation_commands(payload: dict[str, Any]) -> list[str]:
-    raw = payload.get("validation_commands", [])
+def _coerce_validation_commands(raw: Any) -> list[str]:
     if isinstance(raw, str):
         normalized = raw.replace("\r\n", "\n").replace(";", "\n")
         return [line.strip() for line in normalized.splitlines() if line.strip()]
     if isinstance(raw, list):
         return [str(item).strip() for item in raw if str(item).strip()]
     return []
+
+
+def _infer_test_validation_commands(payload: dict[str, Any]) -> list[str]:
+    primary = payload.get("primary_root_cause", {})
+    evidence = primary.get("evidence", []) if isinstance(primary, dict) else []
+    for item in evidence:
+        if not isinstance(item, dict):
+            continue
+        file_path = str(item.get("file", "")).strip()
+        if not file_path:
+            continue
+        normalized = _normalize_repo_relative_path(file_path)
+        if normalized.startswith("tests/") or Path(normalized).name.startswith("test_"):
+            return [f"pytest {shlex.quote(normalized)}"]
+    return []
+
+
+def _resolve_validation_commands(payload: dict[str, Any]) -> list[str]:
+    classification = str(payload.get("classification", "")).strip().upper()
+    generic_commands = _coerce_validation_commands(payload.get("validation_commands", []))
+    if classification == "TYPECHECK":
+        return (
+            _coerce_validation_commands(payload.get("typecheck_validation_commands", []))
+            or generic_commands
+        )
+    if classification == "LINT":
+        return (
+            _coerce_validation_commands(payload.get("lint_validation_commands", []))
+            or generic_commands
+        )
+    if classification == "TEST":
+        return (
+            _coerce_validation_commands(payload.get("test_validation_commands", []))
+            or _infer_test_validation_commands(payload)
+            or generic_commands
+        )
+    return generic_commands
 
 
 def _run_validation_commands(commands: list[str], repo_path: str) -> None:

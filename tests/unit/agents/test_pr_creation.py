@@ -292,6 +292,55 @@ def test_run_pr_creation_requires_validation_commands_in_agentic_mode() -> None:
     assert result["failure_reason"] == "no validation commands configured for agentic mode"
 
 
+def test_run_pr_creation_prefers_typecheck_specific_validation_commands(
+    tmp_path: Path, monkeypatch
+) -> None:
+    payload = {
+        "create_fix_pr": True,
+        "execution_mode": "agentic_assist",
+        "validation_commands": ["pytest"],
+        "typecheck_validation_commands": ["python -m mypy src/core/math.py"],
+        "repository": "acme/repo",
+        "target_branch": "main",
+        "summary": "Type mismatch in core module",
+        "classification": "TYPECHECK",
+        "confidence": 0.95,
+        "min_pr_confidence": 0.75,
+        "primary_root_cause": {
+            "title": "Invalid return type",
+            "evidence": [{"file": "src/core/math.py", "line": 1, "signal": "type mismatch"}],
+        },
+        "meta": {
+            "base_commit": "abc123deadbeef",
+            "head_commit": "def456feedface",
+            "run_id": "gha_validation_specific",
+        },
+        "allowed_files": ["src/core/math.py"],
+        "validated_changes": [
+            {"file": "src/core/math.py", "content": "def calc() -> int:\n    return 7\n"}
+        ],
+        "github_token": "token",
+        "dry_run": True,
+    }
+    seen: list[list[str]] = []
+
+    def _subprocess_ok(args, cwd, check, capture_output, text):  # noqa: ANN001
+        del cwd, check, capture_output, text
+        seen.append(args)
+        return None
+
+    monkeypatch.setattr("src.agents.pr_creation.subprocess.run", _subprocess_ok)
+
+    result = run_pr_creation(
+        payload=payload,
+        repo_path=str(tmp_path),
+        git_runner=FakeGitRunner(fail_on={"show-ref"}, seen=[]),
+    )
+
+    assert result["failure_reason_code"] == PR_REASON_DRY_RUN
+    assert seen == [["python", "-m", "mypy", "src/core/math.py"]]
+
+
 def test_run_pr_creation_returns_validation_failed_when_command_fails(
     tmp_path: Path, monkeypatch
 ) -> None:
@@ -341,6 +390,57 @@ def test_run_pr_creation_returns_validation_failed_when_command_fails(
     assert result["pr_created"] is False
     assert result["failure_reason_code"] == PR_REASON_VALIDATION_FAILED
     assert "validation command failed" in str(result["failure_reason"])
+
+
+def test_run_pr_creation_infers_targeted_test_validation_command(
+    tmp_path: Path, monkeypatch
+) -> None:
+    test_file = tmp_path / "tests" / "test_math.py"
+    test_file.parent.mkdir(parents=True, exist_ok=True)
+    test_file.write_text("def test_ok():\n    assert True\n", encoding="utf-8")
+
+    payload = {
+        "create_fix_pr": True,
+        "execution_mode": "agentic_assist",
+        "repository": "acme/repo",
+        "target_branch": "main",
+        "summary": "Failing pytest assertion",
+        "classification": "TEST",
+        "confidence": 0.95,
+        "min_pr_confidence": 0.75,
+        "primary_root_cause": {
+            "title": "Assertion failed",
+            "evidence": [{"file": "tests/test_math.py", "line": 1, "signal": "assertion"}],
+        },
+        "meta": {
+            "base_commit": "abc123deadbeef",
+            "head_commit": "def456feedface",
+            "run_id": "gha_validation_test",
+        },
+        "allowed_files": ["tests/test_math.py"],
+        "validated_changes": [
+            {"file": "tests/test_math.py", "content": "def test_ok():\n    assert True\n"}
+        ],
+        "github_token": "token",
+        "dry_run": True,
+    }
+    seen: list[list[str]] = []
+
+    def _subprocess_ok(args, cwd, check, capture_output, text):  # noqa: ANN001
+        del cwd, check, capture_output, text
+        seen.append(args)
+        return None
+
+    monkeypatch.setattr("src.agents.pr_creation.subprocess.run", _subprocess_ok)
+
+    result = run_pr_creation(
+        payload=payload,
+        repo_path=str(tmp_path),
+        git_runner=FakeGitRunner(fail_on={"show-ref"}, seen=[]),
+    )
+
+    assert result["failure_reason_code"] == PR_REASON_DRY_RUN
+    assert seen == [["pytest", "tests/test_math.py"]]
 
 
 def test_build_pull_request_request_includes_summary_and_confidence() -> None:

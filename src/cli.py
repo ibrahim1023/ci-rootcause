@@ -206,6 +206,21 @@ def _build_parser() -> argparse.ArgumentParser:
         default=None,
         help=("Optional validation commands for agentic PR gating. Use ';' or newline separators."),
     )
+    parser.add_argument(
+        "--typecheck-validation-commands",
+        default=None,
+        help="Optional TYPECHECK-only validation commands. Use ';' or newline separators.",
+    )
+    parser.add_argument(
+        "--lint-validation-commands",
+        default=None,
+        help="Optional LINT-only validation commands. Use ';' or newline separators.",
+    )
+    parser.add_argument(
+        "--test-validation-commands",
+        default=None,
+        help="Optional TEST-only validation commands. Use ';' or newline separators.",
+    )
 
     return parser
 
@@ -300,6 +315,24 @@ def main(argv: Sequence[str] | None = None) -> int:
         validation_commands = _parse_validation_commands(
             _coalesce(args.validation_commands, config.get("validation_commands"))
         )
+        typecheck_validation_commands = _parse_validation_commands(
+            _coalesce(
+                args.typecheck_validation_commands,
+                config.get("typecheck_validation_commands"),
+            )
+        )
+        lint_validation_commands = _parse_validation_commands(
+            _coalesce(
+                args.lint_validation_commands,
+                config.get("lint_validation_commands"),
+            )
+        )
+        test_validation_commands = _parse_validation_commands(
+            _coalesce(
+                args.test_validation_commands,
+                config.get("test_validation_commands"),
+            )
+        )
 
         create_fix_pr = bool(args.create_fix_pr)
         if not create_fix_pr and "create_fix_pr" in config:
@@ -385,6 +418,9 @@ def main(argv: Sequence[str] | None = None) -> int:
             llm_model=provider_config.model,
             llm_api_key=provider_config.api_key,
             validation_commands=validation_commands,
+            typecheck_validation_commands=typecheck_validation_commands,
+            lint_validation_commands=lint_validation_commands,
+            test_validation_commands=test_validation_commands,
             ci_provider=str(args.ci_provider).strip() or None,
             provider_adapter=str(args.provider_adapter).strip() or None,
         )

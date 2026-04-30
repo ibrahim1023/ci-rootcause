@@ -246,6 +246,18 @@ def main() -> int:
             _get_input("validation_commands", default="").strip()
             or config.get("validation_commands", "").strip()
         )
+        typecheck_validation_commands = _parse_validation_commands(
+            _get_input("typecheck_validation_commands", default="").strip()
+            or config.get("typecheck_validation_commands", "").strip()
+        )
+        lint_validation_commands = _parse_validation_commands(
+            _get_input("lint_validation_commands", default="").strip()
+            or config.get("lint_validation_commands", "").strip()
+        )
+        test_validation_commands = _parse_validation_commands(
+            _get_input("test_validation_commands", default="").strip()
+            or config.get("test_validation_commands", "").strip()
+        )
         rollout_profile = (
             _get_input("rollout_profile", default="").strip() or config.get("profile", "").strip()
         )
@@ -329,6 +341,9 @@ def main() -> int:
             llm_model=provider_config.model,
             llm_api_key=provider_config.api_key,
             validation_commands=validation_commands,
+            typecheck_validation_commands=typecheck_validation_commands,
+            lint_validation_commands=lint_validation_commands,
+            test_validation_commands=test_validation_commands,
             create_fix_pr_disabled_reason=create_fix_pr_disabled_reason or None,
         )
 

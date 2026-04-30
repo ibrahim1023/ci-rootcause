@@ -35,6 +35,10 @@ class GitHubAppRepoConfig:
     min_pr_confidence: float = 0.75
     max_fix_files: int = 5
     execution_mode: str = "deterministic"
+    validation_commands: tuple[str, ...] = ()
+    typecheck_validation_commands: tuple[str, ...] = ()
+    lint_validation_commands: tuple[str, ...] = ()
+    test_validation_commands: tuple[str, ...] = ()
     llm_provider: str | None = None
     llm_model: str | None = None
     llm_api_key: str | None = None
@@ -284,6 +288,10 @@ def process_github_app_webhook(
         min_pr_confidence=config.min_pr_confidence,
         max_fix_files=config.max_fix_files,
         execution_mode=config.execution_mode,
+        validation_commands=list(config.validation_commands),
+        typecheck_validation_commands=list(config.typecheck_validation_commands),
+        lint_validation_commands=list(config.lint_validation_commands),
+        test_validation_commands=list(config.test_validation_commands),
         llm_provider=config.llm_provider,
         llm_model=config.llm_model,
         llm_api_key=config.llm_api_key,
