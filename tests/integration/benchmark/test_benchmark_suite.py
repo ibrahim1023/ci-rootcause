@@ -39,6 +39,12 @@ def test_run_benchmark_suite_executes_curated_cases(tmp_path: Path) -> None:
     assert result["top1_root_cause_cases"] == 6
     assert result["top1_root_cause_matches"] == 6
     assert result["top1_root_cause_accuracy"] == 1.0
+    assert result["agentic_proposal_valid_cases"] == 0
+    assert result["agentic_proposal_valid_matches"] == 0
+    assert result["agentic_proposal_valid_rate"] is None
+    assert result["validation_pass_cases"] == 0
+    assert result["validation_pass_matches"] == 0
+    assert result["validation_pass_rate"] is None
     assert result["confidence_reproducible_cases"] == 7
     assert result["confidence_reproducibility"] == 1.0
     assert result["artifact_hash_reproducible_cases"] == 7

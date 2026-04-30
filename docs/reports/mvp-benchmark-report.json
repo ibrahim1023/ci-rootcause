@@ -1,201 +1,301 @@
 {
+  "agentic_proposal_valid_cases": 0,
+  "agentic_proposal_valid_matches": 0,
+  "agentic_proposal_valid_rate": null,
   "artifact_hash_reproducibility": 1.0,
-  "artifact_hash_reproducible_cases": 6,
-  "baseline_classification_match_rate": 0.6667,
-  "baseline_classification_matches": 4,
+  "artifact_hash_reproducible_cases": 7,
+  "baseline_classification_match_rate": 0.7143,
+  "baseline_classification_matches": 5,
   "baseline_primary_root_cause_accuracy": 1.0,
-  "baseline_primary_root_cause_matches": 6,
+  "baseline_primary_root_cause_matches": 7,
   "cases": [
     {
+      "actual_primary_root_cause_file": null,
+      "actual_primary_root_cause_line": null,
+      "agentic_proposal_applicable": false,
+      "agentic_proposal_valid": null,
       "artifact_hash_is_reproducible": true,
       "artifact_json_hash_values": [
-        "3c8134bb82c7d061b9cdf01438632dde056a9de9a5b80dcc0768ec414cd45f33",
-        "3c8134bb82c7d061b9cdf01438632dde056a9de9a5b80dcc0768ec414cd45f33"
+        "cb4f4c4579533b44b1884fc74b191b52c92f3b38ae20b860a46c9e74b36bcd01",
+        "cb4f4c4579533b44b1884fc74b191b52c92f3b38ae20b860a46c9e74b36bcd01"
       ],
       "artifact_md_hash_values": [
-        "a22b894881b07802096be9859eedf970d62191f61d925fff40649a5ca9800f3a",
-        "a22b894881b07802096be9859eedf970d62191f61d925fff40649a5ca9800f3a"
+        "b0ecd09c28153018b2c8d4cbbd9fb11ba92cdd4e532c9ef37364a6eaf4e26185",
+        "b0ecd09c28153018b2c8d4cbbd9fb11ba92cdd4e532c9ef37364a6eaf4e26185"
       ],
       "baseline_classification": "INFRA",
       "baseline_classification_match": true,
       "baseline_primary_root_cause_match": true,
       "baseline_primary_root_cause_title": "ERROR: connection reset by peer while contacting package mirror",
       "case_id": "case-infra-timeout",
-      "ci_rca_json_sha256": "3c8134bb82c7d061b9cdf01438632dde056a9de9a5b80dcc0768ec414cd45f33",
-      "ci_rca_md_sha256": "a22b894881b07802096be9859eedf970d62191f61d925fff40649a5ca9800f3a",
+      "ci_rca_json_sha256": "cb4f4c4579533b44b1884fc74b191b52c92f3b38ae20b860a46c9e74b36bcd01",
+      "ci_rca_md_sha256": "b0ecd09c28153018b2c8d4cbbd9fb11ba92cdd4e532c9ef37364a6eaf4e26185",
       "classification": "INFRA",
       "classification_match": true,
-      "confidence": 0.54,
+      "confidence": 0.4225,
       "confidence_is_reproducible": true,
       "confidence_values": [
-        0.54,
-        0.54
+        0.4225,
+        0.4225
       ],
       "description": "Infrastructure timeout/reset failure with refactor-only diff",
       "expected_classification": "INFRA",
       "expected_primary_root_cause_contains": "connection reset",
+      "expected_primary_root_cause_file": null,
+      "expected_primary_root_cause_line": null,
       "pipeline_status": "completed",
-      "pipeline_timing_ms": 0.473,
+      "pipeline_timing_ms": 0.593,
       "primary_root_cause_match": true,
       "primary_root_cause_title": "ERROR: connection reset by peer while contacting package mirror at unknown file",
       "status_values": [
         "completed",
         "completed"
       ],
-      "timing_spread_ms": 0.21,
+      "timing_spread_ms": 0.245,
       "timing_values_ms": [
-        0.473,
-        0.263
+        0.593,
+        0.348
       ],
-      "trace_id": "904bf3d1391825e78cd7f91a"
+      "top1_root_cause_applicable": false,
+      "top1_root_cause_match": null,
+      "trace_id": "7027da369170dcd4a7124202",
+      "validation_pass_applicable": false,
+      "validation_passed": null
     },
     {
+      "actual_primary_root_cause_file": "tests/test_math.py",
+      "actual_primary_root_cause_line": 12,
+      "agentic_proposal_applicable": false,
+      "agentic_proposal_valid": null,
       "artifact_hash_is_reproducible": true,
       "artifact_json_hash_values": [
-        "3f32b8911794368018ac8cdd60a185a49f7a64c3f437f62879cb22a61e5b1ee9",
-        "3f32b8911794368018ac8cdd60a185a49f7a64c3f437f62879cb22a61e5b1ee9"
+        "1c9586e398917a22a82c5de0f915f789b09c58743447be1247802d5e764dead1",
+        "1c9586e398917a22a82c5de0f915f789b09c58743447be1247802d5e764dead1"
       ],
       "artifact_md_hash_values": [
-        "ad9e8007da8f2097aa58ab5c19c68e69187523be6fb1959de09cd51e74027926",
-        "ad9e8007da8f2097aa58ab5c19c68e69187523be6fb1959de09cd51e74027926"
+        "5f4b64128d25f80688e147369aad457594de8715d1b47c64f05d852c99fc335c",
+        "5f4b64128d25f80688e147369aad457594de8715d1b47c64f05d852c99fc335c"
       ],
       "baseline_classification": "TEST",
       "baseline_classification_match": false,
       "baseline_primary_root_cause_match": true,
       "baseline_primary_root_cause_title": "E AssertionError: assert 3 == 4",
       "case_id": "case-node-mixed-lock",
-      "ci_rca_json_sha256": "3f32b8911794368018ac8cdd60a185a49f7a64c3f437f62879cb22a61e5b1ee9",
-      "ci_rca_md_sha256": "ad9e8007da8f2097aa58ab5c19c68e69187523be6fb1959de09cd51e74027926",
+      "ci_rca_json_sha256": "1c9586e398917a22a82c5de0f915f789b09c58743447be1247802d5e764dead1",
+      "ci_rca_md_sha256": "5f4b64128d25f80688e147369aad457594de8715d1b47c64f05d852c99fc335c",
       "classification": "DEPENDENCY",
       "classification_match": true,
-      "confidence": 0.6,
+      "confidence": 0.64,
       "confidence_is_reproducible": true,
       "confidence_values": [
-        0.6,
-        0.6
+        0.64,
+        0.64
       ],
       "description": "Python assertion failure with mixed Node lockfile/code diff",
       "expected_classification": "DEPENDENCY",
       "expected_primary_root_cause_contains": "AssertionError",
+      "expected_primary_root_cause_file": "tests/test_math.py",
+      "expected_primary_root_cause_line": 12,
       "pipeline_status": "completed",
-      "pipeline_timing_ms": 0.572,
+      "pipeline_timing_ms": 0.594,
       "primary_root_cause_match": true,
-      "primary_root_cause_title": "E AssertionError: assert 3 == 4 at unknown file",
+      "primary_root_cause_title": "E AssertionError: assert 3 == 4 at tests/test_math.py:12",
       "status_values": [
         "completed",
         "completed"
       ],
-      "timing_spread_ms": 0.216,
+      "timing_spread_ms": 0.072,
       "timing_values_ms": [
-        0.572,
-        0.356
+        0.594,
+        0.522
       ],
-      "trace_id": "a2462f19dd843a6f109a0a71"
+      "top1_root_cause_applicable": true,
+      "top1_root_cause_match": true,
+      "trace_id": "72a95cb98a7478ca24426b9a",
+      "validation_pass_applicable": false,
+      "validation_passed": null
     },
     {
+      "actual_primary_root_cause_file": "tests/test_math.py",
+      "actual_primary_root_cause_line": 12,
+      "agentic_proposal_applicable": false,
+      "agentic_proposal_valid": null,
       "artifact_hash_is_reproducible": true,
       "artifact_json_hash_values": [
-        "6eeaf2c8e6a78e06ca677e58f1d37071dfb7e9447457a2040fac3381912ed3fb",
-        "6eeaf2c8e6a78e06ca677e58f1d37071dfb7e9447457a2040fac3381912ed3fb"
+        "a5d3c44376baeae2f306d057a7aef4fb2daac27880de10a8b94e5c4be9d29594",
+        "a5d3c44376baeae2f306d057a7aef4fb2daac27880de10a8b94e5c4be9d29594"
       ],
       "artifact_md_hash_values": [
-        "a62a2baafa4854031cf2e388f4ca36b66f74001fcfeb7aa0806b6c0e8945b330",
-        "a62a2baafa4854031cf2e388f4ca36b66f74001fcfeb7aa0806b6c0e8945b330"
+        "38b4e40fa2f493079d77c756a2aae4562166b3f8d6bba25353b016b3c32cec18",
+        "38b4e40fa2f493079d77c756a2aae4562166b3f8d6bba25353b016b3c32cec18"
       ],
       "baseline_classification": "TEST",
       "baseline_classification_match": false,
       "baseline_primary_root_cause_match": true,
       "baseline_primary_root_cause_title": "E AssertionError: assert 3 == 4",
       "case_id": "case-python-lock-only",
-      "ci_rca_json_sha256": "6eeaf2c8e6a78e06ca677e58f1d37071dfb7e9447457a2040fac3381912ed3fb",
-      "ci_rca_md_sha256": "a62a2baafa4854031cf2e388f4ca36b66f74001fcfeb7aa0806b6c0e8945b330",
+      "ci_rca_json_sha256": "a5d3c44376baeae2f306d057a7aef4fb2daac27880de10a8b94e5c4be9d29594",
+      "ci_rca_md_sha256": "38b4e40fa2f493079d77c756a2aae4562166b3f8d6bba25353b016b3c32cec18",
       "classification": "DEPENDENCY",
       "classification_match": true,
-      "confidence": 0.6,
+      "confidence": 0.64,
       "confidence_is_reproducible": true,
       "confidence_values": [
-        0.6,
-        0.6
+        0.64,
+        0.64
       ],
       "description": "Python assertion failure with lockfile-only diff",
       "expected_classification": "DEPENDENCY",
       "expected_primary_root_cause_contains": "AssertionError",
+      "expected_primary_root_cause_file": "tests/test_math.py",
+      "expected_primary_root_cause_line": 12,
       "pipeline_status": "completed",
-      "pipeline_timing_ms": 0.425,
+      "pipeline_timing_ms": 0.489,
       "primary_root_cause_match": true,
-      "primary_root_cause_title": "E AssertionError: assert 3 == 4 at unknown file",
+      "primary_root_cause_title": "E AssertionError: assert 3 == 4 at tests/test_math.py:12",
       "status_values": [
         "completed",
         "completed"
       ],
-      "timing_spread_ms": 0.175,
+      "timing_spread_ms": 0.024,
       "timing_values_ms": [
-        0.425,
-        0.25
+        0.489,
+        0.465
       ],
-      "trace_id": "1de275596c257cdae90195d0"
+      "top1_root_cause_applicable": true,
+      "top1_root_cause_match": true,
+      "trace_id": "dd3348b6f6ff3d97f5e87557",
+      "validation_pass_applicable": false,
+      "validation_passed": null
     },
     {
+      "actual_primary_root_cause_file": "tests/test_math.py",
+      "actual_primary_root_cause_line": 12,
+      "agentic_proposal_applicable": false,
+      "agentic_proposal_valid": null,
       "artifact_hash_is_reproducible": true,
       "artifact_json_hash_values": [
-        "12aa6d1254b0c2dea5b4e30b340a6b60f06236d3cce822732720e21a02f74ead",
-        "12aa6d1254b0c2dea5b4e30b340a6b60f06236d3cce822732720e21a02f74ead"
+        "3f17a12d55c529e185023a31daf11494d493aa75e635be6cc6d6d6c0faf25c88",
+        "3f17a12d55c529e185023a31daf11494d493aa75e635be6cc6d6d6c0faf25c88"
       ],
       "artifact_md_hash_values": [
-        "f92814c49b2891923331ecc4fdaa569de3f510c840880aee23dd048fa44adfef",
-        "f92814c49b2891923331ecc4fdaa569de3f510c840880aee23dd048fa44adfef"
+        "a1bb7546cdf2973dad6d67a362b22d4bb4c0c67c38b45218bb8484ae0116dbba",
+        "a1bb7546cdf2973dad6d67a362b22d4bb4c0c67c38b45218bb8484ae0116dbba"
       ],
       "baseline_classification": "TEST",
       "baseline_classification_match": true,
       "baseline_primary_root_cause_match": true,
       "baseline_primary_root_cause_title": "E AssertionError: assert 3 == 4",
       "case_id": "case-refactor-only",
-      "ci_rca_json_sha256": "12aa6d1254b0c2dea5b4e30b340a6b60f06236d3cce822732720e21a02f74ead",
-      "ci_rca_md_sha256": "f92814c49b2891923331ecc4fdaa569de3f510c840880aee23dd048fa44adfef",
+      "ci_rca_json_sha256": "3f17a12d55c529e185023a31daf11494d493aa75e635be6cc6d6d6c0faf25c88",
+      "ci_rca_md_sha256": "a1bb7546cdf2973dad6d67a362b22d4bb4c0c67c38b45218bb8484ae0116dbba",
       "classification": "TEST",
       "classification_match": true,
-      "confidence": 0.54,
+      "confidence": 0.62,
       "confidence_is_reproducible": true,
       "confidence_values": [
-        0.54,
-        0.54
+        0.62,
+        0.62
       ],
       "description": "Python assertion failure with refactor-only diff",
       "expected_classification": "TEST",
       "expected_primary_root_cause_contains": "AssertionError",
+      "expected_primary_root_cause_file": "tests/test_math.py",
+      "expected_primary_root_cause_line": 12,
       "pipeline_status": "completed",
-      "pipeline_timing_ms": 0.264,
+      "pipeline_timing_ms": 0.489,
       "primary_root_cause_match": true,
-      "primary_root_cause_title": "E AssertionError: assert 3 == 4 at unknown file",
+      "primary_root_cause_title": "E AssertionError: assert 3 == 4 at tests/test_math.py:12",
       "status_values": [
         "completed",
         "completed"
       ],
-      "timing_spread_ms": 0.026,
+      "timing_spread_ms": 0.127,
       "timing_values_ms": [
-        0.264,
-        0.238
+        0.489,
+        0.616
       ],
-      "trace_id": "af93bac269091d44b115ed0c"
+      "top1_root_cause_applicable": true,
+      "top1_root_cause_match": true,
+      "trace_id": "6e45066e2a28befba20cc4e3",
+      "validation_pass_applicable": false,
+      "validation_passed": null
     },
     {
+      "actual_primary_root_cause_file": "tests/test_math.py",
+      "actual_primary_root_cause_line": 12,
+      "agentic_proposal_applicable": false,
+      "agentic_proposal_valid": null,
       "artifact_hash_is_reproducible": true,
       "artifact_json_hash_values": [
-        "80aaf7b9234ade2ab875a0b7b709622ecebc2a9a846915e4b071b099d8a07d7a",
-        "80aaf7b9234ade2ab875a0b7b709622ecebc2a9a846915e4b071b099d8a07d7a"
+        "8551e3a66dbde49714a458929367f19c58078be8a34d0c4222ec8381f39d7c9d",
+        "8551e3a66dbde49714a458929367f19c58078be8a34d0c4222ec8381f39d7c9d"
       ],
       "artifact_md_hash_values": [
-        "446e66fefc391fb6fdc522ac50b9d2026b75b62d4435ae1706d093260b049f84",
-        "446e66fefc391fb6fdc522ac50b9d2026b75b62d4435ae1706d093260b049f84"
+        "b745126ecaaa062bbf6aee4f835141a220e0561a1f3bc341864de0d3c7b42515",
+        "b745126ecaaa062bbf6aee4f835141a220e0561a1f3bc341864de0d3c7b42515"
       ],
       "baseline_classification": "TEST",
       "baseline_classification_match": true,
       "baseline_primary_root_cause_match": true,
       "baseline_primary_root_cause_title": "E AssertionError: assert 3 == 4",
       "case_id": "case-rename-and-modify",
-      "ci_rca_json_sha256": "80aaf7b9234ade2ab875a0b7b709622ecebc2a9a846915e4b071b099d8a07d7a",
-      "ci_rca_md_sha256": "446e66fefc391fb6fdc522ac50b9d2026b75b62d4435ae1706d093260b049f84",
+      "ci_rca_json_sha256": "8551e3a66dbde49714a458929367f19c58078be8a34d0c4222ec8381f39d7c9d",
+      "ci_rca_md_sha256": "b745126ecaaa062bbf6aee4f835141a220e0561a1f3bc341864de0d3c7b42515",
       "classification": "TEST",
+      "classification_match": true,
+      "confidence": 0.62,
+      "confidence_is_reproducible": true,
+      "confidence_values": [
+        0.62,
+        0.62
+      ],
+      "description": "Python assertion failure with rename+modify diff",
+      "expected_classification": "TEST",
+      "expected_primary_root_cause_contains": "AssertionError",
+      "expected_primary_root_cause_file": "tests/test_math.py",
+      "expected_primary_root_cause_line": 12,
+      "pipeline_status": "completed",
+      "pipeline_timing_ms": 0.554,
+      "primary_root_cause_match": true,
+      "primary_root_cause_title": "E AssertionError: assert 3 == 4 at tests/test_math.py:12",
+      "status_values": [
+        "completed",
+        "completed"
+      ],
+      "timing_spread_ms": 0.057,
+      "timing_values_ms": [
+        0.554,
+        0.497
+      ],
+      "top1_root_cause_applicable": true,
+      "top1_root_cause_match": true,
+      "trace_id": "efbd3cba9a602400f9c344bd",
+      "validation_pass_applicable": false,
+      "validation_passed": null
+    },
+    {
+      "actual_primary_root_cause_file": "src/app.py",
+      "actual_primary_root_cause_line": 7,
+      "agentic_proposal_applicable": false,
+      "agentic_proposal_valid": null,
+      "artifact_hash_is_reproducible": true,
+      "artifact_json_hash_values": [
+        "feb23f70936b7338d22c41b551aef634939e970ddbf2865e4f46bc3c85a82e2e",
+        "feb23f70936b7338d22c41b551aef634939e970ddbf2865e4f46bc3c85a82e2e"
+      ],
+      "artifact_md_hash_values": [
+        "17d63e55140986f8cd81a7af4eb90a924b9b2407dfa94057ac6b86c051e837ed",
+        "17d63e55140986f8cd81a7af4eb90a924b9b2407dfa94057ac6b86c051e837ed"
+      ],
+      "baseline_classification": "LINT",
+      "baseline_classification_match": true,
+      "baseline_primary_root_cause_match": true,
+      "baseline_primary_root_cause_title": "src/app.py:7:5: F401 `os` imported but unused",
+      "case_id": "case-ruff-f401",
+      "ci_rca_json_sha256": "feb23f70936b7338d22c41b551aef634939e970ddbf2865e4f46bc3c85a82e2e",
+      "ci_rca_md_sha256": "17d63e55140986f8cd81a7af4eb90a924b9b2407dfa94057ac6b86c051e837ed",
+      "classification": "LINT",
       "classification_match": true,
       "confidence": 0.54,
       "confidence_is_reproducible": true,
@@ -203,81 +303,120 @@
         0.54,
         0.54
       ],
-      "description": "Python assertion failure with rename+modify diff",
-      "expected_classification": "TEST",
-      "expected_primary_root_cause_contains": "AssertionError",
+      "description": "Ruff F401 lint failure with refactor-only diff",
+      "expected_classification": "LINT",
+      "expected_primary_root_cause_contains": "F401",
+      "expected_primary_root_cause_file": "src/app.py",
+      "expected_primary_root_cause_line": 7,
       "pipeline_status": "completed",
-      "pipeline_timing_ms": 0.271,
+      "pipeline_timing_ms": 0.397,
       "primary_root_cause_match": true,
-      "primary_root_cause_title": "E AssertionError: assert 3 == 4 at unknown file",
+      "primary_root_cause_title": "src/app.py:7:5: F401 `os` imported but unused at src/app.py:7",
       "status_values": [
         "completed",
         "completed"
       ],
-      "timing_spread_ms": 0.032,
+      "timing_spread_ms": 0.006,
       "timing_values_ms": [
-        0.271,
-        0.239
+        0.397,
+        0.403
       ],
-      "trace_id": "5407d28ed2bf660b33148710"
+      "top1_root_cause_applicable": true,
+      "top1_root_cause_match": true,
+      "trace_id": "b136182012002230ccfc48ce",
+      "validation_pass_applicable": false,
+      "validation_passed": null
     },
     {
+      "actual_primary_root_cause_file": "src/app.ts",
+      "actual_primary_root_cause_line": 14,
+      "agentic_proposal_applicable": false,
+      "agentic_proposal_valid": null,
       "artifact_hash_is_reproducible": true,
       "artifact_json_hash_values": [
-        "1f7f12dbba9470453b74ad4ae465a725b8935aa94d8f87f8a81db672ea95350a",
-        "1f7f12dbba9470453b74ad4ae465a725b8935aa94d8f87f8a81db672ea95350a"
+        "a3080f49485c1c62d4455354e7c9cc7d1b51d576631ed7d70b0fb76d53d85432",
+        "a3080f49485c1c62d4455354e7c9cc7d1b51d576631ed7d70b0fb76d53d85432"
       ],
       "artifact_md_hash_values": [
-        "7b47cb9ce48932b4a59d8f1070f00aeb5c5e500c07d636c7d44956ca38d62974",
-        "7b47cb9ce48932b4a59d8f1070f00aeb5c5e500c07d636c7d44956ca38d62974"
+        "501564fcabf1decc1899b7ac7a4f53631db0c484b9ae21009374c38b5ee06490",
+        "501564fcabf1decc1899b7ac7a4f53631db0c484b9ae21009374c38b5ee06490"
       ],
       "baseline_classification": "TYPECHECK",
       "baseline_classification_match": true,
       "baseline_primary_root_cause_match": true,
       "baseline_primary_root_cause_title": "src/app.ts(14,5): error TS2345: Argument of type 'number' is not assignable to parameter of type 'string'.",
       "case_id": "case-typecheck-ts2345",
-      "ci_rca_json_sha256": "1f7f12dbba9470453b74ad4ae465a725b8935aa94d8f87f8a81db672ea95350a",
-      "ci_rca_md_sha256": "7b47cb9ce48932b4a59d8f1070f00aeb5c5e500c07d636c7d44956ca38d62974",
+      "ci_rca_json_sha256": "a3080f49485c1c62d4455354e7c9cc7d1b51d576631ed7d70b0fb76d53d85432",
+      "ci_rca_md_sha256": "501564fcabf1decc1899b7ac7a4f53631db0c484b9ae21009374c38b5ee06490",
       "classification": "TYPECHECK",
       "classification_match": true,
-      "confidence": 0.54,
+      "confidence": 0.62,
       "confidence_is_reproducible": true,
       "confidence_values": [
-        0.54,
-        0.54
+        0.62,
+        0.62
       ],
       "description": "TypeScript TS2345 failure with refactor-only diff",
       "expected_classification": "TYPECHECK",
       "expected_primary_root_cause_contains": "TS2345",
+      "expected_primary_root_cause_file": "src/app.ts",
+      "expected_primary_root_cause_line": 14,
       "pipeline_status": "completed",
-      "pipeline_timing_ms": 0.309,
+      "pipeline_timing_ms": 0.493,
       "primary_root_cause_match": true,
-      "primary_root_cause_title": "src/app.ts(14,5): error TS2345: Argument of type 'number' is not assignable to parameter of type 'string'. at unknown file",
+      "primary_root_cause_title": "src/app.ts(14,5): error TS2345: Argument of type 'number' is not assignable to parameter of type 'string'. at src/app.ts:14",
       "status_values": [
         "completed",
         "completed"
       ],
-      "timing_spread_ms": 0.049,
+      "timing_spread_ms": 0.035,
       "timing_values_ms": [
-        0.309,
-        0.26
+        0.493,
+        0.458
       ],
-      "trace_id": "0f4168382133e1074a12830d"
+      "top1_root_cause_applicable": true,
+      "top1_root_cause_match": true,
+      "trace_id": "901927202f92c55ef0e04379",
+      "validation_pass_applicable": false,
+      "validation_passed": null
     }
   ],
-  "classification_match_lift": 0.3333,
+  "classification_confusion_matrix": {
+    "DEPENDENCY": {
+      "DEPENDENCY": 2
+    },
+    "INFRA": {
+      "INFRA": 1
+    },
+    "LINT": {
+      "LINT": 1
+    },
+    "TEST": {
+      "TEST": 2
+    },
+    "TYPECHECK": {
+      "TYPECHECK": 1
+    }
+  },
+  "classification_match_lift": 0.2857,
   "classification_match_rate": 1.0,
-  "classification_matches": 6,
-  "completed_cases": 6,
+  "classification_matches": 7,
+  "completed_cases": 7,
   "completion_rate": 1.0,
   "confidence_reproducibility": 1.0,
-  "confidence_reproducible_cases": 6,
-  "mean_time_to_diagnosis_ms": 0.386,
-  "median_time_to_diagnosis_ms": 0.367,
-  "p95_time_to_diagnosis_ms": 0.473,
+  "confidence_reproducible_cases": 7,
+  "mean_time_to_diagnosis_ms": 0.516,
+  "median_time_to_diagnosis_ms": 0.493,
+  "p95_time_to_diagnosis_ms": 0.593,
   "primary_root_cause_accuracy": 1.0,
   "primary_root_cause_accuracy_lift": 0.0,
-  "primary_root_cause_matches": 6,
-  "suite_name": "mvp-curated-v2",
-  "total_cases": 6
+  "primary_root_cause_matches": 7,
+  "suite_name": "mvp-curated-v3",
+  "top1_root_cause_accuracy": 1.0,
+  "top1_root_cause_cases": 6,
+  "top1_root_cause_matches": 6,
+  "total_cases": 7,
+  "validation_pass_cases": 0,
+  "validation_pass_matches": 0,
+  "validation_pass_rate": null
 }

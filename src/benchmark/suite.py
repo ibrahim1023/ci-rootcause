@@ -60,6 +60,12 @@ def _p95(values: list[float]) -> float:
     return ordered[index]
 
 
+def _rate_or_none(matches: int, total: int) -> float | None:
+    if total <= 0:
+        return None
+    return round(matches / total, 4)
+
+
 def _build_classification_confusion_matrix(
     case_results: list[dict[str, Any]],
 ) -> dict[str, dict[str, int]]:
@@ -243,6 +249,8 @@ def run_benchmark_suite(
         classification_output = state.agent_outputs.get("failure_classification", {})
         ranker_output = state.agent_outputs.get("root_cause_ranker", {})
         reporter_output = state.agent_outputs.get("reporter", {})
+        fix_output = state.agent_outputs.get("fix_planner", {})
+        pr_output = state.agent_outputs.get("pr_creation", {})
         first_failure_event = log_output.get("first_failure_event", {})
         if not isinstance(first_failure_event, dict):
             first_failure_event = {}
@@ -304,6 +312,24 @@ def run_benchmark_suite(
         if artifact_hash_is_reproducible:
             artifact_hash_reproducible_count += 1
 
+        agentic_proposal = (
+            fix_output.get("agentic_proposal", {}) if isinstance(fix_output, dict) else {}
+        )
+        agentic_proposal_applicable = isinstance(agentic_proposal, dict) and bool(agentic_proposal)
+        agentic_proposal_valid = (
+            bool(agentic_proposal.get("proposal_created", False))
+            if agentic_proposal_applicable
+            else None
+        )
+        validation_pass_applicable = False
+        validation_passed = None
+        if isinstance(pr_output, dict):
+            pr_reason = str(pr_output.get("failure_reason_code", "")).strip()
+            pr_created = bool(pr_output.get("pr_created", False))
+            validation_pass_applicable = pr_created or pr_reason == "VALIDATION_FAILED"
+            if validation_pass_applicable:
+                validation_passed = pr_reason != "VALIDATION_FAILED"
+
         case_results.append(
             {
                 "case_id": case.case_id,
@@ -340,6 +366,10 @@ def run_benchmark_suite(
                 "pipeline_timing_ms": state.pipeline_timing_ms,
                 "ci_rca_json_sha256": _sha256_file(json_path) if json_path.exists() else "",
                 "ci_rca_md_sha256": _sha256_file(md_path) if md_path.exists() else "",
+                "agentic_proposal_applicable": agentic_proposal_applicable,
+                "agentic_proposal_valid": agentic_proposal_valid,
+                "validation_pass_applicable": validation_pass_applicable,
+                "validation_passed": validation_passed,
             }
         )
 
@@ -351,6 +381,12 @@ def run_benchmark_suite(
     top1_root_cause_matches = sum(
         1 for item in case_results if item["top1_root_cause_match"] is True
     )
+    agentic_proposal_cases = sum(1 for item in case_results if item["agentic_proposal_applicable"])
+    agentic_proposal_valid_matches = sum(
+        1 for item in case_results if item["agentic_proposal_valid"] is True
+    )
+    validation_pass_cases = sum(1 for item in case_results if item["validation_pass_applicable"])
+    validation_pass_matches = sum(1 for item in case_results if item["validation_passed"] is True)
     baseline_root_cause_matched = sum(
         1 for item in case_results if item["baseline_primary_root_cause_match"]
     )
@@ -393,6 +429,15 @@ def run_benchmark_suite(
             if top1_root_cause_cases
             else 0.0
         ),
+        "agentic_proposal_valid_cases": agentic_proposal_cases,
+        "agentic_proposal_valid_matches": agentic_proposal_valid_matches,
+        "agentic_proposal_valid_rate": _rate_or_none(
+            agentic_proposal_valid_matches,
+            agentic_proposal_cases,
+        ),
+        "validation_pass_cases": validation_pass_cases,
+        "validation_pass_matches": validation_pass_matches,
+        "validation_pass_rate": _rate_or_none(validation_pass_matches, validation_pass_cases),
         "confidence_reproducible_cases": confidence_reproducible_count,
         "confidence_reproducibility": (
             round(confidence_reproducible_count / total_cases, 4) if total_cases else 0.0
