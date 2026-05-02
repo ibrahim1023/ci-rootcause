@@ -14,7 +14,7 @@ Evaluation answers: does the product diagnose failures correctly and safely?
 - Keep auto-fix PR creation guarded by confidence, scope, and validation.
 - Keep agentic/Ollama proposals schema-valid and evidence-scoped.
 - Document contradictions explicitly when docs disagree with code or tests.
-- Keep `task.md` and `progress.md` aligned with completed work, and reject stale history when code/tests disagree.
+- Keep execution-state records aligned with completed work, and reject stale history when code/tests disagree.
 
 ## Failure Definition
 An eval case fails when any required expectation is missed:

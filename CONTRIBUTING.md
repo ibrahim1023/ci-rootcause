@@ -11,8 +11,8 @@ Use one of these formats:
 
 ## Pull Request Checklist
 
-- [ ] Linked relevant task(s) from `docs/task.md`
-- [ ] Updated docs (`docs/scope.md`, `README.md`) when contracts/behavior changed
+- [ ] Linked relevant planning or tracking context
+- [ ] Updated user-facing docs when contracts or behavior changed
 - [ ] Added or updated tests
 - [ ] `ruff check .` passes
 - [ ] `ruff format --check .` passes
