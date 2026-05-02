@@ -20,12 +20,20 @@ If mismatch is found, do not guess. Document it in `progress.md` and resolve exp
 2. Read `task.md`.
 3. Read `progress.md`.
 4. Inspect recent git history (`git log --oneline -n 10`).
-5. Run baseline validation.
+5. Check `agents/generated/` summaries when present before loading large source files.
+6. Run baseline validation.
 
 ## Retrieval And Context Rules
 - Search the codebase and tests before making non-trivial changes.
+- Prefer structural understanding first: symbols, entrypoints, dependency maps, and generated summaries before raw full-file reads.
 - Prefer targeted reads over loading large files wholesale.
+- Prefer line ranges, diffs, and focused searches over full-file loads.
 - Do not rely on docs alone when code or tests disagree.
+
+## Token And Context Discipline
+- Treat context as limited: every loaded file, log, or diff must justify its value.
+- Avoid repeated reads and repeated full test runs when existing findings already answer the question.
+- Prune stale logs, failed attempts, and irrelevant history from working context as the task progresses.
 
 ## Output Compression
 - Compress noisy command output before reusing it as agent context when the raw output is large or repetitive.
@@ -33,6 +41,7 @@ If mismatch is found, do not guess. Document it in `progress.md` and resolve exp
 - Do not compress small targeted outputs unnecessarily.
 - Expand raw output only when debugging requires exact detail.
 - Prefer `ztk` when available for large diffs, recursive listings, test logs, build logs, typecheck output, lint output, CI logs, stack traces, and package manager output.
+- Prefer local pre-filtering such as `ztk`, `rg`, and structured outputs before escalating to broad raw output reads.
 
 ## Required Validation Commands
 - Lint: `ruff check .`
