@@ -1,0 +1,50 @@
+{
+  "suite_name": "harness-quality-v1",
+  "thresholds": {
+    "compression_signal_preservation_rate_min": 1.0,
+    "compression_noise_pruning_rate_min": 1.0
+  },
+  "cases": [
+    {
+      "id": "compression-preserves-error-signals",
+      "type": "compression",
+      "description": "Compressed output must preserve file path, line, error code, assertion, and exit status.",
+      "observed": "src/app.py:7:5 F401 `os` imported but unused | tests/test_math.py:12 AssertionError: assert 3 == 4 | Process completed with exit code 1",
+      "expected": {
+        "must_contain": [
+          "src/app.py:7:5",
+          "F401",
+          "tests/test_math.py:12",
+          "AssertionError",
+          "exit code 1"
+        ],
+        "must_not_contain": [
+          "Current runner version:",
+          "Complete job name:",
+          "Fetching the repository"
+        ]
+      },
+      "failure_modes": ["compression_signal_loss", "irrelevant_context"],
+      "must_pass": true
+    },
+    {
+      "id": "compression-drops-repetitive-noise",
+      "type": "compression",
+      "description": "Compressed output may remove repetitive downloader chatter while preserving the failure signature.",
+      "observed": "ERROR: Could not find a version that satisfies the requirement missing-package-abc123 | ERROR: No matching distribution found for missing-package-abc123",
+      "expected": {
+        "must_contain": [
+          "missing-package-abc123",
+          "No matching distribution found"
+        ],
+        "must_not_contain": [
+          "Collecting dependency-one",
+          "Downloading dependency-one",
+          "Downloading dependency-two"
+        ]
+      },
+      "failure_modes": ["compression_signal_loss", "retrieval_failure"],
+      "must_pass": true
+    }
+  ]
+}

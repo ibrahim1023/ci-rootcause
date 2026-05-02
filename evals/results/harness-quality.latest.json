@@ -1,0 +1,69 @@
+{
+  "cases": [
+    {
+      "checks": {
+        "compression_noise_pruning": true,
+        "compression_signal_preservation": true
+      },
+      "details": {
+        "dropped_noise": [
+          "Current runner version:",
+          "Complete job name:",
+          "Fetching the repository"
+        ],
+        "observed": "src/app.py:7:5 F401 `os` imported but unused | tests/test_math.py:12 AssertionError: assert 3 == 4 | Process completed with exit code 1",
+        "required_signals": [
+          "src/app.py:7:5",
+          "F401",
+          "tests/test_math.py:12",
+          "AssertionError",
+          "exit code 1"
+        ]
+      },
+      "id": "compression-preserves-error-signals",
+      "passed": true,
+      "type": "compression"
+    },
+    {
+      "checks": {
+        "compression_noise_pruning": true,
+        "compression_signal_preservation": true
+      },
+      "details": {
+        "dropped_noise": [
+          "Collecting dependency-one",
+          "Downloading dependency-one",
+          "Downloading dependency-two"
+        ],
+        "observed": "ERROR: Could not find a version that satisfies the requirement missing-package-abc123 | ERROR: No matching distribution found for missing-package-abc123",
+        "required_signals": [
+          "missing-package-abc123",
+          "No matching distribution found"
+        ]
+      },
+      "id": "compression-drops-repetitive-noise",
+      "passed": true,
+      "type": "compression"
+    }
+  ],
+  "suite_name": "harness-quality-v1",
+  "summary": {
+    "failed_cases": 0,
+    "gates": {
+      "compression_noise_pruning_rate": true,
+      "compression_signal_preservation_rate": true
+    },
+    "metrics": {
+      "classification_accuracy": null,
+      "comment_actionability_pass_rate": null,
+      "compression_noise_pruning_rate": 1.0,
+      "compression_signal_preservation_rate": 1.0,
+      "evidence_grounding_pass_rate": null,
+      "pass_rate": 1.0,
+      "top1_root_cause_accuracy": null
+    },
+    "passed": true,
+    "passed_cases": 2,
+    "total_cases": 2
+  }
+}

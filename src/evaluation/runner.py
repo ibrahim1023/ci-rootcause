@@ -79,6 +79,16 @@ def _comment_is_actionable(comment: str) -> bool:
     return all(fragment in comment for fragment in required_fragments)
 
 
+def _contains_all(value: str, expected: list[str]) -> bool:
+    lowered = value.lower()
+    return all(item.lower() in lowered for item in expected)
+
+
+def _contains_none(value: str, forbidden: list[str]) -> bool:
+    lowered = value.lower()
+    return all(item.lower() not in lowered for item in forbidden)
+
+
 def _run_pipeline_case(case: dict[str, Any], output_root: Path) -> EvalResult:
     case_id = str(case.get("id", "")).strip()
     if not case_id:
@@ -187,10 +197,40 @@ def _run_diagnostic_case(case: dict[str, Any]) -> EvalResult:
     )
 
 
-def _rate(results: list[EvalResult], check_name: str) -> float:
+def _run_compression_case(case: dict[str, Any]) -> EvalResult:
+    case_id = str(case.get("id", "")).strip()
+    observed = str(case.get("observed", ""))
+    expected = case.get("expected")
+    if not case_id or not isinstance(expected, dict):
+        raise EvaluationError("compression eval case requires id and expected object")
+
+    required_signals = [
+        str(item).strip() for item in expected.get("must_contain", []) if str(item).strip()
+    ]
+    dropped_noise = [
+        str(item).strip() for item in expected.get("must_not_contain", []) if str(item).strip()
+    ]
+    checks = {
+        "compression_signal_preservation": _contains_all(observed, required_signals),
+        "compression_noise_pruning": _contains_none(observed, dropped_noise),
+    }
+    return EvalResult(
+        case_id=case_id,
+        case_type="compression",
+        passed=all(checks.values()),
+        checks=checks,
+        details={
+            "observed": observed,
+            "required_signals": required_signals,
+            "dropped_noise": dropped_noise,
+        },
+    )
+
+
+def _rate(results: list[EvalResult], check_name: str) -> float | None:
     applicable = [result for result in results if check_name in result.checks]
     if not applicable:
-        return 0.0
+        return None
     passed = sum(1 for result in applicable if result.checks[check_name])
     return round(passed / len(applicable), 4)
 
@@ -204,17 +244,23 @@ def _build_summary(results: list[EvalResult], thresholds: dict[str, Any]) -> dic
         "top1_root_cause_accuracy": _rate(results, "top1_root_cause"),
         "evidence_grounding_pass_rate": _rate(results, "evidence_grounded"),
         "comment_actionability_pass_rate": _rate(results, "comment_actionable"),
+        "compression_signal_preservation_rate": _rate(results, "compression_signal_preservation"),
+        "compression_noise_pruning_rate": _rate(results, "compression_noise_pruning"),
     }
-    gates = {
-        "classification_accuracy": metrics["classification_accuracy"]
-        >= float(thresholds.get("classification_accuracy_min", 0.0)),
-        "top1_root_cause_accuracy": metrics["top1_root_cause_accuracy"]
-        >= float(thresholds.get("top1_root_cause_accuracy_min", 0.0)),
-        "evidence_grounding_pass_rate": metrics["evidence_grounding_pass_rate"]
-        >= float(thresholds.get("evidence_grounding_pass_rate_min", 0.0)),
-        "comment_actionability_pass_rate": metrics["comment_actionability_pass_rate"]
-        >= float(thresholds.get("comment_actionability_pass_rate_min", 0.0)),
+    threshold_map = {
+        "classification_accuracy": "classification_accuracy_min",
+        "top1_root_cause_accuracy": "top1_root_cause_accuracy_min",
+        "evidence_grounding_pass_rate": "evidence_grounding_pass_rate_min",
+        "comment_actionability_pass_rate": "comment_actionability_pass_rate_min",
+        "compression_signal_preservation_rate": "compression_signal_preservation_rate_min",
+        "compression_noise_pruning_rate": "compression_noise_pruning_rate_min",
     }
+    gates: dict[str, bool] = {}
+    for metric_name, threshold_name in threshold_map.items():
+        metric_value = metrics[metric_name]
+        if threshold_name not in thresholds or metric_value is None:
+            continue
+        gates[metric_name] = metric_value >= float(thresholds.get(threshold_name, 0.0))
     return {
         "total_cases": total,
         "passed_cases": passed,
@@ -242,6 +288,8 @@ def run_eval_dataset(
             results.append(_run_pipeline_case(case, output_root=output_root))
         elif case_type == "diagnostic":
             results.append(_run_diagnostic_case(case))
+        elif case_type == "compression":
+            results.append(_run_compression_case(case))
         else:
             raise EvaluationError(f"unsupported eval case type: {case_type}")
 

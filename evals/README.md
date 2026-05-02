@@ -59,9 +59,20 @@ python scripts/run_evals.py
 
 The command writes the latest summary to `evals/results/rca-quality.latest.json`.
 
+Run the harness compression suite:
+
+```bash
+python scripts/run_evals.py \
+  --dataset evals/datasets/harness-quality.json \
+  --output evals/results/harness-quality.latest.json
+```
+
+The command writes the latest summary to `evals/results/harness-quality.latest.json`.
+
 ## Operating Rules
 - Every real behavior failure becomes an eval case.
 - Prefer small high-signal datasets over broad noisy data.
 - Store expected behavior, not only expected raw output text.
 - Keep validation tests and behavior evals separate.
 - Do not use LLM-as-judge until deterministic checks are insufficient.
+- Add dedicated suites when harness behavior and product behavior need different metrics.
