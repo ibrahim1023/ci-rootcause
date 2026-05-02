@@ -227,6 +227,32 @@ def _run_compression_case(case: dict[str, Any]) -> EvalResult:
     )
 
 
+def _run_contradiction_case(case: dict[str, Any]) -> EvalResult:
+    case_id = str(case.get("id", "")).strip()
+    observed = case.get("observed")
+    expected = case.get("expected")
+    if not case_id or not isinstance(observed, dict) or not isinstance(expected, dict):
+        raise EvaluationError("contradiction eval case requires id, observed, and expected objects")
+
+    checks = {
+        "contradiction_documented": bool(observed.get("mismatch_documented", False))
+        == bool(expected.get("mismatch_documented", False)),
+        "contradiction_resolution_basis": str(observed.get("resolution_basis", "")).strip()
+        == str(expected.get("resolution_basis", "")).strip(),
+        "contradiction_reason_contains": _contains(
+            str(observed.get("reason", "")),
+            str(expected.get("reason_contains", "")),
+        ),
+    }
+    return EvalResult(
+        case_id=case_id,
+        case_type="contradiction",
+        passed=all(checks.values()),
+        checks=checks,
+        details={"observed": observed},
+    )
+
+
 def _rate(results: list[EvalResult], check_name: str) -> float | None:
     applicable = [result for result in results if check_name in result.checks]
     if not applicable:
@@ -246,6 +272,8 @@ def _build_summary(results: list[EvalResult], thresholds: dict[str, Any]) -> dic
         "comment_actionability_pass_rate": _rate(results, "comment_actionable"),
         "compression_signal_preservation_rate": _rate(results, "compression_signal_preservation"),
         "compression_noise_pruning_rate": _rate(results, "compression_noise_pruning"),
+        "contradiction_documented_rate": _rate(results, "contradiction_documented"),
+        "contradiction_resolution_basis_rate": _rate(results, "contradiction_resolution_basis"),
     }
     threshold_map = {
         "classification_accuracy": "classification_accuracy_min",
@@ -254,6 +282,8 @@ def _build_summary(results: list[EvalResult], thresholds: dict[str, Any]) -> dic
         "comment_actionability_pass_rate": "comment_actionability_pass_rate_min",
         "compression_signal_preservation_rate": "compression_signal_preservation_rate_min",
         "compression_noise_pruning_rate": "compression_noise_pruning_rate_min",
+        "contradiction_documented_rate": "contradiction_documented_rate_min",
+        "contradiction_resolution_basis_rate": "contradiction_resolution_basis_rate_min",
     }
     gates: dict[str, bool] = {}
     for metric_name, threshold_name in threshold_map.items():
@@ -290,6 +320,8 @@ def run_eval_dataset(
             results.append(_run_diagnostic_case(case))
         elif case_type == "compression":
             results.append(_run_compression_case(case))
+        elif case_type == "contradiction":
+            results.append(_run_contradiction_case(case))
         else:
             raise EvaluationError(f"unsupported eval case type: {case_type}")
 

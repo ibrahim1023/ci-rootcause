@@ -9,5 +9,6 @@ First-version rubrics should be deterministic:
 - comment includes likely cause, evidence, confidence, suggested fix, and app outcome,
 - agentic proposal contains only allowed operations and repo-relative paths.
 - compression preserves diagnosis-critical signals while dropping irrelevant repeated noise.
+- contradictions are documented explicitly and resolved in favor of code/tests over docs.
 
 LLM-as-judge may be added later only with strict structured output and calibrated good/bad examples.

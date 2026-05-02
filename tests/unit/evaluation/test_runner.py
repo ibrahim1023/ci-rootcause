@@ -22,7 +22,9 @@ def test_run_harness_eval_dataset_writes_results(tmp_path: Path) -> None:
     )
 
     assert result["summary"]["passed"] is True
-    assert result["summary"]["total_cases"] == 2
+    assert result["summary"]["total_cases"] == 4
     assert result["summary"]["metrics"]["compression_signal_preservation_rate"] == 1.0
     assert result["summary"]["metrics"]["compression_noise_pruning_rate"] == 1.0
+    assert result["summary"]["metrics"]["contradiction_documented_rate"] == 1.0
+    assert result["summary"]["metrics"]["contradiction_resolution_basis_rate"] == 1.0
     assert output_path.exists()

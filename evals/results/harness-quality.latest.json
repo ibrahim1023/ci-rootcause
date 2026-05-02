@@ -44,6 +44,40 @@
       "id": "compression-drops-repetitive-noise",
       "passed": true,
       "type": "compression"
+    },
+    {
+      "checks": {
+        "contradiction_documented": true,
+        "contradiction_reason_contains": true,
+        "contradiction_resolution_basis": true
+      },
+      "details": {
+        "observed": {
+          "mismatch_documented": true,
+          "reason": "README contradicted the implementation, so the mismatch was documented and code was treated as the source of truth.",
+          "resolution_basis": "code"
+        }
+      },
+      "id": "contradiction-code-over-doc",
+      "passed": true,
+      "type": "contradiction"
+    },
+    {
+      "checks": {
+        "contradiction_documented": true,
+        "contradiction_reason_contains": true,
+        "contradiction_resolution_basis": true
+      },
+      "details": {
+        "observed": {
+          "mismatch_documented": true,
+          "reason": "The design note was stale, so the mismatch was documented and tests were treated as the expected behavior.",
+          "resolution_basis": "tests"
+        }
+      },
+      "id": "contradiction-tests-over-doc",
+      "passed": true,
+      "type": "contradiction"
     }
   ],
   "suite_name": "harness-quality-v1",
@@ -51,19 +85,23 @@
     "failed_cases": 0,
     "gates": {
       "compression_noise_pruning_rate": true,
-      "compression_signal_preservation_rate": true
+      "compression_signal_preservation_rate": true,
+      "contradiction_documented_rate": true,
+      "contradiction_resolution_basis_rate": true
     },
     "metrics": {
       "classification_accuracy": null,
       "comment_actionability_pass_rate": null,
       "compression_noise_pruning_rate": 1.0,
       "compression_signal_preservation_rate": 1.0,
+      "contradiction_documented_rate": 1.0,
+      "contradiction_resolution_basis_rate": 1.0,
       "evidence_grounding_pass_rate": null,
       "pass_rate": 1.0,
       "top1_root_cause_accuracy": null
     },
     "passed": true,
-    "passed_cases": 2,
-    "total_cases": 2
+    "passed_cases": 4,
+    "total_cases": 4
   }
 }

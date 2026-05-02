@@ -13,6 +13,7 @@ Evaluation answers: does the product diagnose failures correctly and safely?
 - Produce comments that are actionable in PR review.
 - Keep auto-fix PR creation guarded by confidence, scope, and validation.
 - Keep agentic/Ollama proposals schema-valid and evidence-scoped.
+- Document contradictions explicitly when docs disagree with code or tests.
 
 ## Failure Definition
 An eval case fails when any required expectation is missed:

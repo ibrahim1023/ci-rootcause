@@ -2,7 +2,9 @@
   "suite_name": "harness-quality-v1",
   "thresholds": {
     "compression_signal_preservation_rate_min": 1.0,
-    "compression_noise_pruning_rate_min": 1.0
+    "compression_noise_pruning_rate_min": 1.0,
+    "contradiction_documented_rate_min": 1.0,
+    "contradiction_resolution_basis_rate_min": 1.0
   },
   "cases": [
     {
@@ -44,6 +46,40 @@
         ]
       },
       "failure_modes": ["compression_signal_loss", "retrieval_failure"],
+      "must_pass": true
+    },
+    {
+      "id": "contradiction-code-over-doc",
+      "type": "contradiction",
+      "description": "When docs conflict with code, the mismatch must be documented and code must win.",
+      "observed": {
+        "mismatch_documented": true,
+        "resolution_basis": "code",
+        "reason": "README contradicted the implementation, so the mismatch was documented and code was treated as the source of truth."
+      },
+      "expected": {
+        "mismatch_documented": true,
+        "resolution_basis": "code",
+        "reason_contains": "source of truth"
+      },
+      "failure_modes": ["silent_resolution", "doc_over_code"],
+      "must_pass": true
+    },
+    {
+      "id": "contradiction-tests-over-doc",
+      "type": "contradiction",
+      "description": "When docs conflict with tests, the mismatch must be documented and tests must win.",
+      "observed": {
+        "mismatch_documented": true,
+        "resolution_basis": "tests",
+        "reason": "The design note was stale, so the mismatch was documented and tests were treated as the expected behavior."
+      },
+      "expected": {
+        "mismatch_documented": true,
+        "resolution_basis": "tests",
+        "reason_contains": "expected behavior"
+      },
+      "failure_modes": ["silent_resolution", "doc_over_tests"],
       "must_pass": true
     }
   ]
