@@ -7,6 +7,11 @@ import pytest
 from src.benchmark.suite import run_benchmark_suite
 
 SUITE_PATH = "fixtures/benchmarks/mvp-suite.json"
+TYPECHECK_VALIDATION_COMMAND = (
+    'python -c "from pathlib import Path; text = '
+    "Path('src/app_failure_typecheck.py').read_text(); raise SystemExit("
+    "0 if 'needs_int(7)' in text and '\\\"7\\\"' not in text else 1)\""
+)
 
 
 def test_run_benchmark_suite_executes_curated_cases(tmp_path: Path) -> None:
@@ -17,37 +22,37 @@ def test_run_benchmark_suite_executes_curated_cases(tmp_path: Path) -> None:
     )
 
     assert result["suite_name"] == "mvp-curated-v3"
-    assert result["total_cases"] == 9
-    assert result["completed_cases"] == 9
+    assert result["total_cases"] == 13
+    assert result["completed_cases"] == 13
     assert result["completion_rate"] == 1.0
-    assert result["classification_matches"] == 9
+    assert result["classification_matches"] == 13
     assert result["classification_match_rate"] == 1.0
-    assert result["baseline_classification_matches"] == 7
-    assert result["baseline_classification_match_rate"] == 0.7778
-    assert result["classification_match_lift"] == 0.2222
+    assert result["baseline_classification_matches"] == 9
+    assert result["baseline_classification_match_rate"] == 0.6923
+    assert result["classification_match_lift"] == 0.3077
     assert "classification_confusion_matrix" in result
     assert result["classification_confusion_matrix"]["DEPENDENCY"]["DEPENDENCY"] == 2
     assert result["classification_confusion_matrix"]["INFRA"]["INFRA"] == 1
     assert result["classification_confusion_matrix"]["LINT"]["LINT"] == 3
-    assert result["classification_confusion_matrix"]["TEST"]["TEST"] == 2
-    assert result["classification_confusion_matrix"]["TYPECHECK"]["TYPECHECK"] == 1
-    assert result["primary_root_cause_matches"] == 9
+    assert result["classification_confusion_matrix"]["TEST"]["TEST"] == 4
+    assert result["classification_confusion_matrix"]["TYPECHECK"]["TYPECHECK"] == 3
+    assert result["primary_root_cause_matches"] == 13
     assert result["primary_root_cause_accuracy"] == 1.0
-    assert result["baseline_primary_root_cause_matches"] == 9
+    assert result["baseline_primary_root_cause_matches"] == 13
     assert result["baseline_primary_root_cause_accuracy"] == 1.0
     assert result["primary_root_cause_accuracy_lift"] == 0.0
-    assert result["top1_root_cause_cases"] == 8
-    assert result["top1_root_cause_matches"] == 8
+    assert result["top1_root_cause_cases"] == 12
+    assert result["top1_root_cause_matches"] == 12
     assert result["top1_root_cause_accuracy"] == 1.0
-    assert result["agentic_proposal_valid_cases"] == 2
-    assert result["agentic_proposal_valid_matches"] == 2
+    assert result["agentic_proposal_valid_cases"] == 6
+    assert result["agentic_proposal_valid_matches"] == 6
     assert result["agentic_proposal_valid_rate"] == 1.0
-    assert result["validation_pass_cases"] == 2
-    assert result["validation_pass_matches"] == 1
+    assert result["validation_pass_cases"] == 6
+    assert result["validation_pass_matches"] == 3
     assert result["validation_pass_rate"] == 0.5
-    assert result["confidence_reproducible_cases"] == 9
+    assert result["confidence_reproducible_cases"] == 13
     assert result["confidence_reproducibility"] == 1.0
-    assert result["artifact_hash_reproducible_cases"] == 9
+    assert result["artifact_hash_reproducible_cases"] == 13
     assert result["artifact_hash_reproducibility"] == 1.0
     assert result["mean_time_to_diagnosis_ms"] >= 0.0
     assert result["median_time_to_diagnosis_ms"] >= 0.0
@@ -100,6 +105,18 @@ def test_run_benchmark_suite_executes_curated_cases(tmp_path: Path) -> None:
     assert case_fail["validation_pass_applicable"] is True
     assert case_fail["validation_passed"] is False
     assert case_fail["validation_commands_used"] == ["ruff check src/app.py"]
+
+    case_typecheck_pass = next(
+        item for item in result["cases"] if item["case_id"] == "case-agentic-typecheck-pass"
+    )
+    assert case_typecheck_pass["validation_passed"] is True
+    assert case_typecheck_pass["validation_commands_used"] == [TYPECHECK_VALIDATION_COMMAND]
+
+    case_test_pass = next(
+        item for item in result["cases"] if item["case_id"] == "case-agentic-test-pass"
+    )
+    assert case_test_pass["validation_passed"] is True
+    assert case_test_pass["validation_commands_used"] == ["pytest tests/test_math.py"]
 
 
 def test_run_benchmark_suite_is_repeatable_for_same_inputs(tmp_path: Path) -> None:

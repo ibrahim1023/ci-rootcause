@@ -2,6 +2,148 @@
   "suite_name": "mvp-curated-v3",
   "cases": [
     {
+      "case_id": "case-agentic-test-fail",
+      "description": "Agentic test fix proposal that still fails inferred pytest validation in dry-run PR mode",
+      "log_path": "fixtures/ci-logs/github-actions-python-failure.log",
+      "diff_path": "fixtures/diffs/refactor-only.diff",
+      "timestamp": "2026-02-23T00:00:00Z",
+      "commit": "jkl111",
+      "run_id": "bench_000b",
+      "base_commit": "jkl110",
+      "head_commit": "jkl111",
+      "expected_classification": "TEST",
+      "expected_primary_root_cause_contains": "AssertionError",
+      "expected_primary_root_cause_file": "tests/test_math.py",
+      "expected_primary_root_cause_line": 12,
+      "create_fix_pr": true,
+      "dry_run": true,
+      "execution_mode": "agentic_assist",
+      "llm_provider": "local",
+      "llm_model": "benchmark-local",
+      "min_pr_confidence": 0.5,
+      "validated_changes": [
+        {
+          "file": "tests/test_math.py",
+          "content": "def test_returns_sum():\n    assert 3 == 4\n"
+        }
+      ],
+      "repo_fixture_files": [
+        {
+          "file": "tests/test_math.py",
+          "content": "def test_returns_sum():\n    assert 3 == 4\n"
+        }
+      ],
+      "mocked_agentic_proposal_path": "fixtures/agentic-proposals/test-fix.json"
+    },
+    {
+      "case_id": "case-agentic-test-pass",
+      "description": "Agentic test fix proposal that passes inferred pytest validation in dry-run PR mode",
+      "log_path": "fixtures/ci-logs/github-actions-python-failure.log",
+      "diff_path": "fixtures/diffs/refactor-only.diff",
+      "timestamp": "2026-02-23T00:00:00Z",
+      "commit": "jkl112",
+      "run_id": "bench_000c",
+      "base_commit": "jkl111",
+      "head_commit": "jkl112",
+      "expected_classification": "TEST",
+      "expected_primary_root_cause_contains": "AssertionError",
+      "expected_primary_root_cause_file": "tests/test_math.py",
+      "expected_primary_root_cause_line": 12,
+      "create_fix_pr": true,
+      "dry_run": true,
+      "execution_mode": "agentic_assist",
+      "llm_provider": "local",
+      "llm_model": "benchmark-local",
+      "min_pr_confidence": 0.5,
+      "validated_changes": [
+        {
+          "file": "tests/test_math.py",
+          "content": "def test_returns_sum():\n    assert 3 == 3\n"
+        }
+      ],
+      "repo_fixture_files": [
+        {
+          "file": "tests/test_math.py",
+          "content": "def test_returns_sum():\n    assert 3 == 4\n"
+        }
+      ],
+      "mocked_agentic_proposal_path": "fixtures/agentic-proposals/test-fix.json"
+    },
+    {
+      "case_id": "case-agentic-typecheck-fail",
+      "description": "Agentic typecheck fix proposal that still fails typecheck validation in dry-run PR mode",
+      "log_path": "fixtures/ci-logs/github-actions-mypy-failure.log",
+      "diff_path": "fixtures/diffs/python-typecheck.diff",
+      "timestamp": "2026-02-23T00:00:00Z",
+      "commit": "mno111",
+      "run_id": "bench_000d",
+      "base_commit": "mno110",
+      "head_commit": "mno111",
+      "expected_classification": "TYPECHECK",
+      "expected_primary_root_cause_contains": "incompatible type",
+      "expected_primary_root_cause_file": "src/app_failure_typecheck.py",
+      "expected_primary_root_cause_line": 4,
+      "create_fix_pr": true,
+      "dry_run": true,
+      "execution_mode": "agentic_assist",
+      "llm_provider": "local",
+      "llm_model": "benchmark-local",
+      "min_pr_confidence": 0.5,
+      "typecheck_validation_commands": [
+        "python -c \"from pathlib import Path; text = Path('src/app_failure_typecheck.py').read_text(); raise SystemExit(0 if 'needs_int(7)' in text and '\\\"7\\\"' not in text else 1)\""
+      ],
+      "validated_changes": [
+        {
+          "file": "src/app_failure_typecheck.py",
+          "content": "def needs_int(value: int) -> int:\n    return value\n\nresult: int = needs_int(\"7\")\n"
+        }
+      ],
+      "repo_fixture_files": [
+        {
+          "file": "src/app_failure_typecheck.py",
+          "content": "def needs_int(value: int) -> int:\n    return value\n\nresult: int = needs_int(\"7\")\n"
+        }
+      ],
+      "mocked_agentic_proposal_path": "fixtures/agentic-proposals/typecheck-fix.json"
+    },
+    {
+      "case_id": "case-agentic-typecheck-pass",
+      "description": "Agentic typecheck fix proposal that passes typecheck validation in dry-run PR mode",
+      "log_path": "fixtures/ci-logs/github-actions-mypy-failure.log",
+      "diff_path": "fixtures/diffs/python-typecheck.diff",
+      "timestamp": "2026-02-23T00:00:00Z",
+      "commit": "mno112",
+      "run_id": "bench_000e",
+      "base_commit": "mno111",
+      "head_commit": "mno112",
+      "expected_classification": "TYPECHECK",
+      "expected_primary_root_cause_contains": "incompatible type",
+      "expected_primary_root_cause_file": "src/app_failure_typecheck.py",
+      "expected_primary_root_cause_line": 4,
+      "create_fix_pr": true,
+      "dry_run": true,
+      "execution_mode": "agentic_assist",
+      "llm_provider": "local",
+      "llm_model": "benchmark-local",
+      "min_pr_confidence": 0.5,
+      "typecheck_validation_commands": [
+        "python -c \"from pathlib import Path; text = Path('src/app_failure_typecheck.py').read_text(); raise SystemExit(0 if 'needs_int(7)' in text and '\\\"7\\\"' not in text else 1)\""
+      ],
+      "validated_changes": [
+        {
+          "file": "src/app_failure_typecheck.py",
+          "content": "def needs_int(value: int) -> int:\n    return value\n\nresult: int = needs_int(7)\n"
+        }
+      ],
+      "repo_fixture_files": [
+        {
+          "file": "src/app_failure_typecheck.py",
+          "content": "def needs_int(value: int) -> int:\n    return value\n\nresult: int = needs_int(\"7\")\n"
+        }
+      ],
+      "mocked_agentic_proposal_path": "fixtures/agentic-proposals/typecheck-fix.json"
+    },
+    {
       "case_id": "case-agentic-ruff-fail",
       "description": "Agentic lint fix proposal that fails validation in dry-run PR mode",
       "log_path": "fixtures/ci-logs/github-actions-ruff-failure.log",

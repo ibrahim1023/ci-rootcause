@@ -1,0 +1,4 @@
+##[group]Run mypy
+src/app_failure_typecheck.py:4: error: Argument 1 to "needs_int" has incompatible type "str"; expected "int"  [arg-type]
+##[error]Process completed with exit code 1.
+##[endgroup]

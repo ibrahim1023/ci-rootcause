@@ -1,0 +1,17 @@
+{
+  "summary": "Replace the string argument with an integer to satisfy the type checker.",
+  "candidate_fix_steps": [
+    {
+      "file": "src/app_failure_typecheck.py",
+      "instruction": "Change the needs_int call to pass an integer literal instead of a string.",
+      "rationale": "The mypy error on src/app_failure_typecheck.py:4 says the function expects int but received str."
+    }
+  ],
+  "patch_plan": [
+    {
+      "op": "modify",
+      "file": "src/app_failure_typecheck.py",
+      "content": "def needs_int(value: int) -> int:\n    return value\n\nresult: int = needs_int(7)\n"
+    }
+  ]
+}

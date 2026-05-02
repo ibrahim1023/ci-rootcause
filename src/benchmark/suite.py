@@ -38,6 +38,7 @@ class BenchmarkCase:
     execution_mode: str = "deterministic"
     llm_provider: str | None = None
     llm_model: str | None = None
+    llm_base_url: str | None = None
     min_pr_confidence: float = 0.75
     validation_commands: tuple[str, ...] = ()
     typecheck_validation_commands: tuple[str, ...] = ()
@@ -279,6 +280,11 @@ def load_benchmark_suite(suite_path: str) -> tuple[str, list[BenchmarkCase]]:
             llm_model=(
                 str(item.get("llm_model")).strip() if item.get("llm_model") is not None else None
             ),
+            llm_base_url=(
+                str(item.get("llm_base_url")).strip()
+                if item.get("llm_base_url") is not None
+                else None
+            ),
             min_pr_confidence=(
                 float(item.get("min_pr_confidence", 0.75))
                 if item.get("min_pr_confidence") is not None
@@ -372,6 +378,7 @@ def run_benchmark_suite(
                     execution_mode=case.execution_mode,
                     llm_provider=case.llm_provider,
                     llm_model=case.llm_model,
+                    llm_base_url=case.llm_base_url,
                     min_pr_confidence=case.min_pr_confidence,
                     validation_commands=list(case.validation_commands),
                     typecheck_validation_commands=list(case.typecheck_validation_commands),

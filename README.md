@@ -8,18 +8,19 @@ Deterministic CI root-cause analysis for failed CI runs.
 
 ## Proven Results (MVP Suite)
 
-From the curated MVP benchmark (`9` cases):
-- Classification accuracy: `100%` (`9/9`)
-- Baseline classification accuracy: `77.78%` (`7/9`)
-- Improvement: `+22.22` percentage points (about `28.6%` relative lift vs baseline)
-- Top-1 root-cause accuracy: `100%` (`8/8` applicable cases)
-- Agentic proposal validity: `100%` (`2/2` exercised cases)
-- Guarded validation pass rate: `50%` (`1/2`, one good fix passed and one bad fix was blocked)
+From the curated MVP benchmark (`13` cases):
+- Classification accuracy: `100%` (`13/13`)
+- Baseline classification accuracy: `69.23%` (`9/13`)
+- Improvement: `+30.77` percentage points (about `44.4%` relative lift vs baseline)
+- Top-1 root-cause accuracy: `100%` (`12/12` applicable cases)
+- Agentic proposal validity: `100%` (`6/6` exercised cases)
+- Guarded validation pass rate: `50%` (`3/6`, three good fixes passed and three bad fixes were blocked)
 - Artifact hash reproducibility: `100%`
 - Confidence reproducibility: `100%`
 
 Benchmark source:
 - Reproduce locally: `python scripts/run_benchmark.py --suite fixtures/benchmarks/mvp-suite.json --output-root artifacts/benchmark-mvp --report-json docs/reports/mvp-benchmark-report.json --report-md docs/reports/mvp-benchmark-report.md`
+- Compare local Ollama against the fixture-backed benchmark: `python scripts/run_ollama_comparison.py --suite fixtures/benchmarks/mvp-suite.json --llm-model qwen2.5-coder:7b --report-json artifacts/ollama-comparison/latest.json`
 - [`docs/reports/mvp-benchmark-report.md`](docs/reports/mvp-benchmark-report.md)
 - [`docs/reports/mvp-benchmark-report.json`](docs/reports/mvp-benchmark-report.json)
 - [`docs/limitations.md`](docs/limitations.md)

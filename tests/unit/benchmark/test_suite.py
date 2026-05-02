@@ -13,7 +13,7 @@ def test_load_benchmark_suite_returns_sorted_cases() -> None:
     suite_name, cases = load_benchmark_suite(SUITE_PATH)
 
     assert suite_name == "mvp-curated-v3"
-    assert len(cases) == 9
+    assert len(cases) == 13
     assert [case.case_id for case in cases] == sorted(case.case_id for case in cases)
     assert {case.expected_classification for case in cases} == {
         "DEPENDENCY",
@@ -30,6 +30,12 @@ def test_load_benchmark_suite_returns_sorted_cases() -> None:
     assert agentic_case.create_fix_pr is True
     assert agentic_case.dry_run is True
     assert agentic_case.llm_provider == "local"
+    agentic_test_case = next(case for case in cases if case.case_id == "case-agentic-test-pass")
+    assert agentic_test_case.expected_primary_root_cause_file == "tests/test_math.py"
+    agentic_typecheck_case = next(
+        case for case in cases if case.case_id == "case-agentic-typecheck-pass"
+    )
+    assert agentic_typecheck_case.expected_primary_root_cause_file == "src/app_failure_typecheck.py"
 
 
 def test_load_benchmark_suite_rejects_duplicate_case_ids(tmp_path: Path) -> None:

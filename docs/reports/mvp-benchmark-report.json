@@ -1,13 +1,13 @@
 {
-  "agentic_proposal_valid_cases": 2,
-  "agentic_proposal_valid_matches": 2,
+  "agentic_proposal_valid_cases": 6,
+  "agentic_proposal_valid_matches": 6,
   "agentic_proposal_valid_rate": 1.0,
   "artifact_hash_reproducibility": 1.0,
-  "artifact_hash_reproducible_cases": 9,
-  "baseline_classification_match_rate": 0.7778,
-  "baseline_classification_matches": 7,
+  "artifact_hash_reproducible_cases": 13,
+  "baseline_classification_match_rate": 0.6923,
+  "baseline_classification_matches": 9,
   "baseline_primary_root_cause_accuracy": 1.0,
-  "baseline_primary_root_cause_matches": 9,
+  "baseline_primary_root_cause_matches": 13,
   "cases": [
     {
       "actual_primary_root_cause_file": "src/app.py",
@@ -44,17 +44,17 @@
       "expected_primary_root_cause_file": "src/app.py",
       "expected_primary_root_cause_line": 7,
       "pipeline_status": "completed",
-      "pipeline_timing_ms": 10.796,
+      "pipeline_timing_ms": 12.074,
       "primary_root_cause_match": true,
       "primary_root_cause_title": "src/app.py:7:5: F401 `os` imported but unused at src/app.py:7",
       "status_values": [
         "completed",
         "completed"
       ],
-      "timing_spread_ms": 0.363,
+      "timing_spread_ms": 2.1,
       "timing_values_ms": [
-        10.796,
-        10.433
+        12.074,
+        9.974
       ],
       "top1_root_cause_applicable": true,
       "top1_root_cause_match": true,
@@ -100,23 +100,247 @@
       "expected_primary_root_cause_file": "src/app.py",
       "expected_primary_root_cause_line": 7,
       "pipeline_status": "completed",
-      "pipeline_timing_ms": 10.676,
+      "pipeline_timing_ms": 11.522,
       "primary_root_cause_match": true,
       "primary_root_cause_title": "src/app.py:7:5: F401 `os` imported but unused at src/app.py:7",
       "status_values": [
         "completed",
         "completed"
       ],
-      "timing_spread_ms": 1.868,
+      "timing_spread_ms": 0.079,
       "timing_values_ms": [
-        10.676,
-        8.808
+        11.522,
+        11.443
       ],
       "top1_root_cause_applicable": true,
       "top1_root_cause_match": true,
       "trace_id": "8aab9294042cdc9fd1325994",
       "validation_commands_used": [
         "ruff check src/app.py"
+      ],
+      "validation_pass_applicable": true,
+      "validation_passed": true
+    },
+    {
+      "actual_primary_root_cause_file": "tests/test_math.py",
+      "actual_primary_root_cause_line": 12,
+      "agentic_proposal_applicable": true,
+      "agentic_proposal_valid": true,
+      "artifact_hash_is_reproducible": true,
+      "artifact_json_hash_values": [
+        "984182df1563cb97968c4d1da4e1c2dee1f2d204cc16892dca66ba4f2bfe5657",
+        "984182df1563cb97968c4d1da4e1c2dee1f2d204cc16892dca66ba4f2bfe5657"
+      ],
+      "artifact_md_hash_values": [
+        "2077ed48c6ce098e246f5e61d2798eeaf82f2209970894811400348d43fef7c8",
+        "2077ed48c6ce098e246f5e61d2798eeaf82f2209970894811400348d43fef7c8"
+      ],
+      "baseline_classification": "TEST",
+      "baseline_classification_match": true,
+      "baseline_primary_root_cause_match": true,
+      "baseline_primary_root_cause_title": "E AssertionError: assert 3 == 4",
+      "case_id": "case-agentic-test-fail",
+      "ci_rca_json_sha256": "984182df1563cb97968c4d1da4e1c2dee1f2d204cc16892dca66ba4f2bfe5657",
+      "ci_rca_md_sha256": "2077ed48c6ce098e246f5e61d2798eeaf82f2209970894811400348d43fef7c8",
+      "classification": "TEST",
+      "classification_match": true,
+      "confidence": 0.62,
+      "confidence_is_reproducible": true,
+      "confidence_values": [
+        0.62,
+        0.62
+      ],
+      "description": "Agentic test fix proposal that still fails inferred pytest validation in dry-run PR mode",
+      "expected_classification": "TEST",
+      "expected_primary_root_cause_contains": "AssertionError",
+      "expected_primary_root_cause_file": "tests/test_math.py",
+      "expected_primary_root_cause_line": 12,
+      "pipeline_status": "completed",
+      "pipeline_timing_ms": 394.596,
+      "primary_root_cause_match": true,
+      "primary_root_cause_title": "E AssertionError: assert 3 == 4 at tests/test_math.py:12",
+      "status_values": [
+        "completed",
+        "completed"
+      ],
+      "timing_spread_ms": 9.491,
+      "timing_values_ms": [
+        394.596,
+        404.087
+      ],
+      "top1_root_cause_applicable": true,
+      "top1_root_cause_match": true,
+      "trace_id": "dee3708614900e61202cc8e9",
+      "validation_commands_used": [
+        "pytest tests/test_math.py"
+      ],
+      "validation_pass_applicable": true,
+      "validation_passed": false
+    },
+    {
+      "actual_primary_root_cause_file": "tests/test_math.py",
+      "actual_primary_root_cause_line": 12,
+      "agentic_proposal_applicable": true,
+      "agentic_proposal_valid": true,
+      "artifact_hash_is_reproducible": true,
+      "artifact_json_hash_values": [
+        "c19fc2121049d345e775a5c93f800776510bdf567e3e11e3e328d12830e42fd9",
+        "c19fc2121049d345e775a5c93f800776510bdf567e3e11e3e328d12830e42fd9"
+      ],
+      "artifact_md_hash_values": [
+        "791b5b9b15ea3decd91ccc0c86deb601d2caa4bf1c373b96855315b55066094b",
+        "791b5b9b15ea3decd91ccc0c86deb601d2caa4bf1c373b96855315b55066094b"
+      ],
+      "baseline_classification": "TEST",
+      "baseline_classification_match": true,
+      "baseline_primary_root_cause_match": true,
+      "baseline_primary_root_cause_title": "E AssertionError: assert 3 == 4",
+      "case_id": "case-agentic-test-pass",
+      "ci_rca_json_sha256": "c19fc2121049d345e775a5c93f800776510bdf567e3e11e3e328d12830e42fd9",
+      "ci_rca_md_sha256": "791b5b9b15ea3decd91ccc0c86deb601d2caa4bf1c373b96855315b55066094b",
+      "classification": "TEST",
+      "classification_match": true,
+      "confidence": 0.62,
+      "confidence_is_reproducible": true,
+      "confidence_values": [
+        0.62,
+        0.62
+      ],
+      "description": "Agentic test fix proposal that passes inferred pytest validation in dry-run PR mode",
+      "expected_classification": "TEST",
+      "expected_primary_root_cause_contains": "AssertionError",
+      "expected_primary_root_cause_file": "tests/test_math.py",
+      "expected_primary_root_cause_line": 12,
+      "pipeline_status": "completed",
+      "pipeline_timing_ms": 341.869,
+      "primary_root_cause_match": true,
+      "primary_root_cause_title": "E AssertionError: assert 3 == 4 at tests/test_math.py:12",
+      "status_values": [
+        "completed",
+        "completed"
+      ],
+      "timing_spread_ms": 0.151,
+      "timing_values_ms": [
+        341.869,
+        342.02
+      ],
+      "top1_root_cause_applicable": true,
+      "top1_root_cause_match": true,
+      "trace_id": "69fd050c92b20f02f67558e2",
+      "validation_commands_used": [
+        "pytest tests/test_math.py"
+      ],
+      "validation_pass_applicable": true,
+      "validation_passed": true
+    },
+    {
+      "actual_primary_root_cause_file": "src/app_failure_typecheck.py",
+      "actual_primary_root_cause_line": 4,
+      "agentic_proposal_applicable": true,
+      "agentic_proposal_valid": true,
+      "artifact_hash_is_reproducible": true,
+      "artifact_json_hash_values": [
+        "9afc45334137a5d5a57d4d9cc7d6538a343ff336b234d1f05c204078f452aa4f",
+        "9afc45334137a5d5a57d4d9cc7d6538a343ff336b234d1f05c204078f452aa4f"
+      ],
+      "artifact_md_hash_values": [
+        "03532dc1e3e078d4821e742c6b1230634583be915b402044bc844ee4ec3d471e",
+        "03532dc1e3e078d4821e742c6b1230634583be915b402044bc844ee4ec3d471e"
+      ],
+      "baseline_classification": "UNKNOWN",
+      "baseline_classification_match": false,
+      "baseline_primary_root_cause_match": true,
+      "baseline_primary_root_cause_title": "src/app_failure_typecheck.py:4: error: Argument 1 to \"needs_int\" has incompatible type \"str\"; expected \"int\" [arg-type]",
+      "case_id": "case-agentic-typecheck-fail",
+      "ci_rca_json_sha256": "9afc45334137a5d5a57d4d9cc7d6538a343ff336b234d1f05c204078f452aa4f",
+      "ci_rca_md_sha256": "03532dc1e3e078d4821e742c6b1230634583be915b402044bc844ee4ec3d471e",
+      "classification": "TYPECHECK",
+      "classification_match": true,
+      "confidence": 0.9,
+      "confidence_is_reproducible": true,
+      "confidence_values": [
+        0.9,
+        0.9
+      ],
+      "description": "Agentic typecheck fix proposal that still fails typecheck validation in dry-run PR mode",
+      "expected_classification": "TYPECHECK",
+      "expected_primary_root_cause_contains": "incompatible type",
+      "expected_primary_root_cause_file": "src/app_failure_typecheck.py",
+      "expected_primary_root_cause_line": 4,
+      "pipeline_status": "completed",
+      "pipeline_timing_ms": 19.986,
+      "primary_root_cause_match": true,
+      "primary_root_cause_title": "src/app_failure_typecheck.py:4: error: Argument 1 to \"needs_int\" has incompatible type \"str\"; expected \"int\" [arg-type] at src/app_failure_typecheck.py:4",
+      "status_values": [
+        "completed",
+        "completed"
+      ],
+      "timing_spread_ms": 0.678,
+      "timing_values_ms": [
+        19.986,
+        19.308
+      ],
+      "top1_root_cause_applicable": true,
+      "top1_root_cause_match": true,
+      "trace_id": "45a4a7b92d04b28b36589d90",
+      "validation_commands_used": [
+        "python -c \"from pathlib import Path; text = Path('src/app_failure_typecheck.py').read_text(); raise SystemExit(0 if 'needs_int(7)' in text and '\\\"7\\\"' not in text else 1)\""
+      ],
+      "validation_pass_applicable": true,
+      "validation_passed": false
+    },
+    {
+      "actual_primary_root_cause_file": "src/app_failure_typecheck.py",
+      "actual_primary_root_cause_line": 4,
+      "agentic_proposal_applicable": true,
+      "agentic_proposal_valid": true,
+      "artifact_hash_is_reproducible": true,
+      "artifact_json_hash_values": [
+        "3560ee015066b24a3380cfb6b892c7cbf254e7735ccfc71599539b0c6bde511d",
+        "3560ee015066b24a3380cfb6b892c7cbf254e7735ccfc71599539b0c6bde511d"
+      ],
+      "artifact_md_hash_values": [
+        "6e2668bfa4786e56c5373604283e8df7e94795be30d61c96f2fab0d515d6d528",
+        "6e2668bfa4786e56c5373604283e8df7e94795be30d61c96f2fab0d515d6d528"
+      ],
+      "baseline_classification": "UNKNOWN",
+      "baseline_classification_match": false,
+      "baseline_primary_root_cause_match": true,
+      "baseline_primary_root_cause_title": "src/app_failure_typecheck.py:4: error: Argument 1 to \"needs_int\" has incompatible type \"str\"; expected \"int\" [arg-type]",
+      "case_id": "case-agentic-typecheck-pass",
+      "ci_rca_json_sha256": "3560ee015066b24a3380cfb6b892c7cbf254e7735ccfc71599539b0c6bde511d",
+      "ci_rca_md_sha256": "6e2668bfa4786e56c5373604283e8df7e94795be30d61c96f2fab0d515d6d528",
+      "classification": "TYPECHECK",
+      "classification_match": true,
+      "confidence": 0.9,
+      "confidence_is_reproducible": true,
+      "confidence_values": [
+        0.9,
+        0.9
+      ],
+      "description": "Agentic typecheck fix proposal that passes typecheck validation in dry-run PR mode",
+      "expected_classification": "TYPECHECK",
+      "expected_primary_root_cause_contains": "incompatible type",
+      "expected_primary_root_cause_file": "src/app_failure_typecheck.py",
+      "expected_primary_root_cause_line": 4,
+      "pipeline_status": "completed",
+      "pipeline_timing_ms": 19.496,
+      "primary_root_cause_match": true,
+      "primary_root_cause_title": "src/app_failure_typecheck.py:4: error: Argument 1 to \"needs_int\" has incompatible type \"str\"; expected \"int\" [arg-type] at src/app_failure_typecheck.py:4",
+      "status_values": [
+        "completed",
+        "completed"
+      ],
+      "timing_spread_ms": 0.188,
+      "timing_values_ms": [
+        19.496,
+        19.308
+      ],
+      "top1_root_cause_applicable": true,
+      "top1_root_cause_match": true,
+      "trace_id": "cc6dc180422a75ae9a231c1f",
+      "validation_commands_used": [
+        "python -c \"from pathlib import Path; text = Path('src/app_failure_typecheck.py').read_text(); raise SystemExit(0 if 'needs_int(7)' in text and '\\\"7\\\"' not in text else 1)\""
       ],
       "validation_pass_applicable": true,
       "validation_passed": true
@@ -156,17 +380,17 @@
       "expected_primary_root_cause_file": null,
       "expected_primary_root_cause_line": null,
       "pipeline_status": "completed",
-      "pipeline_timing_ms": 0.444,
+      "pipeline_timing_ms": 0.44,
       "primary_root_cause_match": true,
       "primary_root_cause_title": "ERROR: connection reset by peer while contacting package mirror at unknown file",
       "status_values": [
         "completed",
         "completed"
       ],
-      "timing_spread_ms": 0.124,
+      "timing_spread_ms": 0.146,
       "timing_values_ms": [
-        0.444,
-        0.32
+        0.44,
+        0.294
       ],
       "top1_root_cause_applicable": false,
       "top1_root_cause_match": null,
@@ -210,17 +434,17 @@
       "expected_primary_root_cause_file": "tests/test_math.py",
       "expected_primary_root_cause_line": 12,
       "pipeline_status": "completed",
-      "pipeline_timing_ms": 0.545,
+      "pipeline_timing_ms": 0.596,
       "primary_root_cause_match": true,
       "primary_root_cause_title": "E AssertionError: assert 3 == 4 at tests/test_math.py:12",
       "status_values": [
         "completed",
         "completed"
       ],
-      "timing_spread_ms": 0.057,
+      "timing_spread_ms": 0.154,
       "timing_values_ms": [
-        0.545,
-        0.488
+        0.596,
+        0.75
       ],
       "top1_root_cause_applicable": true,
       "top1_root_cause_match": true,
@@ -264,17 +488,17 @@
       "expected_primary_root_cause_file": "tests/test_math.py",
       "expected_primary_root_cause_line": 12,
       "pipeline_status": "completed",
-      "pipeline_timing_ms": 0.459,
+      "pipeline_timing_ms": 0.474,
       "primary_root_cause_match": true,
       "primary_root_cause_title": "E AssertionError: assert 3 == 4 at tests/test_math.py:12",
       "status_values": [
         "completed",
         "completed"
       ],
-      "timing_spread_ms": 0.003,
+      "timing_spread_ms": 0.002,
       "timing_values_ms": [
-        0.459,
-        0.462
+        0.474,
+        0.472
       ],
       "top1_root_cause_applicable": true,
       "top1_root_cause_match": true,
@@ -318,17 +542,17 @@
       "expected_primary_root_cause_file": "tests/test_math.py",
       "expected_primary_root_cause_line": 12,
       "pipeline_status": "completed",
-      "pipeline_timing_ms": 0.495,
+      "pipeline_timing_ms": 0.476,
       "primary_root_cause_match": true,
       "primary_root_cause_title": "E AssertionError: assert 3 == 4 at tests/test_math.py:12",
       "status_values": [
         "completed",
         "completed"
       ],
-      "timing_spread_ms": 0.046,
+      "timing_spread_ms": 0.026,
       "timing_values_ms": [
-        0.495,
-        0.541
+        0.476,
+        0.45
       ],
       "top1_root_cause_applicable": true,
       "top1_root_cause_match": true,
@@ -372,17 +596,17 @@
       "expected_primary_root_cause_file": "tests/test_math.py",
       "expected_primary_root_cause_line": 12,
       "pipeline_status": "completed",
-      "pipeline_timing_ms": 0.533,
+      "pipeline_timing_ms": 0.484,
       "primary_root_cause_match": true,
       "primary_root_cause_title": "E AssertionError: assert 3 == 4 at tests/test_math.py:12",
       "status_values": [
         "completed",
         "completed"
       ],
-      "timing_spread_ms": 0.034,
+      "timing_spread_ms": 0.027,
       "timing_values_ms": [
-        0.533,
-        0.499
+        0.484,
+        0.457
       ],
       "top1_root_cause_applicable": true,
       "top1_root_cause_match": true,
@@ -426,17 +650,17 @@
       "expected_primary_root_cause_file": "src/app.py",
       "expected_primary_root_cause_line": 7,
       "pipeline_status": "completed",
-      "pipeline_timing_ms": 0.327,
+      "pipeline_timing_ms": 0.342,
       "primary_root_cause_match": true,
       "primary_root_cause_title": "src/app.py:7:5: F401 `os` imported but unused at src/app.py:7",
       "status_values": [
         "completed",
         "completed"
       ],
-      "timing_spread_ms": 0.026,
+      "timing_spread_ms": 0.047,
       "timing_values_ms": [
-        0.327,
-        0.301
+        0.342,
+        0.295
       ],
       "top1_root_cause_applicable": true,
       "top1_root_cause_match": true,
@@ -480,17 +704,17 @@
       "expected_primary_root_cause_file": "src/app.ts",
       "expected_primary_root_cause_line": 14,
       "pipeline_status": "completed",
-      "pipeline_timing_ms": 0.424,
+      "pipeline_timing_ms": 0.396,
       "primary_root_cause_match": true,
       "primary_root_cause_title": "src/app.ts(14,5): error TS2345: Argument of type 'number' is not assignable to parameter of type 'string'. at src/app.ts:14",
       "status_values": [
         "completed",
         "completed"
       ],
-      "timing_spread_ms": 0.056,
+      "timing_spread_ms": 0.003,
       "timing_values_ms": [
-        0.424,
-        0.368
+        0.396,
+        0.399
       ],
       "top1_root_cause_applicable": true,
       "top1_root_cause_match": true,
@@ -511,31 +735,31 @@
       "LINT": 3
     },
     "TEST": {
-      "TEST": 2
+      "TEST": 4
     },
     "TYPECHECK": {
-      "TYPECHECK": 1
+      "TYPECHECK": 3
     }
   },
-  "classification_match_lift": 0.2222,
+  "classification_match_lift": 0.3077,
   "classification_match_rate": 1.0,
-  "classification_matches": 9,
-  "completed_cases": 9,
+  "classification_matches": 13,
+  "completed_cases": 13,
   "completion_rate": 1.0,
   "confidence_reproducibility": 1.0,
-  "confidence_reproducible_cases": 9,
-  "mean_time_to_diagnosis_ms": 2.744,
-  "median_time_to_diagnosis_ms": 0.495,
-  "p95_time_to_diagnosis_ms": 10.676,
+  "confidence_reproducible_cases": 13,
+  "mean_time_to_diagnosis_ms": 61.75,
+  "median_time_to_diagnosis_ms": 0.596,
+  "p95_time_to_diagnosis_ms": 341.869,
   "primary_root_cause_accuracy": 1.0,
   "primary_root_cause_accuracy_lift": 0.0,
-  "primary_root_cause_matches": 9,
+  "primary_root_cause_matches": 13,
   "suite_name": "mvp-curated-v3",
   "top1_root_cause_accuracy": 1.0,
-  "top1_root_cause_cases": 8,
-  "top1_root_cause_matches": 8,
-  "total_cases": 9,
-  "validation_pass_cases": 2,
-  "validation_pass_matches": 1,
+  "top1_root_cause_cases": 12,
+  "top1_root_cause_matches": 12,
+  "total_cases": 13,
+  "validation_pass_cases": 6,
+  "validation_pass_matches": 3,
   "validation_pass_rate": 0.5
 }
