@@ -4,7 +4,9 @@
     "compression_signal_preservation_rate_min": 1.0,
     "compression_noise_pruning_rate_min": 1.0,
     "contradiction_documented_rate_min": 1.0,
-    "contradiction_resolution_basis_rate_min": 1.0
+    "contradiction_resolution_basis_rate_min": 1.0,
+    "state_update_discipline_rate_min": 1.0,
+    "stale_history_rejection_rate_min": 1.0
   },
   "cases": [
     {
@@ -80,6 +82,40 @@
         "reason_contains": "expected behavior"
       },
       "failure_modes": ["silent_resolution", "doc_over_tests"],
+      "must_pass": true
+    },
+    {
+      "id": "state-completed-work-updates-progress",
+      "type": "state",
+      "description": "Completed work must update task/progress state instead of leaving stale planning markers behind.",
+      "observed": {
+        "state_updated": true,
+        "source_of_truth": "code_and_progress",
+        "reason": "The task and progress records were updated after the work completed, matching the implemented repository state."
+      },
+      "expected": {
+        "state_updated": true,
+        "source_of_truth": "code_and_progress",
+        "reason_contains": "repository state"
+      },
+      "failure_modes": ["stale_progress", "task_progress_drift"],
+      "must_pass": true
+    },
+    {
+      "id": "state-rejects-stale-history",
+      "type": "state",
+      "description": "Stale history notes must not override current code and tests when establishing repository truth.",
+      "observed": {
+        "state_updated": true,
+        "source_of_truth": "code_and_tests",
+        "reason": "An older progress note disagreed with the repository, so current code and tests were treated as the source of truth and the stale note would need correction."
+      },
+      "expected": {
+        "state_updated": true,
+        "source_of_truth": "code_and_tests",
+        "reason_contains": "source of truth"
+      },
+      "failure_modes": ["stale_history_over_code", "silent_state_drift"],
       "must_pass": true
     }
   ]

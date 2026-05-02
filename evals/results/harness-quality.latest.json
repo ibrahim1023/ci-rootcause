@@ -78,6 +78,40 @@
       "id": "contradiction-tests-over-doc",
       "passed": true,
       "type": "contradiction"
+    },
+    {
+      "checks": {
+        "stale_history_rejection": true,
+        "state_reason_contains": true,
+        "state_update_discipline": true
+      },
+      "details": {
+        "observed": {
+          "reason": "The task and progress records were updated after the work completed, matching the implemented repository state.",
+          "source_of_truth": "code_and_progress",
+          "state_updated": true
+        }
+      },
+      "id": "state-completed-work-updates-progress",
+      "passed": true,
+      "type": "state"
+    },
+    {
+      "checks": {
+        "stale_history_rejection": true,
+        "state_reason_contains": true,
+        "state_update_discipline": true
+      },
+      "details": {
+        "observed": {
+          "reason": "An older progress note disagreed with the repository, so current code and tests were treated as the source of truth and the stale note would need correction.",
+          "source_of_truth": "code_and_tests",
+          "state_updated": true
+        }
+      },
+      "id": "state-rejects-stale-history",
+      "passed": true,
+      "type": "state"
     }
   ],
   "suite_name": "harness-quality-v1",
@@ -87,7 +121,9 @@
       "compression_noise_pruning_rate": true,
       "compression_signal_preservation_rate": true,
       "contradiction_documented_rate": true,
-      "contradiction_resolution_basis_rate": true
+      "contradiction_resolution_basis_rate": true,
+      "stale_history_rejection_rate": true,
+      "state_update_discipline_rate": true
     },
     "metrics": {
       "classification_accuracy": null,
@@ -98,10 +134,12 @@
       "contradiction_resolution_basis_rate": 1.0,
       "evidence_grounding_pass_rate": null,
       "pass_rate": 1.0,
+      "stale_history_rejection_rate": 1.0,
+      "state_update_discipline_rate": 1.0,
       "top1_root_cause_accuracy": null
     },
     "passed": true,
-    "passed_cases": 4,
-    "total_cases": 4
+    "passed_cases": 6,
+    "total_cases": 6
   }
 }

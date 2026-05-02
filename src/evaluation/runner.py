@@ -253,6 +253,32 @@ def _run_contradiction_case(case: dict[str, Any]) -> EvalResult:
     )
 
 
+def _run_state_case(case: dict[str, Any]) -> EvalResult:
+    case_id = str(case.get("id", "")).strip()
+    observed = case.get("observed")
+    expected = case.get("expected")
+    if not case_id or not isinstance(observed, dict) or not isinstance(expected, dict):
+        raise EvaluationError("state eval case requires id, observed, and expected objects")
+
+    checks = {
+        "state_update_discipline": bool(observed.get("state_updated", False))
+        == bool(expected.get("state_updated", False)),
+        "stale_history_rejection": str(observed.get("source_of_truth", "")).strip()
+        == str(expected.get("source_of_truth", "")).strip(),
+        "state_reason_contains": _contains(
+            str(observed.get("reason", "")),
+            str(expected.get("reason_contains", "")),
+        ),
+    }
+    return EvalResult(
+        case_id=case_id,
+        case_type="state",
+        passed=all(checks.values()),
+        checks=checks,
+        details={"observed": observed},
+    )
+
+
 def _rate(results: list[EvalResult], check_name: str) -> float | None:
     applicable = [result for result in results if check_name in result.checks]
     if not applicable:
@@ -274,6 +300,8 @@ def _build_summary(results: list[EvalResult], thresholds: dict[str, Any]) -> dic
         "compression_noise_pruning_rate": _rate(results, "compression_noise_pruning"),
         "contradiction_documented_rate": _rate(results, "contradiction_documented"),
         "contradiction_resolution_basis_rate": _rate(results, "contradiction_resolution_basis"),
+        "state_update_discipline_rate": _rate(results, "state_update_discipline"),
+        "stale_history_rejection_rate": _rate(results, "stale_history_rejection"),
     }
     threshold_map = {
         "classification_accuracy": "classification_accuracy_min",
@@ -284,6 +312,8 @@ def _build_summary(results: list[EvalResult], thresholds: dict[str, Any]) -> dic
         "compression_noise_pruning_rate": "compression_noise_pruning_rate_min",
         "contradiction_documented_rate": "contradiction_documented_rate_min",
         "contradiction_resolution_basis_rate": "contradiction_resolution_basis_rate_min",
+        "state_update_discipline_rate": "state_update_discipline_rate_min",
+        "stale_history_rejection_rate": "stale_history_rejection_rate_min",
     }
     gates: dict[str, bool] = {}
     for metric_name, threshold_name in threshold_map.items():
@@ -322,6 +352,8 @@ def run_eval_dataset(
             results.append(_run_compression_case(case))
         elif case_type == "contradiction":
             results.append(_run_contradiction_case(case))
+        elif case_type == "state":
+            results.append(_run_state_case(case))
         else:
             raise EvaluationError(f"unsupported eval case type: {case_type}")
 
