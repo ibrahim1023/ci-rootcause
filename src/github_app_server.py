@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import threading
 from dataclasses import dataclass
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
@@ -13,6 +14,10 @@ from src.github_app_auth import (
     mint_github_app_installation_token,
 )
 from src.github_app_runtime import GitHubAppRepoConfig, process_github_app_webhook
+from src.github_app_webhook import (
+    GitHubWebhookError,
+    handle_github_app_webhook,
+)
 
 
 @dataclass(frozen=True)
@@ -21,6 +26,7 @@ class GitHubAppServerConfig:
     private_key_pem: str
     webhook_secret: str
     api_base: str = "https://api.github.com"
+    async_webhook: bool = False
 
 
 @dataclass(frozen=True)
@@ -115,6 +121,10 @@ def load_server_config_from_env() -> GitHubAppServerConfig:
         private_key_pem=private_key_pem,
         webhook_secret=webhook_secret,
         api_base=api_base,
+        async_webhook=_parse_bool(
+            os.getenv("CI_ROOTCAUSE_APP_ASYNC_WEBHOOK", "false"),
+            default=False,
+        ),
     )
 
 
@@ -195,6 +205,87 @@ def process_webhook_request(
     return ProcessResult(status_code=_status_code_for_result(result), payload=result)
 
 
+def prepare_async_webhook_acceptance(
+    *,
+    headers: dict[str, str],
+    body: bytes,
+    server_config: GitHubAppServerConfig,
+) -> ProcessResult | None:
+    event_name = _get_header(headers, "X-GitHub-Event").strip().lower()
+    if event_name != "workflow_run":
+        return None
+
+    try:
+        webhook_result = handle_github_app_webhook(
+            headers=headers,
+            body=body,
+            webhook_secret=server_config.webhook_secret,
+        )
+    except GitHubWebhookError as exc:
+        return ProcessResult(
+            status_code=401,
+            payload={
+                "status": "error",
+                "reason_code": "WEBHOOK_VALIDATION_FAILED",
+                "reason": str(exc),
+            },
+        )
+
+    if not webhook_result.get("handled", False) or webhook_result.get("ignored", False):
+        payload = {
+            "status": "skipped",
+            "reason_code": str(webhook_result.get("reason_code", "UNSUPPORTED_EVENT")),
+            "reason": str(webhook_result.get("reason", "")),
+            "event": str(webhook_result.get("event", "")),
+            "delivery": str(webhook_result.get("delivery", "")),
+            "repository": str(webhook_result.get("repository", "")),
+            "workflow_run_id": int(webhook_result.get("workflow_run_id", 0) or 0),
+        }
+        return ProcessResult(status_code=_status_code_for_result(payload), payload=payload)
+
+    payload = {
+        "status": "ok",
+        "reason_code": "",
+        "reason": "workflow_run accepted for background processing",
+        "event": str(webhook_result.get("event", "")),
+        "delivery": str(webhook_result.get("delivery", "")),
+        "repository": str(webhook_result.get("repository", "")),
+        "workflow_run_id": int(webhook_result.get("workflow_run_id", 0) or 0),
+    }
+    return ProcessResult(status_code=202, payload=payload)
+
+
+def _process_webhook_request_background(
+    *,
+    headers: dict[str, str],
+    body: bytes,
+    server_config: GitHubAppServerConfig,
+    repo_config: GitHubAppRepoConfig,
+) -> None:
+    try:
+        result = process_webhook_request(
+            headers=headers,
+            body=body,
+            server_config=server_config,
+            repo_config=repo_config,
+        )
+        print(
+            "github-app-server async result: " + json.dumps(result.payload, sort_keys=True),
+        )
+    except Exception as exc:  # pragma: no cover - defensive background guardrail
+        print(
+            "github-app-server async error: "
+            + json.dumps(
+                {
+                    "status": "error",
+                    "reason_code": "APP_ASYNC_WORKER_ERROR",
+                    "reason": str(exc),
+                },
+                sort_keys=True,
+            ),
+        )
+
+
 class GitHubAppWebhookHandler(BaseHTTPRequestHandler):
     server_version = "ci-rootcause-github-app/1"
 
@@ -225,11 +316,35 @@ class GitHubAppWebhookHandler(BaseHTTPRequestHandler):
 
         body = self.rfile.read(max(0, body_len))
         header_map = {str(key): str(value) for key, value in self.headers.items()}
+        server_config = self.server.server_config  # type: ignore[attr-defined]
+        repo_config = self.server.repo_config  # type: ignore[attr-defined]
+        if server_config.async_webhook:
+            acceptance = prepare_async_webhook_acceptance(
+                headers=header_map,
+                body=body,
+                server_config=server_config,
+            )
+            if acceptance is not None:
+                if acceptance.status_code == 202:
+                    worker = threading.Thread(
+                        target=_process_webhook_request_background,
+                        kwargs={
+                            "headers": header_map,
+                            "body": body,
+                            "server_config": server_config,
+                            "repo_config": repo_config,
+                        },
+                        daemon=True,
+                    )
+                    worker.start()
+                self._write_json(acceptance.status_code, acceptance.payload)
+                return
+
         result = process_webhook_request(
             headers=header_map,
             body=body,
-            server_config=self.server.server_config,  # type: ignore[attr-defined]
-            repo_config=self.server.repo_config,  # type: ignore[attr-defined]
+            server_config=server_config,
+            repo_config=repo_config,
         )
         self._write_json(result.status_code, result.payload)
 

@@ -36,10 +36,22 @@ Recommended initial repo config:
 }
 ```
 
+## Delivery Mode
+
+Set `CI_ROOTCAUSE_APP_ASYNC_WEBHOOK=true` for local LLM or slow agentic runs. The server
+validates the webhook signature and event shape, returns `202` to GitHub immediately, and
+continues RCA/comment/PR processing in a background thread.
+
+In async mode, GitHub's delivery response only confirms acceptance. The final result is
+visible in server logs and the posted GitHub comment.
+
 ## Troubleshooting
 
 - `WEBHOOK_VALIDATION_FAILED`:
   - Check `X-Hub-Signature-256` generation and webhook secret parity.
+- GitHub shows `We couldn't deliver this payload` while local LLM processing is enabled:
+  - Enable async webhook mode with `CI_ROOTCAUSE_APP_ASYNC_WEBHOOK=true`.
+  - Keep synchronous mode only when you need the final RCA JSON directly in the delivery response.
 - `WORKFLOW_NOT_COMPLETED` / `WORKFLOW_NOT_FAILED`:
   - Expected skip for non-failed or non-completed workflow runs.
 - `REPOSITORY_DISABLED` / `REPOSITORY_NOT_ALLOWLISTED` / `REPOSITORY_DENYLISTED`:

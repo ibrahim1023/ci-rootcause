@@ -52,12 +52,16 @@ Repository-level app configuration schema (logical contract):
   - Whether app posts RCA summary comment for failed runs.
 
 ## Environment Mapping
+- `CI_ROOTCAUSE_APP_ASYNC_WEBHOOK`
 - `CI_ROOTCAUSE_APP_VALIDATION_COMMANDS`
 - `CI_ROOTCAUSE_APP_TYPECHECK_VALIDATION_COMMANDS`
 - `CI_ROOTCAUSE_APP_LINT_VALIDATION_COMMANDS`
 - `CI_ROOTCAUSE_APP_TEST_VALIDATION_COMMANDS`
 
 Command lists accept semicolon or newline separators.
+
+`CI_ROOTCAUSE_APP_ASYNC_WEBHOOK=true` makes the webhook server acknowledge failed
+`workflow_run` deliveries before slower RCA/comment/PR processing starts.
 
 ## Deterministic Defaults
 - No automatic PR creation.
