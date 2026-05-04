@@ -623,6 +623,59 @@ def test_pr_creation_prefers_request_validated_changes_over_synthesis() -> None:
     assert resolved == explicit
 
 
+def test_pr_creation_uses_agentic_patch_plan_as_validated_changes() -> None:
+    resolved = _resolve_validated_changes_for_pr_creation(
+        request_validated_changes=[],
+        classification="TYPECHECK",
+        primary_root_cause={
+            "evidence": [{"file": "app_failure_typecheck.py", "line": 4}],
+        },
+        fix_output={
+            "fix_steps": [{"file": "app_failure_typecheck.py"}],
+            "agentic_proposal": {
+                "patch_plan": [
+                    {
+                        "op": "modify",
+                        "file": "app_failure_typecheck.py",
+                        "content": "result: int = needs_int(7)\n",
+                    }
+                ]
+            },
+        },
+    )
+
+    assert resolved == [
+        {
+            "file": "app_failure_typecheck.py",
+            "content": "result: int = needs_int(7)\n",
+        }
+    ]
+
+
+def test_pr_creation_ignores_unsupported_agentic_patch_plan_ops() -> None:
+    resolved = _resolve_validated_changes_for_pr_creation(
+        request_validated_changes=[],
+        classification="TYPECHECK",
+        primary_root_cause={
+            "evidence": [{"file": "app_failure_typecheck.py", "line": 4}],
+        },
+        fix_output={
+            "fix_steps": [{"file": "app_failure_typecheck.py"}],
+            "agentic_proposal": {
+                "patch_plan": [
+                    {
+                        "op": "delete",
+                        "file": "app_failure_typecheck.py",
+                        "content": "",
+                    }
+                ]
+            },
+        },
+    )
+
+    assert resolved == []
+
+
 def test_pr_creation_synthesizes_typecheck_validated_changes(tmp_path: Path) -> None:
     target = tmp_path / "src" / "core" / "math.py"
     target.parent.mkdir(parents=True, exist_ok=True)

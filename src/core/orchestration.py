@@ -389,6 +389,24 @@ def _resolve_validated_changes_for_pr_creation(
     if request_validated_changes:
         return request_validated_changes
 
+    agentic_proposal = fix_output.get("agentic_proposal", {})
+    if isinstance(agentic_proposal, dict):
+        proposal_changes: dict[str, str] = {}
+        for item in agentic_proposal.get("patch_plan", []):
+            if not isinstance(item, dict):
+                continue
+            op = str(item.get("op", "")).strip().lower()
+            if op not in {"modify", "create"}:
+                continue
+            file_path = _normalize_repo_relative_path(str(item.get("file", "")))
+            if not file_path:
+                continue
+            proposal_changes[file_path] = str(item.get("content", ""))
+        if proposal_changes:
+            return [
+                {"file": key, "content": proposal_changes[key]} for key in sorted(proposal_changes)
+            ]
+
     if classification != "TYPECHECK":
         return []
 
