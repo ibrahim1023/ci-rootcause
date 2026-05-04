@@ -30,6 +30,7 @@ Benchmark source:
 - Compare local Ollama against the fixture-backed benchmark: `python scripts/run_ollama_comparison.py --suite fixtures/benchmarks/mvp-suite.json --llm-model qwen2.5-coder:7b --report-json artifacts/ollama-comparison/latest.json`
 - [`docs/reports/mvp-benchmark-report.md`](docs/reports/mvp-benchmark-report.md)
 - [`docs/reports/mvp-benchmark-report.json`](docs/reports/mvp-benchmark-report.json)
+- [`docs/reports/ollama-comparison.md`](docs/reports/ollama-comparison.md)
 - [`docs/limitations.md`](docs/limitations.md)
 
 ## App-First Quickstart (No YAML)
@@ -71,6 +72,7 @@ Recommended default for new users: `deterministic`.
 Provider support:
 - Hosted: `openai`, `gemini`, `anthropic` (require `provider_api_key` in agentic modes).
 - Local: `local` (Ollama endpoint compatible, no paid vendor API key required).
+- Recommended local default: `qwen2.5-coder:3b`; use `qwen2.5-coder:7b` for larger local quality runs.
 
 Provider examples:
 - GitHub App local/Ollama: `CI_ROOTCAUSE_APP_LLM_PROVIDER=local` + `CI_ROOTCAUSE_APP_LLM_BASE_URL=http://localhost:11434`
