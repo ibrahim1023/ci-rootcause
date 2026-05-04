@@ -23,7 +23,25 @@ jobs:
   trigger-failure:
     runs-on: ubuntu-latest
     env:
-      SCENARIO: ${{ github.event_name == 'workflow_dispatch' && inputs.scenario || 'typecheck' }}
+      SCENARIO: >-
+        ${{
+          github.event_name == 'workflow_dispatch' && inputs.scenario ||
+          (
+            contains(format('{0} {1}',
+              github.event.pull_request.title || '',
+              github.event.pull_request.body || ''
+            ), '[fixture:dependency]') && 'dependency' ||
+            contains(format('{0} {1}',
+              github.event.pull_request.title || '',
+              github.event.pull_request.body || ''
+            ), '[fixture:infra]') && 'infra' ||
+            contains(format('{0} {1}',
+              github.event.pull_request.title || '',
+              github.event.pull_request.body || ''
+            ), '[fixture:syntax]') && 'syntax' ||
+            'typecheck'
+          )
+        }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
