@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 
+import src.core.orchestration as orchestration
 from src.agents.agentic_proposer import AgenticProposalProviderError
 from src.core.orchestration import (
     ADKRuntimeScaffold,
@@ -607,6 +608,56 @@ def test_run_pipeline_honors_offline_only_mode_for_pr_creation(tmp_path: Path) -
     assert result.pipeline_status == "completed"
     assert result.agent_outputs["pr_creation"]["pr_created"] is False
     assert result.agent_outputs["pr_creation"]["failure_reason"] == "offline_only=true"
+
+
+def test_pr_creation_payload_branches_from_failing_head(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    captured: dict[str, object] = {}
+
+    def fake_run_pr_creation(**kwargs: object) -> dict[str, object]:
+        captured.update(kwargs["payload"])  # type: ignore[arg-type]
+        return {
+            "pr_created": False,
+            "pr_url": None,
+            "pr_number": None,
+            "pr_branch": "ci-rootcause/fix/base111-head222",
+            "failure_reason_code": "DRY_RUN",
+            "failure_reason": "dry_run=true",
+            "validation_attempted": False,
+            "validation_passed": None,
+            "validation_commands": [],
+            "commit_message": None,
+        }
+
+    monkeypatch.setattr(orchestration, "run_pr_creation", fake_run_pr_creation)
+
+    request = PipelineRequest(
+        raw_log=_sample_log(),
+        raw_diff=_sample_diff(),
+        timestamp="2026-02-24T01:00:00Z",
+        commit="head222",
+        run_id="gha_pr_head",
+        base_commit="base111",
+        head_commit="head222",
+        output_dir=str(tmp_path),
+        repository="acme/ci-rootcause",
+        target_branch="codex/failing-pr",
+        create_fix_pr=True,
+        dry_run=True,
+        use_adk_runtime=False,
+    )
+
+    result = run_pipeline(request=request)
+
+    assert result.pipeline_status == "completed"
+    assert captured["branch_base_ref"] == "head222"
+    assert captured["target_branch"] == "codex/failing-pr"
+    assert captured["meta"] == {
+        "run_id": "gha_pr_head",
+        "base_commit": "base111",
+        "head_commit": "head222",
+    }
 
 
 def test_pr_creation_prefers_request_validated_changes_over_synthesis() -> None:

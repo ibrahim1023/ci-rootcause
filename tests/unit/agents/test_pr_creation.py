@@ -126,6 +126,25 @@ def test_build_branch_creation_plan_uses_meta_refs() -> None:
     )
 
 
+def test_build_branch_creation_plan_uses_explicit_branch_base_ref() -> None:
+    payload = {
+        "create_fix_pr": True,
+        "branch_base_ref": "failedheadcafebabe",
+        "meta": {
+            "base_commit": "abc123deadbeef",
+            "head_commit": "def456feedface",
+        },
+    }
+
+    plan = build_branch_creation_plan(payload)
+
+    assert plan == BranchCreationPlan(
+        base_ref="failedheadcafebabe",
+        head_ref="def456feedface",
+        pr_branch="ci-rootcause/fix/abc123deadbe-def456feedfa",
+    )
+
+
 def test_create_fix_branch_runs_expected_git_commands(tmp_path: Path) -> None:
     runner = FakeGitRunner(fail_on={"show-ref"}, seen=[])
     plan = BranchCreationPlan(

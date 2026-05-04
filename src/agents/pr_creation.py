@@ -71,6 +71,8 @@ class GitHubClient(Protocol):
 
 @dataclass(frozen=True)
 class BranchCreationPlan:
+    # Ref used to create the fix branch. For PR failures this must be the failing
+    # head commit so the patch applies on top of the code that actually failed.
     base_ref: str
     head_ref: str
     pr_branch: str
@@ -209,14 +211,17 @@ def build_branch_creation_plan(payload: dict[str, Any]) -> BranchCreationPlan:
     meta = payload.get("meta", {})
     base_ref = str(payload.get("base_ref") or meta.get("base_commit") or "").strip()
     head_ref = str(payload.get("head_ref") or meta.get("head_commit") or "").strip()
+    branch_base_ref = str(payload.get("branch_base_ref") or base_ref).strip()
 
     if not base_ref:
         raise BranchCreationError("Missing base_ref or meta.base_commit for branch creation")
     if not head_ref:
         raise BranchCreationError("Missing head_ref or meta.head_commit for branch creation")
+    if not branch_base_ref:
+        raise BranchCreationError("Missing branch_base_ref or base reference for branch creation")
 
     return BranchCreationPlan(
-        base_ref=base_ref,
+        base_ref=branch_base_ref,
         head_ref=head_ref,
         pr_branch=build_fix_branch_name(base_ref=base_ref, head_ref=head_ref),
     )

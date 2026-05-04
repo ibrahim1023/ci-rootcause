@@ -491,6 +491,7 @@ def _run_pr_creation_agent(state: PipelineState) -> dict[str, Any]:
         "github_token": state.request.github_token or "",
         "repository": state.config.repo.repository,
         "target_branch": state.config.repo.target_branch,
+        "branch_base_ref": state.config.commit.head_commit,
         "summary": f"{classification_output['classification']} failure: {primary['title']}",
         "classification": classification_output["classification"],
         "confidence": ranker_output["confidence"],
