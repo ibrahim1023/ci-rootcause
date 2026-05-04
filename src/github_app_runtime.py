@@ -24,6 +24,10 @@ from src.github_app_webhook import (
     handle_github_app_webhook,
 )
 
+PR_REASON_AGENTIC_MISSING_KEY = "AGENTIC_MISSING_KEY"
+PR_REASON_AGENTIC_PROVIDER_ERROR = "AGENTIC_PROVIDER_ERROR"
+PR_REASON_AGENTIC_MAX_ATTEMPTS_EXCEEDED = "AGENTIC_MAX_ATTEMPTS_EXCEEDED"
+
 
 @dataclass(frozen=True)
 class GitHubAppRepoConfig:
@@ -138,6 +142,27 @@ def _pipeline_summary(state: Any) -> dict[str, Any]:
         "evidence": evidence,
         "suggested_fix": suggested_fix,
     }
+
+
+def _infer_pipeline_failure_reason(state: Any) -> tuple[str, str]:
+    failures = getattr(state, "failures", [])
+    if not isinstance(failures, list):
+        return "", ""
+
+    for failure in failures:
+        if not isinstance(failure, dict):
+            continue
+        message = str(failure.get("message", "")).strip()
+        normalized_message = message.lower()
+        error_type = str(failure.get("error_type", "")).strip()
+
+        if "provider api key is required" in normalized_message:
+            return PR_REASON_AGENTIC_MISSING_KEY, message
+        if error_type == "AgenticProposalProviderError":
+            return PR_REASON_AGENTIC_PROVIDER_ERROR, message
+        if "max attempts exceeded" in normalized_message:
+            return PR_REASON_AGENTIC_MAX_ATTEMPTS_EXCEEDED, message
+    return "", ""
 
 
 def process_github_app_webhook(
@@ -301,6 +326,7 @@ def process_github_app_webhook(
 
     state = run_pipeline(request=request)
     summary = _pipeline_summary(state=state)
+    pipeline_failure_reason_code, pipeline_failure_reason = _infer_pipeline_failure_reason(state)
     artifact_reason_code = ""
     artifact_reason = ""
     if not str(summary["rca_json_path"]).strip() or not str(summary["rca_md_path"]).strip():
@@ -365,14 +391,18 @@ def process_github_app_webhook(
     status = STATUS_OK
     reason_code = ""
     reason = ""
-    if artifact_reason_code:
-        status = STATUS_PARTIAL
-        reason_code = artifact_reason_code
-        reason = artifact_reason
     if comment_reason_code:
         status = STATUS_PARTIAL
         reason_code = comment_reason_code
         reason = comment_reason
+    elif pipeline_failure_reason_code:
+        status = STATUS_PARTIAL
+        reason_code = pipeline_failure_reason_code
+        reason = pipeline_failure_reason
+    elif artifact_reason_code:
+        status = STATUS_PARTIAL
+        reason_code = artifact_reason_code
+        reason = artifact_reason
 
     outcome = build_outcome(
         status=status,

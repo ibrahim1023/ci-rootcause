@@ -10,6 +10,7 @@ from src.github_app_runtime import GitHubAppRepoConfig, process_github_app_webho
 class _FakeState:
     agent_outputs: dict[str, dict[str, object]]
     pipeline_status: str = "completed"
+    failures: list[dict[str, object]] | None = None
 
 
 def test_process_github_app_webhook_skips_ignored_events(monkeypatch) -> None:
@@ -581,3 +582,92 @@ def test_process_github_app_webhook_marks_partial_when_artifact_paths_missing(mo
     assert result["status"] == "partial"
     assert result["reason_code"] == "ARTIFACT_OUTPUT_MISSING"
     assert result["artifact_output_ok"] is False
+
+
+def test_process_github_app_webhook_prefers_missing_key_reason_over_artifact_symptom(
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(
+        "src.github_app_runtime.handle_github_app_webhook",
+        lambda headers, body, webhook_secret: {  # noqa: ARG005
+            "handled": True,
+            "ignored": False,
+            "event": "workflow_run",
+            "delivery": "d1",
+            "repository": "acme/project",
+            "workflow_run_id": 205,
+            "head_sha": "head205",
+            "base_sha": "base205",
+            "head_branch": "main",
+            "pull_request_number": 12,
+        },
+    )
+    monkeypatch.setattr(
+        "src.github_app_runtime.collect_workflow_run_inputs",
+        lambda **kwargs: WorkflowRunIngestionPayload(  # noqa: ANN003
+            repository="acme/project",
+            workflow_run_id=205,
+            base_sha="base205",
+            head_sha="head205",
+            raw_log="pytest failed\n",
+            raw_diff="diff --git a/a.py b/a.py\n",
+        ),
+    )
+    monkeypatch.setattr(
+        "src.github_app_runtime.run_pipeline",
+        lambda request: _FakeState(  # noqa: ARG005
+            agent_outputs={
+                "failure_classification": {"classification": "TYPECHECK"},
+                "root_cause_ranker": {
+                    "confidence": 0.54,
+                    "primary_root_cause": {"title": "typecheck failed"},
+                },
+                "reporter": {
+                    "ci_rca_json_path": "",
+                    "ci_rca_md_path": "",
+                },
+                "pr_creation": {"pr_created": False},
+            },
+            pipeline_status="partial",
+            failures=[
+                {
+                    "agent": "fix_planner",
+                    "error_type": "AgenticProposalProviderError",
+                    "message": "provider api key is required for hosted proposer",
+                }
+            ],
+        ),
+    )
+
+    class _FakeCommentResult:
+        target = "pull_request"
+        comment_id = 12
+        action = "updated"
+        html_url = "https://example.com/comment/12"
+
+    class _FakeCommentClient:
+        def __init__(self, *, token: str, api_base: str = "https://api.github.com") -> None:
+            del token, api_base
+
+        def upsert_pr_comment(self, *, repository: str, pull_request_number: int, body: str):  # noqa: ANN201
+            del repository, pull_request_number, body
+            return _FakeCommentResult()
+
+        def upsert_commit_comment(self, *, repository: str, commit_sha: str, body: str):  # noqa: ANN201
+            del repository, commit_sha, body
+            raise AssertionError("commit comment path should not be used")
+
+    monkeypatch.setattr("src.github_app_runtime.GitHubAppCommentClient", _FakeCommentClient)
+
+    result = process_github_app_webhook(
+        headers={"X-GitHub-Event": "workflow_run"},
+        body=b"{}",
+        webhook_secret="secret",
+        github_token="token",
+    )
+
+    assert result["status"] == "partial"
+    assert result["reason_code"] == "AGENTIC_MISSING_KEY"
+    assert result["reason"] == "provider api key is required for hosted proposer"
+    assert result["artifact_output_ok"] is False
+    assert result["artifact_output_reason_code"] == "ARTIFACT_OUTPUT_MISSING"
