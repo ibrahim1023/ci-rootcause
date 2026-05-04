@@ -18,6 +18,13 @@ From the curated MVP benchmark (`13` cases):
 - Artifact hash reproducibility: `100%`
 - Confidence reproducibility: `100%`
 
+What has been tested so far:
+- Automated test suite: `287` tests passing.
+- Benchmark failure classes: `TYPECHECK`, `LINT`, `TEST`, `DEPENDENCY`, and `INFRA`.
+- Agentic benchmark coverage: `6` proposal cases across lint, test, and typecheck fixes.
+- Guardrail coverage: safe default comment-only mode, PR opt-in gate, confidence threshold, scoped file changes, validation pass/fail, missing hosted API key, and malformed agentic proposal retry.
+- Live GitHub App smoke coverage: real `workflow_run` webhooks, PR comment create/update, typecheck/dependency/infra failures, local/Ollama suggestions, validation-failed PR gate, and async webhook acknowledgement for slow local models.
+
 Benchmark source:
 - Reproduce locally: `python scripts/run_benchmark.py --suite fixtures/benchmarks/mvp-suite.json --output-root artifacts/benchmark-mvp --report-json docs/reports/mvp-benchmark-report.json --report-md docs/reports/mvp-benchmark-report.md`
 - Compare local Ollama against the fixture-backed benchmark: `python scripts/run_ollama_comparison.py --suite fixtures/benchmarks/mvp-suite.json --llm-model qwen2.5-coder:7b --report-json artifacts/ollama-comparison/latest.json`
