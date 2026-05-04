@@ -4,7 +4,7 @@ Deterministic CI root-cause analysis for failed CI runs.
 
 ![CI](https://github.com/ibrahim1023/ci-rootcause/actions/workflows/ci.yml/badge.svg)
 ![Latest Release](https://img.shields.io/github/v/release/ibrahim1023/ci-rootcause)
-![Tests](https://img.shields.io/badge/tests-151%20passed-brightgreen)
+![Tests](https://img.shields.io/badge/tests-287%20passed-brightgreen)
 
 ## Proven Results (MVP Suite)
 
@@ -65,11 +65,12 @@ Provider support:
 - Hosted: `openai`, `gemini`, `anthropic` (require `provider_api_key` in agentic modes).
 - Local: `local` (Ollama endpoint compatible, no paid vendor API key required).
 
-Action secret examples:
-- `provider: openai` + `provider_api_key: ${{ secrets.OPENAI_API_KEY }}`
-- `provider: gemini` + `provider_api_key: ${{ secrets.GEMINI_API_KEY }}`
-- `provider: anthropic` + `provider_api_key: ${{ secrets.ANTHROPIC_API_KEY }}`
-- `provider: local` + no `provider_api_key`
+Provider examples:
+- GitHub App local/Ollama: `CI_ROOTCAUSE_APP_LLM_PROVIDER=local` + `CI_ROOTCAUSE_APP_LLM_BASE_URL=http://localhost:11434`
+- GitHub App OpenAI: `CI_ROOTCAUSE_APP_LLM_PROVIDER=openai` + `CI_ROOTCAUSE_APP_LLM_API_KEY=<secret>`
+- GitHub App Gemini: `CI_ROOTCAUSE_APP_LLM_PROVIDER=gemini` + `CI_ROOTCAUSE_APP_LLM_API_KEY=<secret>`
+- GitHub App Anthropic: `CI_ROOTCAUSE_APP_LLM_PROVIDER=anthropic` + `CI_ROOTCAUSE_APP_LLM_API_KEY=<secret>`
+- Workflow/action mode uses the same provider names through `provider` and `provider_api_key` inputs.
 
 ## Purpose
 

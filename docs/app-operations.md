@@ -3,20 +3,22 @@
 ## Required Setup
 
 For app-mode webhook processing:
-- GitHub App webhook secret.
-- GitHub installation access token for the target repository installation.
-
-Optional (if minting installation tokens in runtime):
 - GitHub App ID.
 - GitHub App private key (PEM).
-- Installation ID from webhook/install context.
+- GitHub App webhook secret.
+- Installed GitHub App on the target repository.
+
+The server mints installation tokens at runtime from the App ID, private key,
+and `installation.id` in each webhook payload. You do not need to manually
+create or paste an installation token.
 
 ## Minimum Permissions
 
 GitHub App permissions should include:
 - Actions: `read` (to fetch run logs).
-- Contents: `read` (to retrieve compare context).
+- Contents: `read` for comment-only mode; `write` when guarded fix PR creation is enabled.
 - Pull requests: `write` (for PR-context comments).
+- Issues: `write` (for PR issue comments through the GitHub issues comments API).
 - Commit comments: `write` (for commit-context comments when no PR is attached).
 
 ## Safe Defaults

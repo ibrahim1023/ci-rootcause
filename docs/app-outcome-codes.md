@@ -19,6 +19,8 @@ Stable outcome contract for `process_github_app_webhook`:
 - `REPOSITORY_NOT_ALLOWLISTED`
 
 ### Webhook/Error Codes
+- `APP_INVALID_REQUEST`
+- `APP_AUTH_ERROR`
 - `WEBHOOK_VALIDATION_FAILED`
 - `WEBHOOK_UNHANDLED`
 - `MISSING_REPOSITORY`
@@ -57,3 +59,11 @@ Stable outcome contract for `process_github_app_webhook`:
 - `AGENTIC_MISSING_KEY`
 - `AGENTIC_PROVIDER_ERROR`
 - `AGENTIC_MAX_ATTEMPTS_EXCEEDED`
+
+### PR Gate Codes
+These can appear as `pr_failure_reason_code` in app responses, comments, or action output:
+- `CREATE_FIX_PR_DISABLED`
+- `PR_MODE_DISABLED`
+- `CONFIDENCE_BELOW_THRESHOLD`
+- `VALIDATION_FAILED`
+- `GUARDRAIL_VIOLATION`

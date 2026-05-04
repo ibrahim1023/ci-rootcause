@@ -23,6 +23,7 @@ Validate `ci-rootcause` GitHub App behavior under realistic and failure-heavy co
   - `CI_ROOTCAUSE_APP_ENABLE_PR_MODE=false`
   - `CI_ROOTCAUSE_APP_CREATE_FIX_PR=false`
   - `CI_ROOTCAUSE_APP_MODE=deterministic`
+  - `CI_ROOTCAUSE_APP_ASYNC_WEBHOOK=true` for slow local LLM/Ollama runs.
 
 ## Current Automated Baseline
 - Local lint baseline: `ruff check .`
@@ -178,6 +179,14 @@ Expected:
 
 Expected:
 - Idempotent comment update behavior (no comment spam).
+
+#### T6.1a Slow Webhook Acknowledgement
+- Run local/Ollama agentic mode with async webhook mode enabled.
+
+Expected:
+- GitHub receives an immediate `202` acceptance response.
+- Final RCA/comment result appears in server logs and the GitHub comment.
+- No manual redelivery is required for model warmup or slow proposal generation.
 
 #### T6.2 Transient API Failure
 - Inject temporary GitHub API errors.

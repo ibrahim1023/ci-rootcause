@@ -52,7 +52,31 @@ Repository-level app configuration schema (logical contract):
   - Whether app posts RCA summary comment for failed runs.
 
 ## Environment Mapping
+Server credentials:
+- `GITHUB_APP_ID`
+- `GITHUB_APP_PRIVATE_KEY_PEM`
+- `GITHUB_WEBHOOK_SECRET`
+- `GITHUB_API_BASE` (optional; defaults to `https://api.github.com`)
+
+Processing controls:
 - `CI_ROOTCAUSE_APP_ASYNC_WEBHOOK`
+- `CI_ROOTCAUSE_APP_ENABLED`
+- `CI_ROOTCAUSE_APP_ALLOW_REPOSITORIES`
+- `CI_ROOTCAUSE_APP_DENY_REPOSITORIES`
+- `CI_ROOTCAUSE_APP_ENABLE_PR_MODE`
+- `CI_ROOTCAUSE_APP_CREATE_FIX_PR`
+- `CI_ROOTCAUSE_APP_MIN_PR_CONFIDENCE`
+- `CI_ROOTCAUSE_APP_MODE`
+- `CI_ROOTCAUSE_APP_OUTPUT_DIR`
+- `CI_ROOTCAUSE_APP_POST_COMMENT`
+
+Agentic provider controls:
+- `CI_ROOTCAUSE_APP_LLM_PROVIDER` (`openai`, `gemini`, `anthropic`, or `local`)
+- `CI_ROOTCAUSE_APP_LLM_MODEL`
+- `CI_ROOTCAUSE_APP_LLM_API_KEY`
+- `CI_ROOTCAUSE_APP_LLM_BASE_URL` (for local/Ollama-compatible endpoints)
+
+Validation command controls:
 - `CI_ROOTCAUSE_APP_VALIDATION_COMMANDS`
 - `CI_ROOTCAUSE_APP_TYPECHECK_VALIDATION_COMMANDS`
 - `CI_ROOTCAUSE_APP_LINT_VALIDATION_COMMANDS`

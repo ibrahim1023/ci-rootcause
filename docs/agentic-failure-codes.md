@@ -1,10 +1,11 @@
 # Agentic Failure Reason Codes
 
-This document defines the agentic-related reason-code categories surfaced through action outputs.
+This document defines the agentic-related reason-code categories surfaced through app
+responses, comments, artifacts, and workflow/action outputs.
 
 ## Output Contract
 
-When available, `pr_failure_reason_code` and `pr_failure_reason` in GitHub Action output include
+When available, `pr_failure_reason_code` and `pr_failure_reason` include
 agentic-specific failures even when PR creation is not attempted.
 
 ## Reason-Code Categories
