@@ -93,3 +93,23 @@ def test_load_repo_config_from_env_reads_llm_settings(monkeypatch) -> None:
     assert config.llm_provider == "local"
     assert config.llm_model == "qwen2.5-coder:7b"
     assert config.llm_base_url == "http://localhost:11434"
+
+
+def test_load_repo_config_from_env_reads_validation_commands(monkeypatch) -> None:
+    monkeypatch.setenv("CI_ROOTCAUSE_APP_VALIDATION_COMMANDS", "pytest;ruff check .")
+    monkeypatch.setenv(
+        "CI_ROOTCAUSE_APP_TYPECHECK_VALIDATION_COMMANDS",
+        "python -m mypy src\npython -m pyright src",
+    )
+    monkeypatch.setenv("CI_ROOTCAUSE_APP_LINT_VALIDATION_COMMANDS", "ruff check src")
+    monkeypatch.setenv("CI_ROOTCAUSE_APP_TEST_VALIDATION_COMMANDS", "pytest tests/unit")
+
+    config = load_repo_config_from_env()
+
+    assert config.validation_commands == ("pytest", "ruff check .")
+    assert config.typecheck_validation_commands == (
+        "python -m mypy src",
+        "python -m pyright src",
+    )
+    assert config.lint_validation_commands == ("ruff check src",)
+    assert config.test_validation_commands == ("pytest tests/unit",)

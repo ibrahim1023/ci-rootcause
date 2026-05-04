@@ -44,6 +44,11 @@ def _parse_csv(value: str) -> tuple[str, ...]:
     return tuple(item.strip() for item in value.split(",") if item.strip())
 
 
+def _parse_command_list(value: str) -> tuple[str, ...]:
+    normalized = value.replace(";", "\n")
+    return tuple(item.strip() for item in normalized.splitlines() if item.strip())
+
+
 def _get_header(headers: dict[str, str], name: str) -> str:
     target = name.strip().lower()
     for key, value in headers.items():
@@ -70,6 +75,18 @@ def load_repo_config_from_env() -> GitHubAppRepoConfig:
             default=False,
         ),
         min_pr_confidence=float(os.getenv("CI_ROOTCAUSE_APP_MIN_PR_CONFIDENCE", "0.75")),
+        validation_commands=_parse_command_list(
+            os.getenv("CI_ROOTCAUSE_APP_VALIDATION_COMMANDS", "")
+        ),
+        typecheck_validation_commands=_parse_command_list(
+            os.getenv("CI_ROOTCAUSE_APP_TYPECHECK_VALIDATION_COMMANDS", "")
+        ),
+        lint_validation_commands=_parse_command_list(
+            os.getenv("CI_ROOTCAUSE_APP_LINT_VALIDATION_COMMANDS", "")
+        ),
+        test_validation_commands=_parse_command_list(
+            os.getenv("CI_ROOTCAUSE_APP_TEST_VALIDATION_COMMANDS", "")
+        ),
         execution_mode=os.getenv("CI_ROOTCAUSE_APP_MODE", "deterministic").strip()
         or "deterministic",
         llm_provider=llm_provider,
