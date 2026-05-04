@@ -24,6 +24,15 @@ Validate `ci-rootcause` GitHub App behavior under realistic and failure-heavy co
   - `CI_ROOTCAUSE_APP_CREATE_FIX_PR=false`
   - `CI_ROOTCAUSE_APP_MODE=deterministic`
 
+## Current Automated Baseline
+- Local lint baseline: `ruff check .`
+- Local format baseline: `ruff format --check .`
+- Local unit/integration baseline: `pytest`
+- RCA benchmark baseline: `python scripts/run_benchmark.py --suite fixtures/benchmarks/mvp-suite.json --output-root artifacts/benchmark-mvp --report-json docs/reports/mvp-benchmark-report.json --report-md docs/reports/mvp-benchmark-report.md`
+- Harness eval baseline: `python scripts/run_evals.py --dataset evals/datasets/harness-quality.json --output evals/results/harness-quality.latest.json`
+
+These checks prove deterministic behavior in-repo. The phases below validate real operational behavior.
+
 ## Test Phases
 
 ### Phase 1: Webhook Contract Validation
@@ -83,9 +92,20 @@ Expected:
 - Dependency failure fixture.
 - Infra timeout failure fixture.
 - Typecheck failure fixture.
+- Lint failure fixture.
+- Test failure fixture.
 
 Expected:
 - Correct classification and stable artifacts/reason codes.
+
+Evidence to capture:
+- GitHub comment URL
+- `workflow_run_id`
+- `status`
+- `reason_code`
+- `classification`
+- `confidence`
+- artifact paths
 
 ### Phase 4: Guardrails And Safety
 
@@ -110,55 +130,96 @@ Expected:
 Expected:
 - Missing key / validation failure reason codes surfaced.
 
-### Phase 5: Reliability And Resilience
+#### T4.4 Fix Quality Gate
+- Good lint fix should pass validation.
+- Bad lint fix should fail validation.
+- Good typecheck fix should pass validation.
+- Bad typecheck fix should fail validation.
+- Good test fix should pass validation.
+- Bad test fix should fail validation.
 
-#### T5.1 Duplicate Delivery Replay
+Expected:
+- Good proposals produce `validation_passed=true`.
+- Bad proposals produce `VALIDATION_FAILED`.
+- Guardrails block unsafe or non-working changes.
+
+### Phase 5: Agentic Provider Coverage
+
+#### T5.1 Local Provider (Ollama)
+- Run `agentic_assist` with `provider=local`.
+- Exercise at least lint, typecheck, and test failures.
+
+Expected:
+- Provider call succeeds.
+- Proposal is schema-valid or fails with typed bounded reason.
+- Comments remain grounded in logs/diff evidence.
+
+#### T5.2 Hosted Provider Parity
+- Run one hosted provider path (`openai`, `gemini`, or `anthropic`).
+- Exercise at least one failure class already tested with local provider.
+
+Expected:
+- Same guardrails hold as local mode.
+- Failure taxonomy is typed and deterministic.
+- No hosted-only assumptions leak into the app path.
+
+#### T5.3 Weak-Model Recovery
+- Use a smaller or weaker local model.
+- Force at least one contract-repair retry.
+
+Expected:
+- Retry behavior is bounded.
+- Final failure, if any, uses `AGENTIC_MAX_ATTEMPTS_EXCEEDED` or provider-specific typed failure.
+
+### Phase 6: Reliability And Resilience
+
+#### T6.1 Duplicate Delivery Replay
 - Replay same webhook payload 3 times.
 
 Expected:
 - Idempotent comment update behavior (no comment spam).
 
-#### T5.2 Transient API Failure
+#### T6.2 Transient API Failure
 - Inject temporary GitHub API errors.
 
 Expected:
 - Retries are bounded; final code is deterministic on failure.
 
-#### T5.3 Rate Limit Simulation
+#### T6.3 Rate Limit Simulation
 - Force/approximate API rate limit responses.
 
 Expected:
 - Retry/backoff behavior; clear failure reason code if exhausted.
 
-### Phase 6: Load And Soak
+### Phase 7: Load And Soak
 
-#### T6.1 Burst Test
+#### T7.1 Burst Test
 - 20-50 webhook deliveries over 1-2 minutes.
 
 Expected:
 - Stable process, no crash loop, acceptable latency.
 
-#### T6.2 Short Soak
+#### T7.2 Short Soak
 - Continuous deliveries over 15-30 minutes.
 
 Expected:
 - No memory/handle leaks, consistent reason-code distribution.
 
-### Phase 7: Operations Readiness
+### Phase 8: Operations Readiness
 
-#### T7.1 Secret Rotation Drill
+#### T8.1 Secret Rotation Drill
 - Rotate webhook secret and app private key.
 
 Expected:
 - Controlled recovery with minimal disruption.
 
-#### T7.2 Restart Recovery
+#### T8.2 Restart Recovery
 - Restart service during incoming events.
 
 Expected:
 - Service recovers; failures are visible and bounded.
 
-#### T7.3 Observability Check
+#### T8.3 Observability Check
 - Aggregate logs by `status`, `reason_code`, repository, workflow id.
 
 Expected:
@@ -173,17 +234,44 @@ Expected:
 
 ## Exit Criteria
 - All Phase 1-4 scenarios pass.
-- Phase 5-7 have no unresolved critical defects.
+- Phase 5-8 have no unresolved critical defects.
 - Documented known issues have workarounds and owners.
 
 ## Execution Checklist
 - [ ] Run Phase 1-2 locally with ngrok.
 - [ ] Run Phase 3 against test repo.
 - [ ] Run Phase 4 negative/safety cases.
-- [ ] Run Phase 5 reliability tests.
-- [ ] Run Phase 6 load/soak sample.
-- [ ] Run Phase 7 operational drills.
+- [ ] Run Phase 5 provider/fix-quality cases.
+- [ ] Run Phase 6 reliability tests.
+- [ ] Run Phase 7 load/soak sample.
+- [ ] Run Phase 8 operational drills.
 - [ ] Produce test report with failures and action items.
+
+## Execution Order
+1. Run deterministic local baseline first.
+2. Run comment-only GitHub App scenarios.
+3. Run agentic local-provider scenarios.
+4. Run agentic hosted-provider parity scenario.
+5. Enable PR creation only after validation pass/fail behavior is proven.
+6. Finish with reliability and operations drills.
+
+## Test Report Template
+
+For each executed scenario, record:
+- Scenario ID
+- Repository / branch / PR
+- Provider / mode
+- Trigger workflow
+- Expected result
+- Actual result
+- `status`
+- `reason_code`
+- `classification`
+- `confidence`
+- artifact links
+- comment link
+- pass/fail
+- follow-up action
 
 ## Quick Trigger Workflow
 
@@ -199,3 +287,5 @@ Scenarios:
 Notes:
 - `workflow_dispatch` lets you pick scenario explicitly.
 - `pull_request` uses default scenario `typecheck` so events include PR base context.
+- Use PR-triggered runs for comment-placement and PR-context validation.
+- Use `workflow_dispatch` for repeated provider and resilience experiments.
