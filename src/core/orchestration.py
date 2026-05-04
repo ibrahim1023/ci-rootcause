@@ -36,6 +36,11 @@ TYPECHECK_INT_ASSIGNMENT_PATTERN = re.compile(
     r"(?P<quote>['\"])(?P<number>-?\d+)(?P=quote)"
     r"(?P<suffix>\s*(?:#.*)?)$"
 )
+TYPECHECK_INT_CALL_ARG_PATTERN = re.compile(
+    r"^(?P<prefix>.*\(\s*)"
+    r"(?P<quote>['\"])(?P<number>-?\d+)(?P=quote)"
+    r"(?P<suffix>\s*\).*)$"
+)
 OBSERVABILITY_SECRET_PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r"(?i)([?&](?:key|api_key|token|access_token)=)[^&\s]+"), r"\1<redacted>"),
     (re.compile(r"(?i)(Bearer\s+)[A-Za-z0-9._~+/=-]+"), r"\1<redacted>"),
@@ -371,6 +376,19 @@ def _synthesize_typecheck_change(
             lines[line_index] = replacement
         return "".join(lines)
 
+    int_call_arg = TYPECHECK_INT_CALL_ARG_PATTERN.match(target_body)
+    if int_call_arg is not None:
+        replacement = (
+            f"{int_call_arg.group('prefix')}"
+            f"{int_call_arg.group('number')}"
+            f"{int_call_arg.group('suffix')}"
+        )
+        if target.endswith("\n"):
+            lines[line_index] = f"{replacement}\n"
+        else:
+            lines[line_index] = replacement
+        return "".join(lines)
+
     suffix = "  # type: ignore[assignment]"
     if target.endswith("\n"):
         lines[line_index] = f"{target.rstrip()}{suffix}\n"
@@ -401,7 +419,10 @@ def _resolve_validated_changes_for_pr_creation(
             file_path = _normalize_repo_relative_path(str(item.get("file", "")))
             if not file_path:
                 continue
-            proposal_changes[file_path] = str(item.get("content", ""))
+            content = str(item.get("content", ""))
+            if classification == "TYPECHECK" and "type: ignore" in content:
+                continue
+            proposal_changes[file_path] = content
         if proposal_changes:
             return [
                 {"file": key, "content": proposal_changes[key]} for key in sorted(proposal_changes)

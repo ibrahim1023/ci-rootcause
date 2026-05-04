@@ -652,6 +652,47 @@ def test_pr_creation_uses_agentic_patch_plan_as_validated_changes() -> None:
     ]
 
 
+def test_pr_creation_ignores_typecheck_proposal_that_suppresses_errors(tmp_path: Path) -> None:
+    target = tmp_path / "app_failure_typecheck.py"
+    target.write_text(
+        'def needs_int(value: int) -> int:\n    return value\n\nresult: int = needs_int("7")\n',
+        encoding="utf-8",
+    )
+
+    current = Path.cwd()
+    try:
+        os.chdir(tmp_path)
+        resolved = _resolve_validated_changes_for_pr_creation(
+            request_validated_changes=[],
+            classification="TYPECHECK",
+            primary_root_cause={
+                "evidence": [{"file": "app_failure_typecheck.py", "line": 4}],
+            },
+            fix_output={
+                "fix_steps": [{"file": "app_failure_typecheck.py"}],
+                "agentic_proposal": {
+                    "patch_plan": [
+                        {
+                            "op": "modify",
+                            "file": "app_failure_typecheck.py",
+                            "content": (
+                                "def needs_int(value: int) -> int:\n    return value\n\n"
+                                'result: int = needs_int("7")  # type: ignore[assignment]\n'
+                            ),
+                        }
+                    ]
+                },
+            },
+        )
+    finally:
+        os.chdir(current)
+
+    assert len(resolved) == 1
+    assert resolved[0]["file"] == "app_failure_typecheck.py"
+    assert "needs_int(7)" in resolved[0]["content"]
+    assert "type: ignore" not in resolved[0]["content"]
+
+
 def test_pr_creation_ignores_unsupported_agentic_patch_plan_ops() -> None:
     resolved = _resolve_validated_changes_for_pr_creation(
         request_validated_changes=[],
@@ -725,6 +766,33 @@ def test_pr_creation_synthesizes_semantic_int_literal_fix_when_safe(tmp_path: Pa
     assert resolved[0]["file"] == "typecheck_target.py"
     assert "value: int = 7" in resolved[0]["content"]
     assert "type: ignore[assignment]" not in resolved[0]["content"]
+
+
+def test_pr_creation_synthesizes_semantic_int_call_arg_fix_when_safe(tmp_path: Path) -> None:
+    target = tmp_path / "app_failure_typecheck.py"
+    target.write_text(
+        'def needs_int(value: int) -> int:\n    return value\n\nresult: int = needs_int("7")\n',
+        encoding="utf-8",
+    )
+
+    current = Path.cwd()
+    try:
+        os.chdir(tmp_path)
+        resolved = _resolve_validated_changes_for_pr_creation(
+            request_validated_changes=[],
+            classification="TYPECHECK",
+            primary_root_cause={
+                "evidence": [{"file": "app_failure_typecheck.py", "line": 4}],
+            },
+            fix_output={"fix_steps": [{"file": "app_failure_typecheck.py"}]},
+        )
+    finally:
+        os.chdir(current)
+
+    assert len(resolved) == 1
+    assert resolved[0]["file"] == "app_failure_typecheck.py"
+    assert "needs_int(7)" in resolved[0]["content"]
+    assert "type: ignore" not in resolved[0]["content"]
 
 
 def test_pr_creation_does_not_synthesize_for_non_typecheck() -> None:
