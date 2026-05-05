@@ -344,11 +344,15 @@ def _synthesize_typecheck_change(
     *,
     file_path: str,
     evidence_line: int | None,
+    original_content: str | None = None,
 ) -> str | None:
-    try:
-        original = Path(file_path).read_text(encoding="utf-8")
-    except OSError:
-        return None
+    if original_content is None:
+        try:
+            original = Path(file_path).read_text(encoding="utf-8")
+        except OSError:
+            return None
+    else:
+        original = original_content
 
     lines = original.splitlines(keepends=True)
     if not lines:
@@ -397,15 +401,107 @@ def _synthesize_typecheck_change(
     return "".join(lines)
 
 
+def _extract_file_content_from_unified_diff(raw_diff: str, file_path: str) -> str | None:
+    if not raw_diff.strip():
+        return None
+
+    target_markers = {
+        f"diff --git a/{file_path} b/{file_path}",
+        f"diff --git a/{file_path} b/{file_path}\n",
+    }
+    in_target = False
+    in_hunk = False
+    lines: list[str] = []
+
+    for raw_line in raw_diff.splitlines(keepends=True):
+        if raw_line.startswith("diff --git "):
+            if in_target:
+                break
+            in_target = raw_line in target_markers
+            in_hunk = False
+            continue
+        if not in_target:
+            continue
+        if raw_line.startswith("@@"):
+            in_hunk = True
+            continue
+        if not in_hunk:
+            continue
+        if raw_line.startswith("\\ No newline at end of file"):
+            continue
+        if raw_line.startswith("+") and not raw_line.startswith("+++"):
+            lines.append(raw_line[1:])
+        elif raw_line.startswith(" "):
+            lines.append(raw_line[1:])
+
+    if not lines:
+        return None
+    return "".join(lines)
+
+
+def _synthesize_typecheck_changes(
+    *,
+    primary_root_cause: dict[str, Any],
+    fix_output: dict[str, Any],
+    raw_diff: str,
+) -> list[dict[str, str]]:
+    evidence_by_file: dict[str, int | None] = {}
+    for item in primary_root_cause.get("evidence", []):
+        if not isinstance(item, dict):
+            continue
+        file_path = _normalize_repo_relative_path(str(item.get("file", "")))
+        if not file_path:
+            continue
+        line_value = item.get("line")
+        line_no = int(line_value) if isinstance(line_value, int) and line_value > 0 else None
+        evidence_by_file[file_path] = line_no
+
+    synthesized: list[dict[str, str]] = []
+    for step in fix_output.get("fix_steps", []):
+        if not isinstance(step, dict):
+            continue
+        file_path = _normalize_repo_relative_path(str(step.get("file", "")))
+        if not file_path:
+            continue
+        content = _synthesize_typecheck_change(
+            file_path=file_path,
+            evidence_line=evidence_by_file.get(file_path),
+        )
+        if content is None:
+            content = _synthesize_typecheck_change(
+                file_path=file_path,
+                evidence_line=evidence_by_file.get(file_path),
+                original_content=_extract_file_content_from_unified_diff(raw_diff, file_path),
+            )
+        if content is None:
+            continue
+        synthesized.append({"file": file_path, "content": content})
+
+    deduped: dict[str, str] = {}
+    for change in synthesized:
+        deduped[str(change["file"])] = str(change["content"])
+    return [{"file": key, "content": deduped[key]} for key in sorted(deduped)]
+
+
 def _resolve_validated_changes_for_pr_creation(
     *,
     request_validated_changes: list[dict[str, str]],
     classification: str,
     primary_root_cause: dict[str, Any],
     fix_output: dict[str, Any],
+    raw_diff: str = "",
 ) -> list[dict[str, str]]:
     if request_validated_changes:
         return request_validated_changes
+
+    if classification == "TYPECHECK":
+        synthesized = _synthesize_typecheck_changes(
+            primary_root_cause=primary_root_cause,
+            fix_output=fix_output,
+            raw_diff=raw_diff,
+        )
+        if synthesized:
+            return synthesized
 
     agentic_proposal = fix_output.get("agentic_proposal", {})
     if isinstance(agentic_proposal, dict):
@@ -430,37 +526,7 @@ def _resolve_validated_changes_for_pr_creation(
 
     if classification != "TYPECHECK":
         return []
-
-    evidence_by_file: dict[str, int | None] = {}
-    for item in primary_root_cause.get("evidence", []):
-        if not isinstance(item, dict):
-            continue
-        file_path = _normalize_repo_relative_path(str(item.get("file", "")))
-        if not file_path:
-            continue
-        line_value = item.get("line")
-        line_no = int(line_value) if isinstance(line_value, int) and line_value > 0 else None
-        evidence_by_file[file_path] = line_no
-
-    synthesized: list[dict[str, str]] = []
-    for step in fix_output.get("fix_steps", []):
-        if not isinstance(step, dict):
-            continue
-        file_path = _normalize_repo_relative_path(str(step.get("file", "")))
-        if not file_path:
-            continue
-        content = _synthesize_typecheck_change(
-            file_path=file_path,
-            evidence_line=evidence_by_file.get(file_path),
-        )
-        if content is None:
-            continue
-        synthesized.append({"file": file_path, "content": content})
-
-    deduped: dict[str, str] = {}
-    for change in synthesized:
-        deduped[str(change["file"])] = str(change["content"])
-    return [{"file": key, "content": deduped[key]} for key in sorted(deduped)]
+    return []
 
 
 def _run_pr_creation_agent(state: PipelineState) -> dict[str, Any]:
@@ -475,6 +541,7 @@ def _run_pr_creation_agent(state: PipelineState) -> dict[str, Any]:
         classification=str(classification_output["classification"]),
         primary_root_cause=primary,
         fix_output=fix_output,
+        raw_diff=state.request.raw_diff,
     )
     payload = {
         "create_fix_pr": state.request.create_fix_pr,

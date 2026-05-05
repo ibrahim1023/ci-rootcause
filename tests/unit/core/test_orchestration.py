@@ -703,6 +703,52 @@ def test_pr_creation_uses_agentic_patch_plan_as_validated_changes() -> None:
     ]
 
 
+def test_pr_creation_prefers_diff_synthesis_over_malformed_typecheck_proposal() -> None:
+    raw_diff = "\n".join(
+        [
+            "diff --git a/app_failure_typecheck.py b/app_failure_typecheck.py",
+            "new file mode 100644",
+            "--- /dev/null",
+            "+++ b/app_failure_typecheck.py",
+            "@@ -0,0 +1,5 @@",
+            "+def needs_int(value: int) -> int:",
+            "+    return value",
+            "+",
+            '+result: int = needs_int("7")',
+            "+print(result)",
+        ]
+    )
+
+    resolved = _resolve_validated_changes_for_pr_creation(
+        request_validated_changes=[],
+        classification="TYPECHECK",
+        primary_root_cause={
+            "evidence": [{"file": "app_failure_typecheck.py", "line": 4}],
+        },
+        fix_output={
+            "fix_steps": [{"file": "app_failure_typecheck.py"}],
+            "agentic_proposal": {
+                "patch_plan": [
+                    {
+                        "op": "modify",
+                        "file": "app_failure_typecheck.py",
+                        "content": (
+                            "def needs_int(value: int) -> None:\n    # malformed agentic output\n"
+                        ),
+                    }
+                ]
+            },
+        },
+        raw_diff=raw_diff,
+    )
+
+    assert len(resolved) == 1
+    assert resolved[0]["file"] == "app_failure_typecheck.py"
+    assert "def needs_int(value: int) -> int:" in resolved[0]["content"]
+    assert "needs_int(7)" in resolved[0]["content"]
+    assert "malformed agentic output" not in resolved[0]["content"]
+
+
 def test_pr_creation_ignores_typecheck_proposal_that_suppresses_errors(tmp_path: Path) -> None:
     target = tmp_path / "app_failure_typecheck.py"
     target.write_text(
