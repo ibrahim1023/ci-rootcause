@@ -744,26 +744,31 @@ def test_pr_creation_ignores_typecheck_proposal_that_suppresses_errors(tmp_path:
     assert "type: ignore" not in resolved[0]["content"]
 
 
-def test_pr_creation_ignores_unsupported_agentic_patch_plan_ops() -> None:
-    resolved = _resolve_validated_changes_for_pr_creation(
-        request_validated_changes=[],
-        classification="TYPECHECK",
-        primary_root_cause={
-            "evidence": [{"file": "app_failure_typecheck.py", "line": 4}],
-        },
-        fix_output={
-            "fix_steps": [{"file": "app_failure_typecheck.py"}],
-            "agentic_proposal": {
-                "patch_plan": [
-                    {
-                        "op": "delete",
-                        "file": "app_failure_typecheck.py",
-                        "content": "",
-                    }
-                ]
+def test_pr_creation_ignores_unsupported_agentic_patch_plan_ops(tmp_path: Path) -> None:
+    current = Path.cwd()
+    try:
+        os.chdir(tmp_path)
+        resolved = _resolve_validated_changes_for_pr_creation(
+            request_validated_changes=[],
+            classification="TYPECHECK",
+            primary_root_cause={
+                "evidence": [{"file": "app_failure_typecheck.py", "line": 4}],
             },
-        },
-    )
+            fix_output={
+                "fix_steps": [{"file": "app_failure_typecheck.py"}],
+                "agentic_proposal": {
+                    "patch_plan": [
+                        {
+                            "op": "delete",
+                            "file": "app_failure_typecheck.py",
+                            "content": "",
+                        }
+                    ]
+                },
+            },
+        )
+    finally:
+        os.chdir(current)
 
     assert resolved == []
 
