@@ -41,13 +41,6 @@ jobs:
       - name: Trigger TYPECHECK failure
         if: ${{ env.SCENARIO == 'typecheck' }}
         run: |
-          cat > app_failure_typecheck.py <<'PY'
-          def needs_int(value: int) -> int:
-              return value
-
-          result: int = needs_int("7")
-          print(result)
-          PY
           mypy app_failure_typecheck.py
 
       - name: Trigger SYNTAX failure
