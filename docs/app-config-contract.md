@@ -15,7 +15,8 @@ Repository-level app configuration schema (logical contract):
   "typecheck_validation_commands": [],
   "lint_validation_commands": [],
   "test_validation_commands": [],
-  "post_comment": true
+  "post_comment": true,
+  "min_comment_confidence": 0.5
 }
 ```
 
@@ -50,6 +51,10 @@ Repository-level app configuration schema (logical contract):
   - Optional commands used only for `TEST` failures.
 - `post_comment`:
   - Whether app posts RCA summary comment for failed runs.
+- `min_comment_confidence`:
+  - Float in `[0.0, 1.0]`.
+  - Low-confidence `TEST`/`UNKNOWN` findings without file evidence are suppressed below this threshold.
+  - Dependency and infra findings still comment because unknown-file evidence is common for those failures.
 
 ## Environment Mapping
 Server credentials:
@@ -69,6 +74,7 @@ Processing controls:
 - `CI_ROOTCAUSE_APP_MODE`
 - `CI_ROOTCAUSE_APP_OUTPUT_DIR`
 - `CI_ROOTCAUSE_APP_POST_COMMENT`
+- `CI_ROOTCAUSE_APP_MIN_COMMENT_CONFIDENCE`
 
 Agentic provider controls:
 - `CI_ROOTCAUSE_APP_LLM_PROVIDER` (`openai`, `gemini`, `anthropic`, or `local`)

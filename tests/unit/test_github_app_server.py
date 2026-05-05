@@ -126,6 +126,14 @@ def test_load_repo_config_from_env_reads_llm_settings(monkeypatch) -> None:
     assert config.llm_base_url == "http://localhost:11434"
 
 
+def test_load_repo_config_from_env_reads_comment_confidence_threshold(monkeypatch) -> None:
+    monkeypatch.setenv("CI_ROOTCAUSE_APP_MIN_COMMENT_CONFIDENCE", "0.65")
+
+    config = load_repo_config_from_env()
+
+    assert config.min_comment_confidence == 0.65
+
+
 def test_load_repo_config_from_env_reads_validation_commands(monkeypatch) -> None:
     monkeypatch.setenv("CI_ROOTCAUSE_APP_VALIDATION_COMMANDS", "pytest;ruff check .")
     monkeypatch.setenv(

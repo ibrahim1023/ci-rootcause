@@ -55,6 +55,19 @@ def _parse_command_list(value: str) -> tuple[str, ...]:
     return tuple(item.strip() for item in normalized.splitlines() if item.strip())
 
 
+def _parse_float(value: str, *, default: float) -> float:
+    text = value.strip()
+    if not text:
+        return default
+    try:
+        parsed = float(text)
+    except ValueError:
+        return default
+    if not (0.0 <= parsed <= 1.0):
+        return default
+    return parsed
+
+
 def _get_header(headers: dict[str, str], name: str) -> str:
     target = name.strip().lower()
     for key, value in headers.items():
@@ -102,6 +115,10 @@ def load_repo_config_from_env() -> GitHubAppRepoConfig:
         output_dir=os.getenv("CI_ROOTCAUSE_APP_OUTPUT_DIR", "artifacts/app").strip()
         or "artifacts/app",
         post_comment=_parse_bool(os.getenv("CI_ROOTCAUSE_APP_POST_COMMENT", "true"), default=True),
+        min_comment_confidence=_parse_float(
+            os.getenv("CI_ROOTCAUSE_APP_MIN_COMMENT_CONFIDENCE", "0.5"),
+            default=0.5,
+        ),
     )
 
 

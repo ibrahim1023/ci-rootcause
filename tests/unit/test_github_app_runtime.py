@@ -256,6 +256,164 @@ def test_process_github_app_webhook_runs_pipeline_with_safe_defaults(monkeypatch
     assert captured["comment_pr_number"] == 77
 
 
+def test_process_github_app_webhook_suppresses_low_signal_test_comment(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "src.github_app_runtime.handle_github_app_webhook",
+        lambda headers, body, webhook_secret: {  # noqa: ARG005
+            "handled": True,
+            "ignored": False,
+            "event": "workflow_run",
+            "delivery": "d1",
+            "repository": "acme/project",
+            "workflow_run_id": 223,
+            "head_sha": "head223",
+            "base_sha": "base223",
+            "head_branch": "main",
+            "pull_request_number": 88,
+        },
+    )
+    monkeypatch.setattr(
+        "src.github_app_runtime.collect_workflow_run_inputs",
+        lambda **kwargs: WorkflowRunIngestionPayload(  # noqa: ANN003
+            repository="acme/project",
+            workflow_run_id=223,
+            base_sha="base223",
+            head_sha="head223",
+            raw_log="Optional JSON file containing historical failed run\n",
+            raw_diff="diff --git a/a.py b/a.py\n",
+        ),
+    )
+    monkeypatch.setattr(
+        "src.github_app_runtime.run_pipeline",
+        lambda request: _FakeState(  # noqa: ARG005
+            agent_outputs={
+                "failure_classification": {"classification": "TEST"},
+                "root_cause_ranker": {
+                    "confidence": 0.4225,
+                    "primary_root_cause": {
+                        "title": "Optional JSON file containing historical failed run",
+                        "confidence_reasons": ["unknown_file", "first_failure"],
+                        "evidence": [{"file": "unknown", "line": None}],
+                    },
+                },
+                "reporter": {
+                    "ci_rca_json_path": "artifacts/app/ci-rca.json",
+                    "ci_rca_md_path": "artifacts/app/ci-rca.md",
+                },
+                "pr_creation": {"pr_created": False},
+            }
+        ),
+    )
+
+    class _FakeCommentClient:
+        def __init__(self, *, token: str, api_base: str = "https://api.github.com") -> None:
+            del token, api_base
+
+        def upsert_pr_comment(self, *, repository: str, pull_request_number: int, body: str):  # noqa: ANN201
+            del repository, pull_request_number, body
+            raise AssertionError("low-signal comment should be suppressed")
+
+        def upsert_commit_comment(self, *, repository: str, commit_sha: str, body: str):  # noqa: ANN201
+            del repository, commit_sha, body
+            raise AssertionError("low-signal comment should be suppressed")
+
+    monkeypatch.setattr("src.github_app_runtime.GitHubAppCommentClient", _FakeCommentClient)
+
+    result = process_github_app_webhook(
+        headers={"X-GitHub-Event": "workflow_run"},
+        body=b"{}",
+        webhook_secret="secret",
+        github_token="token",
+    )
+
+    assert result["status"] == "ok"
+    assert result["comment_posted"] is False
+    assert result["comment_skipped_reason"] == (
+        "confidence 0.4225 is below comment threshold 0.5000 and no file evidence was found"
+    )
+
+
+def test_process_github_app_webhook_keeps_low_confidence_dependency_comment(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "src.github_app_runtime.handle_github_app_webhook",
+        lambda headers, body, webhook_secret: {  # noqa: ARG005
+            "handled": True,
+            "ignored": False,
+            "event": "workflow_run",
+            "delivery": "d1",
+            "repository": "acme/project",
+            "workflow_run_id": 224,
+            "head_sha": "head224",
+            "base_sha": "base224",
+            "head_branch": "main",
+            "pull_request_number": 89,
+        },
+    )
+    monkeypatch.setattr(
+        "src.github_app_runtime.collect_workflow_run_inputs",
+        lambda **kwargs: WorkflowRunIngestionPayload(  # noqa: ANN003
+            repository="acme/project",
+            workflow_run_id=224,
+            base_sha="base224",
+            head_sha="head224",
+            raw_log="No matching distribution found for missing-package\n",
+            raw_diff="diff --git a/requirements.txt b/requirements.txt\n",
+        ),
+    )
+    monkeypatch.setattr(
+        "src.github_app_runtime.run_pipeline",
+        lambda request: _FakeState(  # noqa: ARG005
+            agent_outputs={
+                "failure_classification": {"classification": "DEPENDENCY"},
+                "root_cause_ranker": {
+                    "confidence": 0.3425,
+                    "primary_root_cause": {
+                        "title": "No matching distribution found",
+                        "confidence_reasons": ["unknown_file", "first_failure"],
+                        "evidence": [{"file": "unknown", "line": None}],
+                    },
+                },
+                "reporter": {
+                    "ci_rca_json_path": "artifacts/app/ci-rca.json",
+                    "ci_rca_md_path": "artifacts/app/ci-rca.md",
+                },
+                "pr_creation": {"pr_created": False},
+            }
+        ),
+    )
+
+    class _FakeCommentResult:
+        target = "pull_request"
+        comment_id = 224
+        action = "created"
+        html_url = "https://example.com/comment/224"
+
+    class _FakeCommentClient:
+        def __init__(self, *, token: str, api_base: str = "https://api.github.com") -> None:
+            del token, api_base
+
+        def upsert_pr_comment(self, *, repository: str, pull_request_number: int, body: str):  # noqa: ANN201
+            del repository, pull_request_number, body
+            return _FakeCommentResult()
+
+        def upsert_commit_comment(self, *, repository: str, commit_sha: str, body: str):  # noqa: ANN201
+            del repository, commit_sha, body
+            raise AssertionError("pr comment path should be used")
+
+    monkeypatch.setattr("src.github_app_runtime.GitHubAppCommentClient", _FakeCommentClient)
+
+    result = process_github_app_webhook(
+        headers={"X-GitHub-Event": "workflow_run"},
+        body=b"{}",
+        webhook_secret="secret",
+        github_token="token",
+    )
+
+    assert result["status"] == "ok"
+    assert result["comment_posted"] is True
+    assert result["comment_target"] == "pull_request"
+
+
 def test_process_github_app_webhook_passes_llm_settings_to_pipeline_request(monkeypatch) -> None:
     monkeypatch.setattr(
         "src.github_app_runtime.handle_github_app_webhook",

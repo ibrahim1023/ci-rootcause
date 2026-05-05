@@ -49,6 +49,7 @@ class GitHubAppRepoConfig:
     llm_base_url: str | None = None
     output_dir: str = "artifacts/app"
     post_comment: bool = True
+    min_comment_confidence: float = 0.5
 
 
 def _resolve_pr_creation_controls(config: GitHubAppRepoConfig) -> tuple[bool, str | None]:
@@ -163,6 +164,42 @@ def _infer_pipeline_failure_reason(state: Any) -> tuple[str, str]:
         if "max attempts exceeded" in normalized_message:
             return PR_REASON_AGENTIC_MAX_ATTEMPTS_EXCEEDED, message
     return "", ""
+
+
+def _has_file_evidence(summary: dict[str, Any]) -> bool:
+    evidence = summary.get("evidence", [])
+    if not isinstance(evidence, list):
+        return False
+    for item in evidence:
+        if not isinstance(item, dict):
+            continue
+        file_path = str(item.get("file", "")).strip().lower()
+        if file_path and file_path != "unknown":
+            return True
+    return False
+
+
+def _should_post_comment(summary: dict[str, Any], config: GitHubAppRepoConfig) -> tuple[bool, str]:
+    if not config.post_comment:
+        return False, "post_comment=false"
+    if bool(summary.get("pr_created", False)):
+        return True, ""
+
+    confidence = float(summary.get("confidence", 0.0))
+    if confidence >= config.min_comment_confidence:
+        return True, ""
+
+    classification = str(summary.get("classification", "")).strip().upper()
+    if classification not in {"TEST", "UNKNOWN"}:
+        return True, ""
+    if _has_file_evidence(summary):
+        return True, ""
+
+    return (
+        False,
+        f"confidence {confidence:.4f} is below comment threshold "
+        f"{config.min_comment_confidence:.4f} and no file evidence was found",
+    )
 
 
 def process_github_app_webhook(
@@ -340,8 +377,14 @@ def process_github_app_webhook(
     comment_url = ""
     comment_reason_code = ""
     comment_reason = ""
+    comment_skipped_reason = ""
 
-    if config.post_comment:
+    should_post_comment, comment_skipped_reason = _should_post_comment(
+        summary=summary,
+        config=config,
+    )
+
+    if should_post_comment:
         comment_body = build_app_comment_body(
             classification=str(summary["classification"]),
             confidence=float(summary["confidence"]),
@@ -427,5 +470,6 @@ def process_github_app_webhook(
         "comment_id": comment_id,
         "comment_action": comment_action,
         "comment_url": comment_url,
+        "comment_skipped_reason": comment_skipped_reason,
         **summary,
     }
