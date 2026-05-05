@@ -463,15 +463,18 @@ def _synthesize_typecheck_changes(
         file_path = _normalize_repo_relative_path(str(step.get("file", "")))
         if not file_path:
             continue
-        content = _synthesize_typecheck_change(
-            file_path=file_path,
-            evidence_line=evidence_by_file.get(file_path),
-        )
+        diff_content = _extract_file_content_from_unified_diff(raw_diff, file_path)
+        content = None
+        if diff_content is not None:
+            content = _synthesize_typecheck_change(
+                file_path=file_path,
+                evidence_line=evidence_by_file.get(file_path),
+                original_content=diff_content,
+            )
         if content is None:
             content = _synthesize_typecheck_change(
                 file_path=file_path,
                 evidence_line=evidence_by_file.get(file_path),
-                original_content=_extract_file_content_from_unified_diff(raw_diff, file_path),
             )
         if content is None:
             continue

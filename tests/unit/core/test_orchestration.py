@@ -674,26 +674,31 @@ def test_pr_creation_prefers_request_validated_changes_over_synthesis() -> None:
     assert resolved == explicit
 
 
-def test_pr_creation_uses_agentic_patch_plan_as_validated_changes() -> None:
-    resolved = _resolve_validated_changes_for_pr_creation(
-        request_validated_changes=[],
-        classification="TYPECHECK",
-        primary_root_cause={
-            "evidence": [{"file": "app_failure_typecheck.py", "line": 4}],
-        },
-        fix_output={
-            "fix_steps": [{"file": "app_failure_typecheck.py"}],
-            "agentic_proposal": {
-                "patch_plan": [
-                    {
-                        "op": "modify",
-                        "file": "app_failure_typecheck.py",
-                        "content": "result: int = needs_int(7)\n",
-                    }
-                ]
+def test_pr_creation_uses_agentic_patch_plan_as_validated_changes(tmp_path: Path) -> None:
+    current = Path.cwd()
+    try:
+        os.chdir(tmp_path)
+        resolved = _resolve_validated_changes_for_pr_creation(
+            request_validated_changes=[],
+            classification="TYPECHECK",
+            primary_root_cause={
+                "evidence": [{"file": "app_failure_typecheck.py", "line": 4}],
             },
-        },
-    )
+            fix_output={
+                "fix_steps": [{"file": "app_failure_typecheck.py"}],
+                "agentic_proposal": {
+                    "patch_plan": [
+                        {
+                            "op": "modify",
+                            "file": "app_failure_typecheck.py",
+                            "content": "result: int = needs_int(7)\n",
+                        }
+                    ]
+                },
+            },
+        )
+    finally:
+        os.chdir(current)
 
     assert resolved == [
         {
@@ -703,7 +708,14 @@ def test_pr_creation_uses_agentic_patch_plan_as_validated_changes() -> None:
     ]
 
 
-def test_pr_creation_prefers_diff_synthesis_over_malformed_typecheck_proposal() -> None:
+def test_pr_creation_prefers_diff_synthesis_over_malformed_typecheck_proposal(
+    tmp_path: Path,
+) -> None:
+    stale_file = tmp_path / "app_failure_typecheck.py"
+    stale_file.write_text(
+        "# stale app-generated branch content\nneeds_int(int(input_value))\n",
+        encoding="utf-8",
+    )
     raw_diff = "\n".join(
         [
             "diff --git a/app_failure_typecheck.py b/app_failure_typecheck.py",
@@ -719,34 +731,41 @@ def test_pr_creation_prefers_diff_synthesis_over_malformed_typecheck_proposal() 
         ]
     )
 
-    resolved = _resolve_validated_changes_for_pr_creation(
-        request_validated_changes=[],
-        classification="TYPECHECK",
-        primary_root_cause={
-            "evidence": [{"file": "app_failure_typecheck.py", "line": 4}],
-        },
-        fix_output={
-            "fix_steps": [{"file": "app_failure_typecheck.py"}],
-            "agentic_proposal": {
-                "patch_plan": [
-                    {
-                        "op": "modify",
-                        "file": "app_failure_typecheck.py",
-                        "content": (
-                            "def needs_int(value: int) -> None:\n    # malformed agentic output\n"
-                        ),
-                    }
-                ]
+    current = Path.cwd()
+    try:
+        os.chdir(tmp_path)
+        resolved = _resolve_validated_changes_for_pr_creation(
+            request_validated_changes=[],
+            classification="TYPECHECK",
+            primary_root_cause={
+                "evidence": [{"file": "app_failure_typecheck.py", "line": 4}],
             },
-        },
-        raw_diff=raw_diff,
-    )
+            fix_output={
+                "fix_steps": [{"file": "app_failure_typecheck.py"}],
+                "agentic_proposal": {
+                    "patch_plan": [
+                        {
+                            "op": "modify",
+                            "file": "app_failure_typecheck.py",
+                            "content": (
+                                "def needs_int(value: int) -> None:\n"
+                                "    # malformed agentic output\n"
+                            ),
+                        }
+                    ]
+                },
+            },
+            raw_diff=raw_diff,
+        )
+    finally:
+        os.chdir(current)
 
     assert len(resolved) == 1
     assert resolved[0]["file"] == "app_failure_typecheck.py"
     assert "def needs_int(value: int) -> int:" in resolved[0]["content"]
     assert "needs_int(7)" in resolved[0]["content"]
     assert "malformed agentic output" not in resolved[0]["content"]
+    assert "input_value" not in resolved[0]["content"]
 
 
 def test_pr_creation_ignores_typecheck_proposal_that_suppresses_errors(tmp_path: Path) -> None:
