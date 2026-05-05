@@ -4,7 +4,7 @@ Deterministic CI root-cause analysis for failed CI runs.
 
 ![CI](https://github.com/ibrahim1023/ci-rootcause/actions/workflows/ci.yml/badge.svg)
 ![Latest Release](https://img.shields.io/github/v/release/ibrahim1023/ci-rootcause)
-![Tests](https://img.shields.io/badge/tests-287%20passed-brightgreen)
+![Tests](https://img.shields.io/badge/tests-297%20passed%2C%201%20skipped-brightgreen)
 
 ## Proven Results (MVP Suite)
 
@@ -19,11 +19,23 @@ From the curated MVP benchmark (`13` cases):
 - Confidence reproducibility: `100%`
 
 What has been tested so far:
-- Automated test suite: `287` tests passing.
+- Automated test suite: `297` tests passing, `1` opt-in live GitHub test skipped by default.
 - Benchmark failure classes: `TYPECHECK`, `LINT`, `TEST`, `DEPENDENCY`, and `INFRA`.
 - Agentic benchmark coverage: `6` proposal cases across lint, test, and typecheck fixes.
 - Guardrail coverage: safe default comment-only mode, PR opt-in gate, confidence threshold, scoped file changes, validation pass/fail, missing hosted API key, and malformed agentic proposal retry.
-- Live GitHub App smoke coverage: real `workflow_run` webhooks, PR comment create/update, typecheck/dependency/infra failures, local/Ollama suggestions, validation-failed PR gate, and async webhook acknowledgement for slow local models.
+- Live GitHub App smoke coverage: real `workflow_run` webhooks, PR comment create/update, typecheck/dependency/infra failures, local/Ollama suggestions, validation-failed PR gate, async webhook acknowledgement for slow local models, low-signal comment suppression, and a green app-created typecheck fix PR.
+
+## Proven Live GitHub App Flow
+
+Validated with a real GitHub App installation and live `workflow_run` webhooks:
+
+1. A PR introduced a Python typecheck failure.
+2. `ci-rootcause` posted a high-confidence RCA comment with file/line evidence.
+3. Low-confidence noise from the regular CI workflow was suppressed.
+4. The app created a guarded fix PR against the failing PR branch.
+5. The fix PR applied a formatted, evidence-backed change and passed `lint-and-test` plus `packaging-smoke`.
+
+The app-created fix changed the failing call from `needs_int("7")` to `needs_int(7)` and remained human-reviewable: no auto-merge, no branch-protection bypass.
 
 Benchmark source:
 - Reproduce locally: `python scripts/run_benchmark.py --suite fixtures/benchmarks/mvp-suite.json --output-root artifacts/benchmark-mvp --report-json docs/reports/mvp-benchmark-report.json --report-md docs/reports/mvp-benchmark-report.md`
