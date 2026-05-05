@@ -78,6 +78,25 @@ Validation rules:
 - If `pr_created=true`: `pr_url`, `pr_number (>0)`, and `pr_branch` are required.
 - If `pr_created=false`: `failure_reason` is required.
 
+## GitHub App Runtime Result
+
+`process_github_app_webhook(...)` returns a machine-readable result that includes:
+
+- `status` (`ok`, `partial`, `skipped`, or `error`)
+- `reason_code` and `reason` when processing is skipped, partial, or failed
+- `classification`
+- `confidence`
+- `primary_root_cause_title`
+- `suggested_fix`
+- `evidence`
+- `comment_posted`, `comment_action`, `comment_target`, and `comment_url`
+- `rca_json_path` and `rca_md_path`
+- `pr_created`
+- `pr_failure_reason_code` and `pr_failure_reason`
+- `workflow_run_id`, `delivery`, and `repository`
+
+Reason-code values are documented in `docs/app-outcome-codes.md`.
+
 ## Conversion Helpers
 
 `src/contracts/converters.py` provides:

@@ -1,153 +1,288 @@
 # ci-rootcause
 
-Deterministic CI root-cause analysis for failed CI runs.
+Deterministic multi-agent CI root-cause analysis. Not a log summarizer.
 
 ![CI](https://github.com/ibrahim1023/ci-rootcause/actions/workflows/ci.yml/badge.svg)
 ![Latest Release](https://img.shields.io/github/v/release/ibrahim1023/ci-rootcause)
-![Tests](https://img.shields.io/badge/tests-297%20passed%2C%201%20skipped-brightgreen)
+![Tests](https://img.shields.io/badge/tests-299%20passed%2C%201%20skipped-brightgreen)
 
-## Proven Results (MVP Suite)
+## Why This Exists
 
-From the curated MVP benchmark (`13` cases):
-- Classification accuracy: `100%` (`13/13`)
-- Baseline classification accuracy: `69.23%` (`9/13`)
-- Improvement: `+30.77` percentage points (about `44.4%` relative lift vs baseline)
-- Top-1 root-cause accuracy: `100%` (`12/12` applicable cases)
-- Agentic proposal validity: `100%` (`6/6` exercised cases)
-- Guarded validation pass rate: `50%` (`3/6`, three good fixes passed and three bad fixes were blocked)
-- Artifact hash reproducibility: `100%`
-- Confidence reproducibility: `100%`
+Most AI CI tools summarize logs. That is not enough.
 
-What has been tested so far:
-- Automated test suite: `297` tests passing, `1` opt-in live GitHub test skipped by default.
+CI failures are execution-system failures: one early failure can create dozens of downstream symptoms, and the useful answer is the first evidence-backed root cause, not a plausible paragraph about the log.
+
+`ci-rootcause` treats CI as a deterministic debugging problem:
+
+- reconstruct the failure structure from logs and CI metadata,
+- compare the failing run against the code diff,
+- identify the first failure point,
+- rank root causes with deterministic confidence,
+- produce reproducible artifacts,
+- optionally create a guarded fix PR that must pass validation.
+
+## What It Does
+
+Primary path: install the GitHub App, receive RCA comments on failed `workflow_run` events, and optionally allow guarded fix PRs.
+
+Core outputs:
+
+- Structured failure graph
+- Deterministic failure classification
+- Diff-aware root-cause ranking
+- Deterministic confidence score
+- Evidence-backed suggested fix
+- Optional agentic fix proposal with deterministic validation
+- Optional guarded fix PR, never auto-merged
+- `ci-rca.json` and `ci-rca.md` artifacts
+- `ci-rca-observability.json` telemetry with trace, timing, and reason-code data
+
+Supported failure classes in the current benchmark: `TYPECHECK`, `LINT`, `TEST`, `DEPENDENCY`, and `INFRA`.
+
+## Proven Results
+
+Curated MVP benchmark (`13` cases):
+
+| Metric | Result |
+| --- | ---: |
+| Classification accuracy | `100%` (`13/13`) |
+| Baseline classification accuracy | `69.23%` (`9/13`) |
+| Classification lift | `+30.77` percentage points, about `44.4%` relative lift |
+| Top-1 root-cause accuracy | `100%` (`12/12` applicable cases) |
+| Agentic proposal validity | `100%` (`6/6` exercised cases) |
+| Guarded validation gate | `50%` (`3/6`, three valid fixes passed and three bad fixes were blocked) |
+| Artifact hash reproducibility | `100%` |
+| Confidence reproducibility | `100%` |
+
+Validated coverage so far:
+
+- Automated test suite: `299` tests passing, `1` opt-in live GitHub test skipped by default.
 - Benchmark failure classes: `TYPECHECK`, `LINT`, `TEST`, `DEPENDENCY`, and `INFRA`.
 - Agentic benchmark coverage: `6` proposal cases across lint, test, and typecheck fixes.
-- Guardrail coverage: safe default comment-only mode, PR opt-in gate, confidence threshold, scoped file changes, validation pass/fail, missing hosted API key, and malformed agentic proposal retry.
-- Live GitHub App smoke coverage: real `workflow_run` webhooks, PR comment create/update, typecheck/dependency/infra failures, local/Ollama suggestions, validation-failed PR gate, async webhook acknowledgement for slow local models, low-signal comment suppression, and a green app-created typecheck fix PR.
+- Guardrails: safe default comment-only mode, PR opt-in gate, confidence threshold, scoped file changes, validation pass/fail, missing hosted API key, malformed proposal retry, low-signal comment suppression, and formatted fix commits.
+- Live GitHub App smoke coverage: real `workflow_run` webhooks, PR comment create/update, typecheck/dependency/infra failures, local/Ollama suggestions, validation-failed PR gate, async webhook acknowledgement for slow local models, and app-created fix PRs that pass repository CI.
 
-## Proven Live GitHub App Flow
+Reports:
 
-Validated with a real GitHub App installation and live `workflow_run` webhooks:
-
-1. A PR introduced a Python typecheck failure.
-2. `ci-rootcause` posted a high-confidence RCA comment with file/line evidence.
-3. Low-confidence noise from the regular CI workflow was suppressed.
-4. The app created a guarded fix PR against the failing PR branch.
-5. The fix PR applied a formatted, evidence-backed change and passed `lint-and-test` plus `packaging-smoke`.
-
-The app-created fix changed the failing call from `needs_int("7")` to `needs_int(7)` and remained human-reviewable: no auto-merge, no branch-protection bypass.
-
-Benchmark source:
-- Reproduce locally: `python scripts/run_benchmark.py --suite fixtures/benchmarks/mvp-suite.json --output-root artifacts/benchmark-mvp --report-json docs/reports/mvp-benchmark-report.json --report-md docs/reports/mvp-benchmark-report.md`
-- Compare local Ollama against the fixture-backed benchmark: `python scripts/run_ollama_comparison.py --suite fixtures/benchmarks/mvp-suite.json --llm-model qwen2.5-coder:7b --report-json artifacts/ollama-comparison/latest.json`
 - [`docs/reports/mvp-benchmark-report.md`](docs/reports/mvp-benchmark-report.md)
 - [`docs/reports/mvp-benchmark-report.json`](docs/reports/mvp-benchmark-report.json)
 - [`docs/reports/ollama-comparison.md`](docs/reports/ollama-comparison.md)
 - [`docs/limitations.md`](docs/limitations.md)
 
-## App-First Quickstart (No YAML)
+## Example Output
 
-Primary path (recommended):
+`ci-rca.json` is designed for automation and reproducible comparison:
 
-1. Install the GitHub App for your target repository.
-2. Configure app runtime with safe defaults:
-   - `enabled=true`
-   - `post_comment=true`
-   - `enable_pr_mode=false`
-   - `create_fix_pr=false`
-3. Trigger a failed `workflow_run` and verify:
-   - RCA comment appears on PR/commit context
-   - `ci-rca.json` and `ci-rca.md` paths are returned
-   - Outcome status/reason codes are machine-readable
+```json
+{
+  "classification": "TYPECHECK",
+  "confidence": 0.9,
+  "primary_root_cause": {
+    "title": "Argument 1 to needs_int has incompatible type str; expected int",
+    "file": "app_failure_typecheck.py",
+    "line": 5,
+    "evidence": [
+      "mypy reported an incompatible argument type",
+      "the failing file changed in the PR diff",
+      "the failure is the first reported error in the job"
+    ]
+  },
+  "suggested_fix": "Change the string argument to an integer and run the typecheck validation command."
+}
+```
+
+`ci-rca.md` is designed for humans:
+
+- First failure: `app_failure_typecheck.py:5`
+- Root cause: string passed where an integer is required
+- Suggested fix: replace `needs_int("7")` with `needs_int(7)`
+- Guardrail: create a fix PR only when confidence and validation pass
+
+## What Makes This Different
+
+- Deterministic confidence scoring, not LLM-generated confidence.
+- Diff-aware analysis, so changed files influence ranking.
+- Reproducible output artifacts for regression testing and audits.
+- Structured failure graph reconstruction instead of raw log summarization.
+- Machine-readable reason codes for skipped, partial, and failed app outcomes.
+- Guarded PR creation with confidence, file-scope, and validation gates.
+- Provider-optional agentic mode: deterministic by default, local/Ollama or hosted LLMs when explicitly enabled.
+
+## App-First Quickstart
+
+Recommended path for new users: install the GitHub App. No workflow YAML is required in target repositories.
+
+1. Install the GitHub App on the target repository.
+2. Start with safe defaults:
+   - `CI_ROOTCAUSE_APP_ENABLED=true`
+   - `CI_ROOTCAUSE_APP_POST_COMMENT=true`
+   - `CI_ROOTCAUSE_APP_ENABLE_PR_MODE=false`
+   - `CI_ROOTCAUSE_APP_CREATE_FIX_PR=false`
+3. Trigger a failed `workflow_run`.
+4. Verify the PR or commit receives an RCA comment with:
+   - classification,
+   - confidence,
+   - first-failure evidence,
+   - suggested fix,
+   - artifact paths,
+   - outcome reason codes.
+5. Enable fix PR creation only after comment-only behavior is trusted:
+   - `CI_ROOTCAUSE_APP_ENABLE_PR_MODE=true`
+   - `CI_ROOTCAUSE_APP_CREATE_FIX_PR=true`
+   - `CI_ROOTCAUSE_APP_MIN_PR_CONFIDENCE=0.75`
 
 Setup references:
+
 - [`docs/app-first-mvp.md`](docs/app-first-mvp.md)
 - [`docs/app-config-contract.md`](docs/app-config-contract.md)
 - [`docs/app-outcome-codes.md`](docs/app-outcome-codes.md)
 - [`docs/app-operations.md`](docs/app-operations.md)
 - [`docs/migration-action-to-app.md`](docs/migration-action-to-app.md)
 
-Reference artifact examples:
-- [`artifacts/benchmark-mvp/case-typecheck-ts2345/ci-rca.json`](artifacts/benchmark-mvp/case-typecheck-ts2345/ci-rca.json)
-- [`artifacts/benchmark-mvp/case-typecheck-ts2345/ci-rca.md`](artifacts/benchmark-mvp/case-typecheck-ts2345/ci-rca.md)
+## Optional GitHub Action Usage
 
-## Agentic Modes (Optional)
+The GitHub App is the primary product path. The composite action remains available for workflow-based users and migration support.
+
+```yaml
+- uses: ibrahim1023/ci-rootcause-action@v0
+  with:
+    github_token: ${{ secrets.GITHUB_TOKEN }}
+    post_pr_comment: true
+    create_fix_pr: false
+    max_fix_files: 5
+```
+
+Useful optional inputs:
+
+- `mode`: `deterministic`, `agentic_assist`, or `agentic_full`
+- `provider`: `local`, `openai`, `gemini`, or `anthropic`
+- `provider_api_key`: required for hosted providers in agentic modes
+- `validation_commands`: semicolon or newline separated validation commands
+- `min_pr_confidence`: minimum confidence before guarded PR creation
+- `offline_only`: skip remote PR creation/network calls
+
+## Agentic Modes
 
 Recommended default for new users: `deterministic`.
 
 | Mode | Autonomy | Key requirement | Cost profile | Risk profile |
 | --- | --- | --- | --- | --- |
-| `deterministic` | Rule-based only | None | Lowest | Lowest |
-| `agentic_assist` | LLM proposes candidate fix steps, deterministic pipeline validates/falls back | Hosted providers require API key; `local` does not | Medium | Low-medium |
-| `agentic_full` | Highest autonomy path (explicit opt-in gate required) | Hosted providers require API key; `local` does not | Highest | Highest |
+| `deterministic` | Rule-based diagnosis and fix planning | None | Lowest | Lowest |
+| `agentic_assist` | LLM proposes candidate fix steps; deterministic pipeline validates or falls back | Hosted providers require API key; `local` does not | Medium | Low-medium |
+| `agentic_full` | Highest autonomy path with explicit opt-in gate | Hosted providers require API key; `local` does not | Highest | Highest |
 
 Provider support:
-- Hosted: `openai`, `gemini`, `anthropic` (require `provider_api_key` in agentic modes).
-- Local: `local` (Ollama endpoint compatible, no paid vendor API key required).
-- Recommended local default: `qwen2.5-coder:3b`; use `qwen2.5-coder:7b` for larger local quality runs.
 
-Provider examples:
-- GitHub App local/Ollama: `CI_ROOTCAUSE_APP_LLM_PROVIDER=local` + `CI_ROOTCAUSE_APP_LLM_BASE_URL=http://localhost:11434`
-- GitHub App OpenAI: `CI_ROOTCAUSE_APP_LLM_PROVIDER=openai` + `CI_ROOTCAUSE_APP_LLM_API_KEY=<secret>`
-- GitHub App Gemini: `CI_ROOTCAUSE_APP_LLM_PROVIDER=gemini` + `CI_ROOTCAUSE_APP_LLM_API_KEY=<secret>`
-- GitHub App Anthropic: `CI_ROOTCAUSE_APP_LLM_PROVIDER=anthropic` + `CI_ROOTCAUSE_APP_LLM_API_KEY=<secret>`
-- Workflow/action mode uses the same provider names through `provider` and `provider_api_key` inputs.
+- Hosted: `openai`, `gemini`, `anthropic`.
+- Local: `local` for Ollama-compatible endpoints.
+- Recommended local default: `qwen2.5-coder:3b`.
+- Use `qwen2.5-coder:7b` when local hardware can tolerate slower responses.
 
-## Purpose
+GitHub App examples:
 
-`ci-rootcause` analyzes CI failures and produces:
+```bash
+export CI_ROOTCAUSE_APP_MODE=agentic_assist
+export CI_ROOTCAUSE_APP_LLM_PROVIDER=local
+export CI_ROOTCAUSE_APP_LLM_MODEL=qwen2.5-coder:3b
+export CI_ROOTCAUSE_APP_LLM_BASE_URL=http://localhost:11434
+```
 
-- Structured failure graph
-- Deterministic root-cause ranking
-- Deterministic confidence score
-- Evidence-backed fix plan
-- Deterministic patch plan operations (`modify/create/delete/rename`)
-- Optional guarded fix PR (never auto-merged)
-- `ci-rca.json` and `ci-rca.md` artifacts
-- `ci-rca-observability.json` run telemetry artifact (trace/timing/failure taxonomy)
+```bash
+export CI_ROOTCAUSE_APP_MODE=agentic_assist
+export CI_ROOTCAUSE_APP_LLM_PROVIDER=openai
+export CI_ROOTCAUSE_APP_LLM_API_KEY=<secret>
+```
 
-Primary runtime target is GitHub Actions.
-Provider adapter defaults support GitHub Actions and GitLab CI metadata resolution.
+## Evaluation
 
-## When To Use ci-rootcause
+We evaluate correctness and safety, not just plausibility.
 
-Ideal use cases:
-- CI failed and you need deterministic root-cause ranking with evidence, not just a generic summary.
-- You want machine-readable RCA artifacts (`ci-rca.json`) for automation/reporting.
-- You want safe, guardrailed fix PR proposals with explicit confidence thresholds.
-- You need consistent behavior across repeated runs on the same inputs.
+Current gates include:
 
-Not a fit (non-goals):
-- Running arbitrary autonomous repo-wide refactors.
-- Replacing your normal test/lint/build workflows.
-- Auto-merging remediation changes without human review.
+- classification match rate,
+- primary root-cause accuracy,
+- top-1 root-cause accuracy,
+- confidence reproducibility,
+- artifact hash reproducibility,
+- agentic proposal schema validity,
+- validation gate behavior,
+- app reason-code stability.
 
-Comparison with formatter-only autofix workflows:
+Run the benchmark locally:
 
-| Capability | ci-rootcause | Formatter/Linter autofix flow |
-| --- | --- | --- |
-| Works from failed CI logs + diff | Yes | Usually no |
-| Root-cause classification | Yes | No |
-| Ranked RCA with confidence | Yes | No |
-| Structured RCA artifact (`ci-rca.json`) | Yes | No |
-| Guardrailed optional fix PRs | Yes | Yes (tool-dependent) |
-| Designed for deterministic replay | Yes | Varies |
+```bash
+python scripts/run_benchmark.py \
+  --suite fixtures/benchmarks/mvp-suite.json \
+  --output-root artifacts/benchmark-mvp \
+  --report-json docs/reports/mvp-benchmark-report.json \
+  --report-md docs/reports/mvp-benchmark-report.md
+```
+
+Compare local Ollama models:
+
+```bash
+python scripts/run_ollama_comparison.py \
+  --suite fixtures/benchmarks/mvp-suite.json \
+  --llm-model qwen2.5-coder:3b \
+  --report-json artifacts/ollama-comparison/qwen2.5-coder-3b.json
+```
+
+## Who This Is For
+
+- Developers debugging failed CI runs.
+- Teams dealing with noisy or flaky pipelines.
+- AI infra teams building reliable automation.
+- Engineering teams that need explainable, repeatable CI debugging.
+- Maintainers who want suggested fixes without unsafe auto-merges.
 
 ## Architecture Overview
 
 ```mermaid
 flowchart LR
-  A[CI Logs + Diff] --> B[Log Ingest Agent]
-  A --> C[Diff Analysis Agent]
-  B --> D[Failure Classification Agent]
-  C --> E[Root Cause Ranker Agent]
+  A[CI logs + diff] --> B[Log ingest agent]
+  A --> C[Diff analysis agent]
+  B --> D[Failure classification agent]
+  C --> E[Root-cause ranker agent]
   D --> E
-  E --> F[Fix Planner Agent]
-  E --> G[Reporter Agent]
-  F --> H[PR Creation Agent]
-  G --> I[Artifacts ci-rca.json + ci-rca.md]
-  H --> J[Guarded Fix PR]
+  E --> F[Fix planner agent]
+  E --> G[Reporter agent]
+  F --> H[PR creation agent]
+  G --> I[Artifacts: ci-rca.json + ci-rca.md]
+  H --> J[Guarded fix PR]
 ```
+
+Execution order is deterministic and fixed:
+
+1. `log_ingest`
+2. `diff_analysis`
+3. `failure_classification`
+4. `root_cause_ranker`
+5. `fix_planner`
+6. `reporter`
+7. `pr_creation`
+
+Runtime behavior:
+
+- Uses Google ADK runtime orchestration when `google-adk` is installed.
+- Falls back to deterministic local orchestration if ADK runtime initialization fails.
+- Uses deterministic local orchestration when `--fail-fast` is enabled.
+
+## Design Constraints
+
+- No LLM-based confidence scoring.
+- No hallucinated root causes without log or diff evidence.
+- Fixes must be evidence-backed and scoped.
+- PR creation is opt-in and guarded.
+- No auto-merge.
+- No branch-protection bypass.
+- No repo-wide autonomous refactors.
+- Deterministic output is preferred over clever but unstable behavior.
+
+## Vision
+
+CI debugging should be deterministic, explainable, and reproducible.
+
+The goal is not to replace CI, linters, typecheckers, or test suites. The goal is to connect failed execution evidence to the smallest useful diagnosis and, when explicitly enabled, a reviewable fix PR.
 
 ## Local Setup
 
@@ -173,13 +308,7 @@ pytest
 
 ## CLI Quickstart
 
-1. Install dependencies:
-
-```bash
-pip install -r requirements.txt
-```
-
-2. Run the local pipeline once:
+Run the local deterministic pipeline once:
 
 ```bash
 ci-rootcause \
@@ -194,11 +323,22 @@ ci-rootcause \
   --repository owner/repo
 ```
 
-3. Inspect generated artifacts:
+Inspect generated artifacts:
+
 - `artifacts/ci-rca.json`
 - `artifacts/ci-rca.md`
 
-## Demo Script
+CLI behavior:
+
+- Writes `ci-rca.json` and `ci-rca.md` into `--output-dir`.
+- Prints a machine-readable JSON summary to stdout.
+- Exits `0` for `completed`/`partial` analysis runs, `2` for runtime/input errors.
+- Supports optional deterministic flaky-test detection via `--historical-runs-path`.
+- Supports local `--config-path` and single-stream stdin input via `-`.
+- Supports `--offline-only` to force no remote PR creation/network calls.
+- Supports rollout profile `--profile safe-github-rollout`.
+
+## Demo Fixtures
 
 Run three reproducible demo scenarios:
 
@@ -223,64 +363,13 @@ done
 ```
 
 Demo fixture pack:
+
 - [`fixtures/demos/README.md`](fixtures/demos/README.md)
 - `fixtures/demos/01-dependency-lockfile-drift`
 - `fixtures/demos/02-typecheck-ts2345`
 - `fixtures/demos/03-infra-timeout`
 
-## Local CLI Execution
-
-Run end-to-end deterministic analysis locally:
-
-```bash
-ci-rootcause \
-  --log-path fixtures/ci-logs/github-actions-python-failure.log \
-  --diff-path fixtures/diffs/refactor-only.diff \
-  --historical-runs-path fixtures/classification/historical-runs.sample.json \
-  --output-dir artifacts \
-  --timestamp 2026-02-20T00:00:00Z \
-  --commit abc123 \
-  --run-id gha_local_1 \
-  --base-commit abc122 \
-  --head-commit abc123 \
-  --repository owner/repo
-```
-
-CLI behavior:
-
-- Writes `ci-rca.json` and `ci-rca.md` into `--output-dir`
-- Prints a machine-readable JSON summary to stdout
-- Exits `0` for `completed`/`partial` analysis runs, `2` for runtime/input errors
-- Supports optional deterministic flaky-test detection via `--historical-runs-path`
-- Supports local `--config-path` (simple `key: value`) and single-stream stdin input via `-`
-- Supports `--offline-only` to force no remote PR creation/network calls
-- Supports rollout profile `--profile safe-github-rollout` (enforces min PR confidence >= `0.90`)
-
-Runtime mode:
-
-- Uses Google ADK runtime orchestration by default when `google-adk` is installed
-- Falls back to deterministic local orchestration if ADK runtime initialization fails
-- Uses deterministic local orchestration when `--fail-fast` is enabled
-
-## Architecture Details
-
-Execution order is deterministic and fixed:
-
-1. `log_ingest`
-2. `diff_analysis`
-3. `failure_classification`
-4. `root_cause_ranker`
-5. `fix_planner`
-6. `reporter`
-7. `pr_creation`
-
-Runtime behavior:
-
-- ADK runtime is used by default when available.
-- Deterministic local fallback executes on ADK initialization/runtime failure.
-- `fail_fast` uses deterministic local orchestration to preserve exception behavior.
-
-## Live GitHub Integration Test (Opt-in)
+## Live GitHub Integration Test
 
 Live PR creation/idempotency validation is available as an opt-in integration test:
 
@@ -295,30 +384,27 @@ scripts/run_live_github_test.sh \
 Notes:
 
 - Test is skipped unless `CI_ROOTCAUSE_LIVE_GITHUB=1`.
-- Use a disposable repository with push + PR permissions.
+- Use a disposable repository with push and PR permissions.
 - Script prints a cleanup checklist after the test run.
 
-## MVP Metrics And Release Artifacts
+## Current Limits
 
-- Benchmark report JSON: `docs/reports/mvp-benchmark-report.json`
-- Benchmark report summary: `docs/reports/mvp-benchmark-report.md`
-- Release checklist: `docs/release-checklist-v0.1.1.md`
-- Agentic release plan + thresholds: `docs/agentic-release-plan.md`
-- Benchmark metrics include classification/primary RCA accuracy, confidence reproducibility,
-  artifact-hash reproducibility, timing distribution (`mean`/`median`/`p95`), and
-  deterministic lift against `basic-log-summarizer-v1` baseline classification accuracy.
-- Release notes: `docs/release-notes-v0.1.0.md`
-- Known limitations: `docs/limitations.md`
+- Current benchmark coverage is curated and intentionally small.
+- Classification is deterministic-pattern based and may miss unseen signatures.
+- Fix generation is intentionally conservative and validation-gated.
+- App mode currently targets GitHub Actions `workflow_run` events.
+- CI rerun orchestration is not included.
+- Automatic merge and branch-protection bypass are not supported.
 
-## Known Limitations And Non-Goals
+## Roadmap
 
-- Current curated benchmark corpus is intentionally small (MVP scope).
-- Classification coverage is deterministic-rule based and pattern limited.
-- Timing metrics are runtime-derived and marked as nondeterministic metadata.
-- Automated fix generation is guardrailed and intentionally conservative.
-- No automatic merge or branch-protection bypass is supported.
-- No CI rerun orchestration is included in MVP.
+- Expand the curated CI failure dataset.
+- Add deeper language-specific analyzers.
+- Improve dependency drift and lockfile diagnostics.
+- Add stronger diff-to-failure linking for multi-file changes.
+- Add staging/deployment packaging for the GitHub App service.
+- Expand CI provider support beyond GitHub Actions.
 
 ## Contributing
 
-Contribution standards are documented in `CONTRIBUTING.md`.
+Contribution standards are documented in [`CONTRIBUTING.md`](CONTRIBUTING.md).

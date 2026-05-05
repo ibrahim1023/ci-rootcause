@@ -63,7 +63,9 @@ Stable outcome contract for `process_github_app_webhook`:
 ### PR Gate Codes
 These can appear as `pr_failure_reason_code` in app responses, comments, or action output:
 - `CREATE_FIX_PR_DISABLED`
-- `PR_MODE_DISABLED`
 - `CONFIDENCE_BELOW_THRESHOLD`
+- `DRY_RUN`
+- `MAX_FIX_FILES_EXCEEDED`
+- `OFFLINE_ONLY`
 - `VALIDATION_FAILED`
 - `GUARDRAIL_VIOLATION`

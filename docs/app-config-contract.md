@@ -11,6 +11,7 @@ Repository-level app configuration schema (logical contract):
   "enable_pr_mode": false,
   "create_fix_pr": false,
   "min_pr_confidence": 0.75,
+  "max_fix_files": 5,
   "validation_commands": [],
   "typecheck_validation_commands": [],
   "lint_validation_commands": [],
@@ -41,6 +42,10 @@ Repository-level app configuration schema (logical contract):
   - When `false`, app mode keeps comment/artifact-only behavior.
 - `min_pr_confidence`:
   - Float in `[0.0, 1.0]`.
+- `max_fix_files`:
+  - Maximum number of files a guarded fix PR may modify.
+  - Defaults to `5`.
+  - Exceeding this limit blocks PR creation.
 - `validation_commands`:
   - Optional generic validation commands for guarded PR creation.
 - `typecheck_validation_commands`:
@@ -71,6 +76,7 @@ Processing controls:
 - `CI_ROOTCAUSE_APP_ENABLE_PR_MODE`
 - `CI_ROOTCAUSE_APP_CREATE_FIX_PR`
 - `CI_ROOTCAUSE_APP_MIN_PR_CONFIDENCE`
+- `CI_ROOTCAUSE_APP_MAX_FIX_FILES`
 - `CI_ROOTCAUSE_APP_MODE`
 - `CI_ROOTCAUSE_APP_OUTPUT_DIR`
 - `CI_ROOTCAUSE_APP_POST_COMMENT`

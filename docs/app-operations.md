@@ -47,6 +47,45 @@ continues RCA/comment/PR processing in a background thread.
 In async mode, GitHub's delivery response only confirms acceptance. The final result is
 visible in server logs and the posted GitHub comment.
 
+## Local Ollama App Run
+
+Use this shape for local app testing with an Ollama-compatible endpoint:
+
+```bash
+export GITHUB_APP_ID=<app-id>
+export GITHUB_APP_PRIVATE_KEY_PEM="$(cat /path/to/private-key.pem)"
+export GITHUB_WEBHOOK_SECRET=<webhook-secret>
+export CI_ROOTCAUSE_APP_ASYNC_WEBHOOK=true
+export CI_ROOTCAUSE_APP_ENABLED=true
+export CI_ROOTCAUSE_APP_POST_COMMENT=true
+export CI_ROOTCAUSE_APP_MODE=agentic_assist
+export CI_ROOTCAUSE_APP_LLM_PROVIDER=local
+export CI_ROOTCAUSE_APP_LLM_MODEL=qwen2.5-coder:3b
+export CI_ROOTCAUSE_APP_LLM_BASE_URL=http://localhost:11434
+```
+
+For guarded fix PR creation, add:
+
+```bash
+export CI_ROOTCAUSE_APP_ENABLE_PR_MODE=true
+export CI_ROOTCAUSE_APP_CREATE_FIX_PR=true
+export CI_ROOTCAUSE_APP_MIN_PR_CONFIDENCE=0.75
+export CI_ROOTCAUSE_APP_MAX_FIX_FILES=5
+```
+
+Keep PR mode disabled until comment-only behavior is verified in the target repository.
+
+## Proven Live Smoke Path
+
+The current app flow has been validated with live `workflow_run` deliveries:
+
+- failed PR run produces an RCA comment,
+- repeated delivery updates the same comment,
+- low-signal regular-CI noise can be suppressed,
+- local/Ollama suggestions are accepted when schema-valid,
+- validation failures block PR creation,
+- passing scoped typecheck fixes can create a reviewable PR that passes repository CI.
+
 ## Troubleshooting
 
 - `WEBHOOK_VALIDATION_FAILED`:

@@ -68,6 +68,19 @@ def _parse_float(value: str, *, default: float) -> float:
     return parsed
 
 
+def _parse_positive_int(value: str, *, default: int) -> int:
+    text = value.strip()
+    if not text:
+        return default
+    try:
+        parsed = int(text)
+    except ValueError:
+        return default
+    if parsed <= 0:
+        return default
+    return parsed
+
+
 def _get_header(headers: dict[str, str], name: str) -> str:
     target = name.strip().lower()
     for key, value in headers.items():
@@ -94,6 +107,10 @@ def load_repo_config_from_env() -> GitHubAppRepoConfig:
             default=False,
         ),
         min_pr_confidence=float(os.getenv("CI_ROOTCAUSE_APP_MIN_PR_CONFIDENCE", "0.75")),
+        max_fix_files=_parse_positive_int(
+            os.getenv("CI_ROOTCAUSE_APP_MAX_FIX_FILES", "5"),
+            default=5,
+        ),
         validation_commands=_parse_command_list(
             os.getenv("CI_ROOTCAUSE_APP_VALIDATION_COMMANDS", "")
         ),

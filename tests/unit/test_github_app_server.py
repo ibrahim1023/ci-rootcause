@@ -134,6 +134,22 @@ def test_load_repo_config_from_env_reads_comment_confidence_threshold(monkeypatc
     assert config.min_comment_confidence == 0.65
 
 
+def test_load_repo_config_from_env_reads_max_fix_files(monkeypatch) -> None:
+    monkeypatch.setenv("CI_ROOTCAUSE_APP_MAX_FIX_FILES", "2")
+
+    config = load_repo_config_from_env()
+
+    assert config.max_fix_files == 2
+
+
+def test_load_repo_config_from_env_ignores_invalid_max_fix_files(monkeypatch) -> None:
+    monkeypatch.setenv("CI_ROOTCAUSE_APP_MAX_FIX_FILES", "0")
+
+    config = load_repo_config_from_env()
+
+    assert config.max_fix_files == 5
+
+
 def test_load_repo_config_from_env_reads_validation_commands(monkeypatch) -> None:
     monkeypatch.setenv("CI_ROOTCAUSE_APP_VALIDATION_COMMANDS", "pytest;ruff check .")
     monkeypatch.setenv(

@@ -21,9 +21,12 @@ Release gate enforces these thresholds against `docs/reports/mvp-benchmark-repor
 - `artifact_hash_reproducibility >= 1.0`
 - `confidence_reproducibility >= 1.0`
 - `completion_rate >= 1.0`
-- For `agentic_enabled=true`: `agentic_validation_pass_rate >= 1.0`
+- For `agentic_enabled=true`: release validation must pass (`--validation-passed`).
 
-Validation pass rate is modeled as a required precondition that CI release validation already passed.
+The benchmark's `validation_pass_rate` is intentionally `0.5000` because the suite
+contains three valid fixes and three intentionally invalid fixes. That metric proves
+the guardrail blocks bad proposals; it is not the same as the release gate's
+`--validation-passed` precondition.
 
 ## Enforcement
 
