@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import shlex
+import shutil
 import subprocess
 import time
 from dataclasses import dataclass
@@ -325,6 +326,30 @@ def apply_validated_changes(
         target.write_text(change.content, encoding="utf-8")
         applied_files.append(change.file)
     return sorted(applied_files)
+
+
+def _auto_format_changed_files(changed_files: list[str], repo_path: str) -> bool:
+    python_files = sorted(path for path in changed_files if path.endswith(".py"))
+    if not python_files:
+        return False
+    if shutil.which("ruff") is None:
+        return False
+
+    try:
+        subprocess.run(
+            ["ruff", "format", "--", *python_files],
+            cwd=Path(repo_path),
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except subprocess.CalledProcessError as exc:
+        stderr = (exc.stderr or exc.stdout or "").strip()
+        raise GuardrailViolationError(
+            f"format command failed: ruff format {' '.join(python_files)}: "
+            f"{stderr or exc.returncode}"
+        ) from exc
+    return True
 
 
 class SubprocessGitRunner:
@@ -845,6 +870,20 @@ def run_pr_creation(
     created_branch = create_fix_branch(plan=plan, repo_path=repo_path, git_runner=git_runner)
     checkout_fix_branch(plan=plan, repo_path=repo_path, git_runner=git_runner)
     changed_files = apply_validated_changes(changes=changes, repo_path=repo_path)
+    try:
+        _auto_format_changed_files(changed_files=changed_files, repo_path=repo_path)
+    except GuardrailViolationError as exc:
+        return _base_result(
+            pr_created=False,
+            pr_url=None,
+            pr_number=None,
+            pr_branch=created_branch,
+            failure_reason_code=PR_REASON_VALIDATION_FAILED,
+            failure_reason=str(exc),
+            validation_attempted=requires_validation,
+            validation_passed=False if requires_validation else None,
+            validation_commands=validation_commands,
+        )
     commit_message = commit_evidence_backed_changes(
         plan=plan,
         payload=payload,

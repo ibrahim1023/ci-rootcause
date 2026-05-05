@@ -25,6 +25,7 @@ from src.agents.pr_creation import (
     ProviderAdapterError,
     PullRequestRequest,
     ValidatedFileChange,
+    _auto_format_changed_files,
     apply_validated_changes,
     build_branch_creation_plan,
     build_fix_branch_name,
@@ -361,7 +362,10 @@ def test_run_pr_creation_prefers_typecheck_specific_validation_commands(
     )
 
     assert result["failure_reason_code"] == PR_REASON_DRY_RUN
-    assert seen == [["python", "-m", "mypy", "src/core/math.py"]]
+    assert seen == [
+        ["ruff", "format", "--", "src/core/math.py"],
+        ["python", "-m", "mypy", "src/core/math.py"],
+    ]
 
 
 def test_run_pr_creation_returns_validation_failed_when_command_fails(
@@ -403,6 +407,7 @@ def test_run_pr_creation_returns_validation_failed_when_command_fails(
         )
 
     monkeypatch.setattr("src.agents.pr_creation.subprocess.run", _failing_subprocess)
+    monkeypatch.setattr("src.agents.pr_creation.shutil.which", lambda command: None)
 
     result = run_pr_creation(
         payload=payload,
@@ -463,7 +468,10 @@ def test_run_pr_creation_infers_targeted_test_validation_command(
     )
 
     assert result["failure_reason_code"] == PR_REASON_DRY_RUN
-    assert seen == [["pytest", "tests/test_math.py"]]
+    assert seen == [
+        ["ruff", "format", "--", "tests/test_math.py"],
+        ["pytest", "tests/test_math.py"],
+    ]
 
 
 def test_build_pull_request_request_includes_summary_and_confidence() -> None:
@@ -557,6 +565,51 @@ def test_apply_validated_changes_writes_content_deterministically(tmp_path: Path
     assert changed_files == ["src/a.txt", "src/b.txt"]
     assert (tmp_path / "src/a.txt").read_text(encoding="utf-8") == "one\n"
     assert (tmp_path / "src/b.txt").read_text(encoding="utf-8") == "two\n"
+
+
+def test_auto_format_changed_files_runs_ruff_for_python_files(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    target = tmp_path / "app_failure_typecheck.py"
+    target.write_text(
+        "def needs_int(value: int) -> int:\n    return value\n\nresult: int = needs_int(7)\n",
+        encoding="utf-8",
+    )
+    seen: list[list[str]] = []
+
+    def _subprocess_ok(args, cwd, check, capture_output, text):  # noqa: ANN001
+        del cwd, check, capture_output, text
+        seen.append(args)
+        target.write_text(
+            "def needs_int(value: int) -> int:\n    return value\n\n\nresult: int = needs_int(7)\n",
+            encoding="utf-8",
+        )
+        return None
+
+    monkeypatch.setattr("src.agents.pr_creation.shutil.which", lambda command: command)
+    monkeypatch.setattr("src.agents.pr_creation.subprocess.run", _subprocess_ok)
+
+    formatted = _auto_format_changed_files(
+        changed_files=["app_failure_typecheck.py"],
+        repo_path=str(tmp_path),
+    )
+
+    assert formatted is True
+    assert seen == [["ruff", "format", "--", "app_failure_typecheck.py"]]
+    assert "\n\n\nresult: int = needs_int(7)\n" in target.read_text(encoding="utf-8")
+
+
+def test_auto_format_changed_files_skips_when_ruff_is_unavailable(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr("src.agents.pr_creation.shutil.which", lambda command: None)
+
+    formatted = _auto_format_changed_files(
+        changed_files=["app_failure_typecheck.py"],
+        repo_path=str(tmp_path),
+    )
+
+    assert formatted is False
 
 
 def test_commit_evidence_backed_changes_uses_only_given_files(tmp_path: Path) -> None:
