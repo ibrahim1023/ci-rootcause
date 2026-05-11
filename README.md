@@ -6,6 +6,9 @@ Deterministic multi-agent CI root-cause analysis. Not a log summarizer.
 ![Latest Release](https://img.shields.io/github/v/release/ibrahim1023/ci-rootcause)
 ![Tests](https://img.shields.io/badge/tests-299%20passed%2C%201%20skipped-brightgreen)
 
+> Read the technical write-up:  
+> **[CI Failures Are Not Text Problems. They Are Execution Problems.](https://medium.com/p/e8ab5db074cd?postPublishedType=initial)**
+
 ## Why This Exists
 
 Most AI CI tools summarize logs. That is not enough.
