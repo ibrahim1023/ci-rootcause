@@ -27,10 +27,17 @@ runs/
 *.log
 !fixtures/ci-logs/*.log
 !fixtures/demos/*/ci.log
+artifacts/app/
+artifacts/ollama-comparison/
+artifacts/benchmark-mvp/case-*/
+artifacts/benchmark-mvp/**/ci-rca-observability.json
 
 # Env
 .env
 .env.*
+*.private-key.pem
+ci-rootcause.*.pem
+uv.lock
 
 # Local planning/state docs
 task.md
