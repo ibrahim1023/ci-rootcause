@@ -110,6 +110,7 @@ Reports:
 - Structured failure graph reconstruction instead of raw log summarization.
 - Machine-readable reason codes for skipped, partial, and failed app outcomes.
 - Guarded PR creation with confidence, file-scope, and validation gates.
+- Configurable GitHub output modes: summary comment, inline PR note, commit status, or combined.
 - Provider-optional agentic mode: deterministic by default, local/Ollama or hosted LLMs when explicitly enabled.
 
 ## App-First Quickstart
@@ -122,6 +123,7 @@ Recommended path for new users: install the GitHub App. No workflow YAML is requ
 4. Start with safe defaults:
    - `CI_ROOTCAUSE_APP_ENABLED=true`
    - `CI_ROOTCAUSE_APP_POST_COMMENT=true`
+   - `CI_ROOTCAUSE_APP_OUTPUT_MODE=summary`
    - `CI_ROOTCAUSE_APP_ENABLE_PR_MODE=false`
    - `CI_ROOTCAUSE_APP_CREATE_FIX_PR=false`
 5. Trigger a failed `workflow_run`.

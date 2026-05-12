@@ -17,7 +17,8 @@ Repository-level app configuration schema (logical contract):
   "lint_validation_commands": [],
   "test_validation_commands": [],
   "post_comment": true,
-  "min_comment_confidence": 0.5
+  "min_comment_confidence": 0.5,
+  "output_mode": "summary"
 }
 ```
 
@@ -60,6 +61,12 @@ Repository-level app configuration schema (logical contract):
   - Float in `[0.0, 1.0]`.
   - Low-confidence `TEST`/`UNKNOWN` findings without file evidence are suppressed below this threshold.
   - Dependency and infra findings still comment because unknown-file evidence is common for those failures.
+- `output_mode`:
+  - Controls where app results are published.
+  - Supported values include `summary`, `inline`, `check`, `summary-inline`, `summary-check`, `inline-check`, and `all`.
+  - `summary` is the default and preserves the original single RCA comment behavior.
+  - `inline` posts only high-confidence file/line findings that map to the PR diff.
+  - `check` publishes a commit status for the analyzed head SHA.
 
 ## Environment Mapping
 Server credentials:
@@ -81,6 +88,7 @@ Processing controls:
 - `CI_ROOTCAUSE_APP_OUTPUT_DIR`
 - `CI_ROOTCAUSE_APP_POST_COMMENT`
 - `CI_ROOTCAUSE_APP_MIN_COMMENT_CONFIDENCE`
+- `CI_ROOTCAUSE_APP_OUTPUT_MODE`
 
 Agentic provider controls:
 - `CI_ROOTCAUSE_APP_LLM_PROVIDER` (`openai`, `gemini`, `anthropic`, or `local`)
@@ -103,3 +111,4 @@ Command lists accept semicolon or newline separators.
 - No automatic PR creation.
 - Failure-safe handling when logs/diffs are missing.
 - Machine-readable reason codes for skip/failure outcomes.
+- Conservative output behavior: one upserted summary comment unless another output mode is configured.

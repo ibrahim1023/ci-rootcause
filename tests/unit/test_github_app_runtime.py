@@ -256,6 +256,196 @@ def test_process_github_app_webhook_runs_pipeline_with_safe_defaults(monkeypatch
     assert captured["comment_pr_number"] == 77
 
 
+def test_process_github_app_webhook_check_only_publishes_status_without_comment(
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(
+        "src.github_app_runtime.handle_github_app_webhook",
+        lambda headers, body, webhook_secret: {  # noqa: ARG005
+            "handled": True,
+            "ignored": False,
+            "event": "workflow_run",
+            "delivery": "d1",
+            "repository": "acme/project",
+            "workflow_run_id": 130,
+            "head_sha": "head130",
+            "base_sha": "base130",
+            "head_branch": "main",
+            "pull_request_number": 77,
+        },
+    )
+    monkeypatch.setattr(
+        "src.github_app_runtime.collect_workflow_run_inputs",
+        lambda **kwargs: WorkflowRunIngestionPayload(  # noqa: ANN003
+            repository="acme/project",
+            workflow_run_id=130,
+            base_sha="base130",
+            head_sha="head130",
+            raw_log="mypy failed\n",
+            raw_diff="diff --git a/src/app.py b/src/app.py\n",
+        ),
+    )
+    monkeypatch.setattr(
+        "src.github_app_runtime.run_pipeline",
+        lambda request: _FakeState(  # noqa: ARG005
+            agent_outputs={
+                "failure_classification": {"classification": "TYPECHECK"},
+                "root_cause_ranker": {
+                    "confidence": 0.9,
+                    "primary_root_cause": {"title": "bad argument type"},
+                },
+                "reporter": {
+                    "ci_rca_json_path": "artifacts/app/ci-rca.json",
+                    "ci_rca_md_path": "artifacts/app/ci-rca.md",
+                },
+                "pr_creation": {"pr_created": False},
+            }
+        ),
+    )
+
+    captured = {}
+
+    class _FakeStatusResult:
+        context = "ci-rootcause/rca"
+        state = "success"
+        target_url = ""
+        api_url = "https://api.example.com/status/1"
+
+    class _FakeCommentClient:
+        def __init__(self, *, token: str, api_base: str = "https://api.github.com") -> None:
+            del token, api_base
+
+        def upsert_pr_comment(self, *, repository: str, pull_request_number: int, body: str):  # noqa: ANN201
+            del repository, pull_request_number, body
+            raise AssertionError("summary comment should be disabled")
+
+        def upsert_commit_comment(self, *, repository: str, commit_sha: str, body: str):  # noqa: ANN201
+            del repository, commit_sha, body
+            raise AssertionError("summary comment should be disabled")
+
+        def publish_commit_status(self, **kwargs):  # noqa: ANN003, ANN201
+            captured["status_kwargs"] = kwargs
+            return _FakeStatusResult()
+
+    monkeypatch.setattr("src.github_app_runtime.GitHubAppCommentClient", _FakeCommentClient)
+
+    result = process_github_app_webhook(
+        headers={"X-GitHub-Event": "workflow_run"},
+        body=b"{}",
+        webhook_secret="secret",
+        github_token="token",
+        repo_config=GitHubAppRepoConfig(output_mode="check-only"),
+    )
+
+    assert result["status"] == "ok"
+    assert result["comment_posted"] is False
+    assert result["status_posted"] is True
+    assert result["status_url"] == "https://api.example.com/status/1"
+    assert captured["status_kwargs"]["commit_sha"] == "head130"
+
+
+def test_process_github_app_webhook_inline_only_posts_mapped_diff_comment(
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(
+        "src.github_app_runtime.handle_github_app_webhook",
+        lambda headers, body, webhook_secret: {  # noqa: ARG005
+            "handled": True,
+            "ignored": False,
+            "event": "workflow_run",
+            "delivery": "d1",
+            "repository": "acme/project",
+            "workflow_run_id": 131,
+            "head_sha": "head131",
+            "base_sha": "base131",
+            "head_branch": "feature",
+            "pull_request_number": 88,
+        },
+    )
+    raw_diff = "\n".join(
+        [
+            "diff --git a/src/app.py b/src/app.py",
+            "--- a/src/app.py",
+            "+++ b/src/app.py",
+            "@@ -1,3 +1,3 @@",
+            " def needs_int(value: int) -> int:",
+            "     return value",
+            '+needs_int("7")',
+        ]
+    )
+    monkeypatch.setattr(
+        "src.github_app_runtime.collect_workflow_run_inputs",
+        lambda **kwargs: WorkflowRunIngestionPayload(  # noqa: ANN003
+            repository="acme/project",
+            workflow_run_id=131,
+            base_sha="base131",
+            head_sha="head131",
+            raw_log="src/app.py:3: error: incompatible type\n",
+            raw_diff=raw_diff,
+        ),
+    )
+    monkeypatch.setattr(
+        "src.github_app_runtime.run_pipeline",
+        lambda request: _FakeState(  # noqa: ARG005
+            agent_outputs={
+                "failure_classification": {"classification": "TYPECHECK"},
+                "root_cause_ranker": {
+                    "confidence": 0.82,
+                    "primary_root_cause": {
+                        "title": "src/app.py:3 incompatible type",
+                        "evidence": [{"file": "src/app.py", "line": 3}],
+                    },
+                },
+                "fix_planner": {
+                    "fix_steps": [{"instruction": "Pass an integer instead of a string."}]
+                },
+                "reporter": {
+                    "ci_rca_json_path": "artifacts/app/ci-rca.json",
+                    "ci_rca_md_path": "artifacts/app/ci-rca.md",
+                },
+                "pr_creation": {"pr_created": False},
+            }
+        ),
+    )
+
+    captured = {}
+
+    class _FakeInlineResult:
+        target = "pull_request_inline"
+        comment_id = 9090
+        action = "updated"
+        html_url = "https://example.com/inline/9090"
+
+    class _FakeCommentClient:
+        def __init__(self, *, token: str, api_base: str = "https://api.github.com") -> None:
+            del token, api_base
+
+        def upsert_pr_comment(self, *, repository: str, pull_request_number: int, body: str):  # noqa: ANN201
+            del repository, pull_request_number, body
+            raise AssertionError("summary comment should be disabled")
+
+        def upsert_inline_pr_comment(self, **kwargs):  # noqa: ANN003, ANN201
+            captured["inline_kwargs"] = kwargs
+            return _FakeInlineResult()
+
+    monkeypatch.setattr("src.github_app_runtime.GitHubAppCommentClient", _FakeCommentClient)
+
+    result = process_github_app_webhook(
+        headers={"X-GitHub-Event": "workflow_run"},
+        body=b"{}",
+        webhook_secret="secret",
+        github_token="token",
+        repo_config=GitHubAppRepoConfig(output_mode="inline-only"),
+    )
+
+    assert result["status"] == "ok"
+    assert result["comment_posted"] is False
+    assert result["inline_comment_posted"] is True
+    assert result["inline_comment_action"] == "updated"
+    assert captured["inline_kwargs"]["path"] == "src/app.py"
+    assert captured["inline_kwargs"]["line"] == 3
+
+
 def test_process_github_app_webhook_suppresses_low_signal_test_comment(monkeypatch) -> None:
     monkeypatch.setattr(
         "src.github_app_runtime.handle_github_app_webhook",

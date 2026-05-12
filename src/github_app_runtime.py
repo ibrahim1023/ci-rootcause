@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
@@ -10,6 +11,7 @@ from src.github_app_comments import (
     GitHubAppCommentClient,
     GitHubAppCommentError,
     build_app_comment_body,
+    build_inline_comment_body,
 )
 from src.github_app_ingestion import GitHubAppIngestionError, collect_workflow_run_inputs
 from src.github_app_outcomes import (
@@ -50,6 +52,7 @@ class GitHubAppRepoConfig:
     output_dir: str = "artifacts/app"
     post_comment: bool = True
     min_comment_confidence: float = 0.5
+    output_mode: str = "summary"
 
 
 def _resolve_pr_creation_controls(config: GitHubAppRepoConfig) -> tuple[bool, str | None]:
@@ -200,6 +203,113 @@ def _should_post_comment(summary: dict[str, Any], config: GitHubAppRepoConfig) -
         f"confidence {confidence:.4f} is below comment threshold "
         f"{config.min_comment_confidence:.4f} and no file evidence was found",
     )
+
+
+def _normalize_output_mode(value: str) -> set[str]:
+    text = value.strip().lower().replace("-", "_")
+    aliases = {
+        "": {"summary"},
+        "summary": {"summary"},
+        "summary_only": {"summary"},
+        "comment": {"summary"},
+        "comment_only": {"summary"},
+        "inline": {"inline"},
+        "inline_only": {"inline"},
+        "check": {"status"},
+        "check_only": {"status"},
+        "status": {"status"},
+        "status_only": {"status"},
+        "combined": {"summary", "inline", "status"},
+        "all": {"summary", "inline", "status"},
+        "summary_inline": {"summary", "inline"},
+        "inline_summary": {"summary", "inline"},
+        "summary_check": {"summary", "status"},
+        "check_summary": {"summary", "status"},
+        "summary_status": {"summary", "status"},
+        "status_summary": {"summary", "status"},
+        "inline_check": {"inline", "status"},
+        "check_inline": {"inline", "status"},
+        "inline_status": {"inline", "status"},
+        "status_inline": {"inline", "status"},
+    }
+    if text in aliases:
+        return set(aliases[text])
+    parts = {part for part in re.split(r"[_+,\\s]+", text) if part}
+    normalized: set[str] = set()
+    for part in parts:
+        if part in {"summary", "comment"}:
+            normalized.add("summary")
+        elif part == "inline":
+            normalized.add("inline")
+        elif part in {"check", "status"}:
+            normalized.add("status")
+    return normalized or {"summary"}
+
+
+def _enabled_output_modes(config: GitHubAppRepoConfig) -> set[str]:
+    modes = _normalize_output_mode(config.output_mode)
+    if not config.post_comment:
+        modes.discard("summary")
+        modes.discard("inline")
+    return modes
+
+
+def _first_diff_mapped_evidence(
+    *,
+    evidence: list[dict[str, object]],
+    raw_diff: str,
+) -> dict[str, object] | None:
+    for item in evidence:
+        file_path = str(item.get("file", "")).strip()
+        line = item.get("line")
+        if not file_path or file_path == "unknown" or not isinstance(line, int) or line <= 0:
+            continue
+        if _line_maps_to_diff(raw_diff=raw_diff, file_path=file_path, line=line):
+            return {"file": file_path, "line": line}
+    return None
+
+
+def _line_maps_to_diff(*, raw_diff: str, file_path: str, line: int) -> bool:
+    current_file = ""
+    new_line: int | None = None
+    target = file_path.strip().lstrip("./")
+    hunk_header = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@")
+
+    for raw_line in raw_diff.splitlines():
+        if raw_line.startswith("diff --git "):
+            current_file = ""
+            new_line = None
+            continue
+        if raw_line.startswith("+++ "):
+            candidate = raw_line[4:].strip()
+            if candidate.startswith("b/"):
+                candidate = candidate[2:]
+            current_file = "" if candidate == "/dev/null" else candidate.lstrip("./")
+            new_line = None
+            continue
+        match = hunk_header.match(raw_line)
+        if match:
+            new_line = int(match.group(1))
+            continue
+        if current_file != target or new_line is None:
+            continue
+        if raw_line.startswith("+") and not raw_line.startswith("+++"):
+            if new_line == line:
+                return True
+            new_line += 1
+            continue
+        if raw_line.startswith(" "):
+            if new_line == line:
+                return True
+            new_line += 1
+    return False
+
+
+def _status_description(summary: dict[str, Any]) -> str:
+    classification = str(summary.get("classification", "UNKNOWN")).strip() or "UNKNOWN"
+    confidence = float(summary.get("confidence", 0.0))
+    title = " ".join(str(summary.get("primary_root_cause_title", "unknown")).split())
+    return f"{classification} RCA {confidence:.2f}: {title or 'unknown'}"[:140]
 
 
 def process_github_app_webhook(
@@ -370,6 +480,7 @@ def process_github_app_webhook(
         artifact_reason_code = "ARTIFACT_OUTPUT_MISSING"
         artifact_reason = "reporter did not return ci-rca artifact paths"
 
+    output_modes = _enabled_output_modes(config)
     comment_posted = False
     comment_target = ""
     comment_id = 0
@@ -378,13 +489,32 @@ def process_github_app_webhook(
     comment_reason_code = ""
     comment_reason = ""
     comment_skipped_reason = ""
+    inline_comment_posted = False
+    inline_comment_id = 0
+    inline_comment_action = ""
+    inline_comment_url = ""
+    inline_comment_skipped_reason = ""
+    status_posted = False
+    status_url = ""
+    status_failure_reason_code = ""
+    status_failure_reason = ""
 
     should_post_comment, comment_skipped_reason = _should_post_comment(
         summary=summary,
         config=config,
     )
+    pull_request_number_raw = webhook_result.get("pull_request_number")
+    pull_request_number = (
+        int(pull_request_number_raw)
+        if isinstance(pull_request_number_raw, int) and pull_request_number_raw > 0
+        else 0
+    )
 
-    if should_post_comment:
+    client: GitHubAppCommentClient | None = None
+    if output_modes & {"summary", "inline", "status"}:
+        client = GitHubAppCommentClient(token=github_token, api_base=api_base)
+
+    if "summary" in output_modes and should_post_comment and client is not None:
         comment_body = build_app_comment_body(
             classification=str(summary["classification"]),
             confidence=float(summary["confidence"]),
@@ -401,13 +531,6 @@ def process_github_app_webhook(
             pr_created=bool(summary["pr_created"]),
             pr_failure_reason=str(summary["pr_failure_reason"]),
             pr_failure_reason_code=str(summary["pr_failure_reason_code"]),
-        )
-        client = GitHubAppCommentClient(token=github_token, api_base=api_base)
-        pull_request_number_raw = webhook_result.get("pull_request_number")
-        pull_request_number = (
-            int(pull_request_number_raw)
-            if isinstance(pull_request_number_raw, int) and pull_request_number_raw > 0
-            else 0
         )
         try:
             if pull_request_number > 0:
@@ -430,6 +553,66 @@ def process_github_app_webhook(
         except GitHubAppCommentError as exc:
             comment_reason_code = exc.reason_code
             comment_reason = str(exc)
+    elif "summary" not in output_modes:
+        comment_skipped_reason = "summary output disabled"
+
+    if "inline" in output_modes and client is not None:
+        inline_evidence = _first_diff_mapped_evidence(
+            evidence=summary["evidence"],
+            raw_diff=ingestion.raw_diff,
+        )
+        confidence = float(summary.get("confidence", 0.0))
+        if pull_request_number <= 0:
+            inline_comment_skipped_reason = "pull request context is required"
+        elif not should_post_comment:
+            inline_comment_skipped_reason = comment_skipped_reason
+        elif confidence < config.min_comment_confidence:
+            inline_comment_skipped_reason = (
+                f"confidence {confidence:.4f} is below inline threshold "
+                f"{config.min_comment_confidence:.4f}"
+            )
+        elif inline_evidence is None:
+            inline_comment_skipped_reason = "no file/line evidence maps to the PR diff"
+        else:
+            inline_body = build_inline_comment_body(
+                classification=str(summary["classification"]),
+                confidence=confidence,
+                primary_root_cause_title=str(summary["primary_root_cause_title"]),
+                suggested_fix=str(summary["suggested_fix"]),
+            )
+            try:
+                inline_result = client.upsert_inline_pr_comment(
+                    repository=repository,
+                    pull_request_number=pull_request_number,
+                    commit_sha=ingestion.head_sha,
+                    path=str(inline_evidence["file"]),
+                    line=int(inline_evidence["line"]),
+                    body=inline_body,
+                )
+                inline_comment_posted = True
+                inline_comment_id = inline_result.comment_id
+                inline_comment_action = inline_result.action
+                inline_comment_url = inline_result.html_url
+            except GitHubAppCommentError as exc:
+                comment_reason_code = comment_reason_code or exc.reason_code
+                comment_reason = comment_reason or str(exc)
+                inline_comment_skipped_reason = str(exc)
+
+    if "status" in output_modes and client is not None:
+        target_url = comment_url
+        try:
+            status_result = client.publish_commit_status(
+                repository=repository,
+                commit_sha=ingestion.head_sha,
+                state="success",
+                description=_status_description(summary),
+                target_url=target_url,
+            )
+            status_posted = True
+            status_url = status_result.target_url or status_result.api_url
+        except GitHubAppCommentError as exc:
+            status_failure_reason_code = exc.reason_code
+            status_failure_reason = str(exc)
 
     status = STATUS_OK
     reason_code = ""
@@ -438,6 +621,10 @@ def process_github_app_webhook(
         status = STATUS_PARTIAL
         reason_code = comment_reason_code
         reason = comment_reason
+    elif status_failure_reason_code:
+        status = STATUS_PARTIAL
+        reason_code = status_failure_reason_code
+        reason = status_failure_reason
     elif pipeline_failure_reason_code:
         status = STATUS_PARTIAL
         reason_code = pipeline_failure_reason_code
@@ -465,11 +652,21 @@ def process_github_app_webhook(
         "artifact_output_ok": artifact_reason_code == "",
         "artifact_output_reason_code": artifact_reason_code,
         "artifact_output_reason": artifact_reason,
+        "output_mode": config.output_mode,
         "comment_posted": comment_posted,
         "comment_target": comment_target,
         "comment_id": comment_id,
         "comment_action": comment_action,
         "comment_url": comment_url,
         "comment_skipped_reason": comment_skipped_reason,
+        "inline_comment_posted": inline_comment_posted,
+        "inline_comment_id": inline_comment_id,
+        "inline_comment_action": inline_comment_action,
+        "inline_comment_url": inline_comment_url,
+        "inline_comment_skipped_reason": inline_comment_skipped_reason,
+        "status_posted": status_posted,
+        "status_url": status_url,
+        "status_failure_reason_code": status_failure_reason_code,
+        "status_failure_reason": status_failure_reason,
         **summary,
     }

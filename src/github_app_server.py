@@ -136,6 +136,7 @@ def load_repo_config_from_env() -> GitHubAppRepoConfig:
             os.getenv("CI_ROOTCAUSE_APP_MIN_COMMENT_CONFIDENCE", "0.5"),
             default=0.5,
         ),
+        output_mode=os.getenv("CI_ROOTCAUSE_APP_OUTPUT_MODE", "summary").strip() or "summary",
     )
 
 

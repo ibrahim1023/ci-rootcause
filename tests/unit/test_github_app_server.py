@@ -134,6 +134,14 @@ def test_load_repo_config_from_env_reads_comment_confidence_threshold(monkeypatc
     assert config.min_comment_confidence == 0.65
 
 
+def test_load_repo_config_from_env_reads_output_mode(monkeypatch) -> None:
+    monkeypatch.setenv("CI_ROOTCAUSE_APP_OUTPUT_MODE", "summary-inline")
+
+    config = load_repo_config_from_env()
+
+    assert config.output_mode == "summary-inline"
+
+
 def test_load_repo_config_from_env_reads_max_fix_files(monkeypatch) -> None:
     monkeypatch.setenv("CI_ROOTCAUSE_APP_MAX_FIX_FILES", "2")
 

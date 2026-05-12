@@ -24,6 +24,7 @@ GitHub App permissions should include:
 - Pull requests: `write` (for PR-context comments).
 - Issues: `write` (for PR issue comments through the GitHub issues comments API).
 - Commit comments: `write` (for commit-context comments when no PR is attached).
+- Commit statuses: `write` (only when status/check output mode is enabled).
 
 ## Safe Defaults
 
@@ -36,11 +37,25 @@ Recommended initial repo config:
   "allow_repositories": [],
   "deny_repositories": [],
   "post_comment": true,
+  "output_mode": "summary",
   "enable_pr_mode": false,
   "create_fix_pr": false,
   "min_pr_confidence": 0.75
 }
 ```
+
+## Output Modes
+
+Default behavior is `summary`: one RCA comment is created or updated per PR or
+commit. Use `CI_ROOTCAUSE_APP_OUTPUT_MODE` to tune noise:
+
+- `summary`: summary comment only.
+- `inline`: inline PR review comment only, when file/line evidence maps to the PR diff.
+- `check`: commit status only.
+- `summary-inline`, `summary-check`, `inline-check`, or `all`: combined surfaces.
+
+`CI_ROOTCAUSE_APP_POST_COMMENT=false` disables comment surfaces (`summary` and
+`inline`) while still allowing status/check output.
 
 ## Delivery Mode
 
@@ -75,6 +90,7 @@ export GITHUB_WEBHOOK_SECRET=<webhook-secret>
 export CI_ROOTCAUSE_APP_ASYNC_WEBHOOK=true
 export CI_ROOTCAUSE_APP_ENABLED=true
 export CI_ROOTCAUSE_APP_POST_COMMENT=true
+export CI_ROOTCAUSE_APP_OUTPUT_MODE=summary
 export CI_ROOTCAUSE_APP_MODE=agentic_assist
 export CI_ROOTCAUSE_APP_LLM_PROVIDER=local
 export CI_ROOTCAUSE_APP_LLM_MODEL=qwen2.5-coder:3b

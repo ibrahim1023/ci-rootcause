@@ -7,6 +7,8 @@ from urllib import error
 from urllib import request as urllib_request
 
 APP_COMMENT_MARKER = "<!-- ci-rootcause:app-comment:v1 -->"
+APP_INLINE_COMMENT_MARKER = "<!-- ci-rootcause:app-inline-comment:v1 -->"
+APP_STATUS_CONTEXT = "ci-rootcause/rca"
 
 
 class GitHubAppCommentError(RuntimeError):
@@ -23,6 +25,35 @@ class CommentPublishResult:
     comment_id: int
     action: str
     html_url: str
+
+
+@dataclass(frozen=True)
+class StatusPublishResult:
+    context: str
+    state: str
+    target_url: str
+    api_url: str
+
+
+def build_inline_comment_body(
+    *,
+    classification: str,
+    confidence: float,
+    primary_root_cause_title: str,
+    suggested_fix: str = "",
+) -> str:
+    fix_text = suggested_fix.strip() or "Review the RCA summary before changing code."
+    return "\n".join(
+        [
+            APP_INLINE_COMMENT_MARKER,
+            "**ci-rootcause RCA**",
+            "",
+            f"- Likely cause: {primary_root_cause_title or 'unknown'}",
+            f"- Classification: `{classification}`",
+            f"- Confidence: `{confidence:.4f}`",
+            f"- Suggested fix: {fix_text}",
+        ]
+    )
 
 
 def build_app_comment_body(
@@ -370,4 +401,124 @@ class GitHubAppCommentClient:
             comment_id=comment_id,
             action="created",
             html_url=str(payload.get("html_url", "")),
+        )
+
+    def upsert_inline_pr_comment(
+        self,
+        *,
+        repository: str,
+        pull_request_number: int,
+        commit_sha: str,
+        path: str,
+        line: int,
+        body: str,
+    ) -> CommentPublishResult:
+        comments = self._request_json(
+            method="GET",
+            path=f"/repos/{repository}/pulls/{pull_request_number}/comments?per_page=100",
+        )
+        if not isinstance(comments, list):
+            raise GitHubAppCommentError(
+                "pull request review comments response must be a JSON list",
+                reason_code="COMMENT_API_INVALID_RESPONSE",
+            )
+
+        existing: dict[str, object] | None = None
+        for item in comments:
+            if not isinstance(item, dict):
+                continue
+            comment_body = str(item.get("body", ""))
+            same_location = (
+                str(item.get("path", "")) == path and int(item.get("line", 0) or 0) == line
+            )
+            if APP_INLINE_COMMENT_MARKER in comment_body and same_location:
+                existing = item
+                break
+
+        if existing is not None:
+            comment_id = int(existing.get("id", 0) or 0)
+            if comment_id <= 0:
+                raise GitHubAppCommentError(
+                    "existing inline comment missing id",
+                    reason_code="COMMENT_API_INVALID_RESPONSE",
+                )
+            payload = self._request_json(
+                method="PATCH",
+                path=f"/repos/{repository}/pulls/comments/{comment_id}",
+                payload={"body": body},
+            )
+            if not isinstance(payload, dict):
+                raise GitHubAppCommentError(
+                    "updated inline comment response must be a JSON object",
+                    reason_code="COMMENT_API_INVALID_RESPONSE",
+                )
+            return CommentPublishResult(
+                target="pull_request_inline",
+                comment_id=int(payload.get("id", comment_id) or comment_id),
+                action="updated",
+                html_url=str(payload.get("html_url", "")),
+            )
+
+        payload = self._request_json(
+            method="POST",
+            path=f"/repos/{repository}/pulls/{pull_request_number}/comments",
+            payload={
+                "body": body,
+                "commit_id": commit_sha,
+                "path": path,
+                "line": line,
+                "side": "RIGHT",
+            },
+        )
+        if not isinstance(payload, dict):
+            raise GitHubAppCommentError(
+                "created inline comment response must be a JSON object",
+                reason_code="COMMENT_API_INVALID_RESPONSE",
+            )
+        comment_id = int(payload.get("id", 0) or 0)
+        if comment_id <= 0:
+            raise GitHubAppCommentError(
+                "created inline comment missing id",
+                reason_code="COMMENT_API_INVALID_RESPONSE",
+            )
+        return CommentPublishResult(
+            target="pull_request_inline",
+            comment_id=comment_id,
+            action="created",
+            html_url=str(payload.get("html_url", "")),
+        )
+
+    def publish_commit_status(
+        self,
+        *,
+        repository: str,
+        commit_sha: str,
+        state: str,
+        description: str,
+        target_url: str = "",
+        context: str = APP_STATUS_CONTEXT,
+    ) -> StatusPublishResult:
+        payload: dict[str, object] = {
+            "state": state,
+            "description": description[:140],
+            "context": context,
+        }
+        if target_url:
+            payload["target_url"] = target_url
+
+        response = self._request_json(
+            method="POST",
+            path=f"/repos/{repository}/statuses/{commit_sha}",
+            payload=payload,
+        )
+        if not isinstance(response, dict):
+            raise GitHubAppCommentError(
+                "commit status response must be a JSON object",
+                reason_code="COMMENT_API_INVALID_RESPONSE",
+            )
+        return StatusPublishResult(
+            context=str(response.get("context", context)),
+            state=str(response.get("state", state)),
+            target_url=str(response.get("target_url", target_url)),
+            api_url=str(response.get("url", "")),
         )

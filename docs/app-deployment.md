@@ -65,6 +65,7 @@ Recommended safe defaults:
 ```bash
 CI_ROOTCAUSE_APP_ENABLED=true
 CI_ROOTCAUSE_APP_POST_COMMENT=true
+CI_ROOTCAUSE_APP_OUTPUT_MODE=summary
 CI_ROOTCAUSE_APP_ENABLE_PR_MODE=false
 CI_ROOTCAUSE_APP_CREATE_FIX_PR=false
 CI_ROOTCAUSE_APP_MODE=deterministic
@@ -120,6 +121,7 @@ Minimum permissions:
 - Pull requests: `write`
 - Issues: `write`
 - Commit comments: `write`
+- Commit statuses: `write` when `CI_ROOTCAUSE_APP_OUTPUT_MODE` includes `check`
 
 Install the GitHub App on the repository you want to test.
 
@@ -131,7 +133,7 @@ The user-facing onboarding should be:
 2. Select repositories.
 3. Keep safe defaults enabled: comments on, fix PRs off.
 4. Push a PR or commit that causes a GitHub Actions workflow to fail.
-5. Read the RCA comment on the PR or commit.
+5. Read the RCA comment, inline note, or status output on the PR or commit.
 6. Enable guarded fix PR creation only after comment-only behavior is trusted.
 
 No workflow YAML is required in the target repository for app mode.
@@ -144,6 +146,7 @@ Before enabling PR creation, verify comment-only mode:
 - [ ] GitHub webhook delivery to `/webhooks/github` returns `200` or `202`.
 - [ ] Failed `workflow_run` events are processed; successful runs are skipped.
 - [ ] The app posts or updates an RCA comment on the PR or commit.
+- [ ] Optional `inline` and `check` output modes are disabled unless intentionally tested.
 - [ ] The comment includes classification, confidence, evidence, suggested fix,
       and app outcome.
 - [ ] Server logs include a machine-readable result with `status` and

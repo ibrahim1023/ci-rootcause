@@ -6,8 +6,10 @@ from urllib import error
 
 from src.github_app_comments import (
     APP_COMMENT_MARKER,
+    APP_INLINE_COMMENT_MARKER,
     GitHubAppCommentClient,
     build_app_comment_body,
+    build_inline_comment_body,
 )
 
 
@@ -57,6 +59,21 @@ def test_build_app_comment_body_contains_marker_and_summary_fields() -> None:
     assert "Run ID: `gha_123`" in body
 
 
+def test_build_inline_comment_body_contains_marker_and_summary_fields() -> None:
+    body = build_inline_comment_body(
+        classification="TYPECHECK",
+        confidence=0.82,
+        primary_root_cause_title="bad argument type",
+        suggested_fix="Pass an integer.",
+    )
+
+    assert APP_INLINE_COMMENT_MARKER in body
+    assert "bad argument type" in body
+    assert "TYPECHECK" in body
+    assert "0.8200" in body
+    assert "Pass an integer." in body
+
+
 def test_upsert_pr_comment_updates_existing_app_comment(monkeypatch) -> None:
     calls: list[tuple[str, str]] = []
 
@@ -89,6 +106,108 @@ def test_upsert_pr_comment_updates_existing_app_comment(monkeypatch) -> None:
     assert result.comment_id == 1001
     assert calls[0][0] == "GET"
     assert calls[1][0] == "PATCH"
+
+
+def test_upsert_inline_pr_comment_updates_existing_marker_comment(monkeypatch) -> None:
+    calls: list[tuple[str, str]] = []
+
+    def fake_urlopen(req, timeout: int):  # noqa: ANN001
+        del timeout
+        calls.append((req.method, req.full_url))
+        if req.method == "GET":
+            payload = [
+                {
+                    "id": 5005,
+                    "body": f"{APP_INLINE_COMMENT_MARKER}\nold",
+                    "path": "src/app.py",
+                    "line": 7,
+                }
+            ]
+            return _FakeResponse(json.dumps(payload).encode("utf-8"))
+        if req.method == "PATCH":
+            payload = {"id": 5005, "html_url": "https://example.com/inline/5005"}
+            return _FakeResponse(json.dumps(payload).encode("utf-8"))
+        raise AssertionError(f"unexpected method: {req.method}")
+
+    monkeypatch.setattr("src.github_app_comments.urllib_request.urlopen", fake_urlopen)
+
+    client = GitHubAppCommentClient(token="token")
+    result = client.upsert_inline_pr_comment(
+        repository="acme/project",
+        pull_request_number=12,
+        commit_sha="abc123",
+        path="src/app.py",
+        line=7,
+        body="new body",
+    )
+
+    assert result.action == "updated"
+    assert result.comment_id == 5005
+    assert result.target == "pull_request_inline"
+    assert calls[0][0] == "GET"
+    assert calls[1][0] == "PATCH"
+
+
+def test_upsert_inline_pr_comment_creates_when_existing_not_found(monkeypatch) -> None:
+    calls: list[tuple[str, str]] = []
+
+    def fake_urlopen(req, timeout: int):  # noqa: ANN001
+        del timeout
+        calls.append((req.method, req.full_url))
+        if req.method == "GET":
+            return _FakeResponse(b"[]")
+        if req.method == "POST":
+            payload = {"id": 6006, "html_url": "https://example.com/inline/6006"}
+            return _FakeResponse(json.dumps(payload).encode("utf-8"))
+        raise AssertionError(f"unexpected method: {req.method}")
+
+    monkeypatch.setattr("src.github_app_comments.urllib_request.urlopen", fake_urlopen)
+
+    client = GitHubAppCommentClient(token="token")
+    result = client.upsert_inline_pr_comment(
+        repository="acme/project",
+        pull_request_number=12,
+        commit_sha="abc123",
+        path="src/app.py",
+        line=7,
+        body="new body",
+    )
+
+    assert result.action == "created"
+    assert result.comment_id == 6006
+    assert calls[0][0] == "GET"
+    assert calls[1][0] == "POST"
+
+
+def test_publish_commit_status_posts_status(monkeypatch) -> None:
+    calls: list[tuple[str, str]] = []
+
+    def fake_urlopen(req, timeout: int):  # noqa: ANN001
+        del timeout
+        calls.append((req.method, req.full_url))
+        payload = {
+            "context": "ci-rootcause/rca",
+            "state": "success",
+            "target_url": "https://example.com/comment",
+            "url": "https://api.example.com/status",
+        }
+        return _FakeResponse(json.dumps(payload).encode("utf-8"))
+
+    monkeypatch.setattr("src.github_app_comments.urllib_request.urlopen", fake_urlopen)
+
+    client = GitHubAppCommentClient(token="token")
+    result = client.publish_commit_status(
+        repository="acme/project",
+        commit_sha="abc123",
+        state="success",
+        description="TYPECHECK RCA 0.90",
+        target_url="https://example.com/comment",
+    )
+
+    assert result.context == "ci-rootcause/rca"
+    assert result.state == "success"
+    assert result.target_url == "https://example.com/comment"
+    assert calls == [("POST", "https://api.github.com/repos/acme/project/statuses/abc123")]
 
 
 def test_upsert_pr_comment_creates_when_existing_not_found(monkeypatch) -> None:
