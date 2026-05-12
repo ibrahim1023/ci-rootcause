@@ -9,8 +9,6 @@ Deterministic multi-agent CI root-cause analysis. Not a log summarizer.
 > Read the technical write-up:  
 > **[CI Failures Are Not Text Problems. They Are Execution Problems.](https://medium.com/p/e8ab5db074cd?postPublishedType=initial)**
 
-Latest release: [`v0.2.0`](https://github.com/ibrahim1023/ci-rootcause/releases/tag/v0.2.0)
-
 ## Why This Exists
 
 Most AI CI tools summarize logs. That is not enough.
