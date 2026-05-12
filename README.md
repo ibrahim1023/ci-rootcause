@@ -146,6 +146,7 @@ Setup references:
 - [`docs/app-config-contract.md`](docs/app-config-contract.md)
 - [`docs/app-outcome-codes.md`](docs/app-outcome-codes.md)
 - [`docs/app-operations.md`](docs/app-operations.md)
+- [`docs/app-run-history.md`](docs/app-run-history.md)
 - [`docs/migration-action-to-app.md`](docs/migration-action-to-app.md)
 
 ## Optional GitHub Action Usage

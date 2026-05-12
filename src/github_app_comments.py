@@ -135,6 +135,7 @@ class GitHubAppCommentClient:
         api_base: str = "https://api.github.com",
         max_retries: int = 3,
         backoff_seconds: float = 0.5,
+        max_retry_delay_seconds: float = 30.0,
     ) -> None:
         self._token = token.strip()
         if not self._token:
@@ -153,8 +154,14 @@ class GitHubAppCommentClient:
                 "backoff_seconds must be >= 0.0",
                 reason_code="COMMENT_API_INVALID_RESPONSE",
             )
+        if max_retry_delay_seconds < 0.0:
+            raise GitHubAppCommentError(
+                "max_retry_delay_seconds must be >= 0.0",
+                reason_code="COMMENT_API_INVALID_RESPONSE",
+            )
         self._max_retries = max_retries
         self._backoff_seconds = backoff_seconds
+        self._max_retry_delay_seconds = max_retry_delay_seconds
 
     def _is_rate_limited(self, exc: error.HTTPError, detail: str) -> bool:
         if exc.code == 429:
@@ -163,8 +170,11 @@ class GitHubAppCommentClient:
 
     def _compute_retry_delay(self, attempt: int, retry_after: float | None = None) -> float:
         if retry_after is not None and retry_after >= 0.0:
-            return retry_after
-        return self._backoff_seconds * float(2**attempt)
+            return min(retry_after, self._max_retry_delay_seconds)
+        return min(
+            self._backoff_seconds * float(2**attempt),
+            self._max_retry_delay_seconds,
+        )
 
     def _rate_limit_retry_after(self, exc: error.HTTPError) -> float | None:
         retry_after_header = exc.headers.get("Retry-After")

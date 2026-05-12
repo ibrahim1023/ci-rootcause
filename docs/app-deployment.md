@@ -166,6 +166,7 @@ Then verify PR mode separately:
 ## Troubleshooting Links
 
 - Runtime operations: [`docs/app-operations.md`](app-operations.md)
+- Run-history design: [`docs/app-run-history.md`](app-run-history.md)
 - Config contract: [`docs/app-config-contract.md`](app-config-contract.md)
 - Outcome reason codes: [`docs/app-outcome-codes.md`](app-outcome-codes.md)
 - App-first scope: [`docs/app-first-mvp.md`](app-first-mvp.md)

@@ -66,6 +66,19 @@ continues RCA/comment/PR processing in a background thread.
 In async mode, GitHub's delivery response only confirms acceptance. The final result is
 visible in server logs and the posted GitHub comment.
 
+Async processing is in-memory in the current server. If the process restarts after returning
+`202` but before the background worker finishes, that in-flight delivery is lost from the
+local process and GitHub will not automatically know the RCA failed. Safe operating choices:
+
+- Use a platform that avoids abrupt restarts during deploys, or drain traffic before restart.
+- Redeliver the webhook from the GitHub App delivery page when a restart interrupts processing.
+- Keep summary/inline output modes enabled with upsert markers so redelivery updates existing
+  comments instead of creating duplicates.
+- Add persistent run history before relying on multi-instance production deployments.
+
+Run-history design reference:
+- [`docs/app-run-history.md`](app-run-history.md)
+
 ## Health And Webhook Endpoints
 
 - Health check: `GET /healthz`
@@ -133,7 +146,9 @@ The current app flow has been validated with live `workflow_run` deliveries:
 - `WORKFLOW_LOGS_*` or `GITHUB_API_*`:
   - Validate installation token scope and API availability.
 - `COMMENT_API_*`:
-  - Check `pull-requests`/commit comment permissions and rate limits.
+  - Check `pull-requests`/commit comment/status permissions and rate limits.
+  - Transient rate-limit, network, and 5xx failures use bounded retry/backoff before returning
+    a stable partial outcome.
 
 Full reason-code taxonomy:
 - [`docs/app-outcome-codes.md`](app-outcome-codes.md)

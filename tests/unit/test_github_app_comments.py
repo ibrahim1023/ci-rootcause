@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import io
 import json
+from email.message import Message
 from urllib import error
 
 from src.github_app_comments import (
@@ -296,3 +297,67 @@ def test_upsert_pr_comment_retries_transient_http_errors(monkeypatch) -> None:
 
     assert result.comment_id == 4040
     assert attempts["count"] >= 2
+
+
+def test_upsert_pr_comment_bounds_rate_limit_retry_after(monkeypatch) -> None:
+    attempts = {"count": 0}
+    sleep_calls: list[float] = []
+    headers = Message()
+    headers["Retry-After"] = "120"
+
+    def fake_urlopen(req, timeout: int):  # noqa: ANN001
+        del timeout
+        attempts["count"] += 1
+        if attempts["count"] == 1:
+            raise error.HTTPError(
+                url=req.full_url,
+                code=429,
+                msg="Too Many Requests",
+                hdrs=headers,
+                fp=io.BytesIO(b'{"message":"rate limit"}'),
+            )
+        if req.method == "GET":
+            return _FakeResponse(b"[]")
+        if req.method == "POST":
+            payload = {"id": 5050, "html_url": "https://example.com/comment/5050"}
+            return _FakeResponse(json.dumps(payload).encode("utf-8"))
+        raise AssertionError(f"unexpected method: {req.method}")
+
+    monkeypatch.setattr("src.github_app_comments.urllib_request.urlopen", fake_urlopen)
+    monkeypatch.setattr("src.github_app_comments.time.sleep", sleep_calls.append)
+
+    client = GitHubAppCommentClient(
+        token="token",
+        max_retries=1,
+        backoff_seconds=0.0,
+        max_retry_delay_seconds=2.5,
+    )
+    result = client.upsert_pr_comment(repository="acme/project", pull_request_number=12, body="new")
+
+    assert result.comment_id == 5050
+    assert sleep_calls == [2.5]
+
+
+def test_upsert_pr_comment_network_failure_has_stable_reason_code(monkeypatch) -> None:
+    attempts = {"count": 0}
+
+    def fake_urlopen(req, timeout: int):  # noqa: ANN001
+        del req, timeout
+        attempts["count"] += 1
+        raise error.URLError("connection reset")
+
+    monkeypatch.setattr("src.github_app_comments.urllib_request.urlopen", fake_urlopen)
+    monkeypatch.setattr("src.github_app_comments.time.sleep", lambda *_args: None)
+
+    client = GitHubAppCommentClient(token="token", max_retries=2, backoff_seconds=0.0)
+    try:
+        client.upsert_pr_comment(
+            repository="acme/project",
+            pull_request_number=12,
+            body="new",
+        )
+    except Exception as exc:  # noqa: BLE001
+        assert getattr(exc, "reason_code", "") == "COMMENT_API_NETWORK_ERROR"
+    else:
+        raise AssertionError("expected network error")
+    assert attempts["count"] == 3
