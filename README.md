@@ -116,27 +116,30 @@ Reports:
 
 Recommended path for new users: install the GitHub App. No workflow YAML is required in target repositories.
 
-1. Install the GitHub App on the target repository.
-2. Start with safe defaults:
+1. Deploy the app server and set the GitHub App webhook URL to `/webhooks/github`.
+2. Install the GitHub App on the target repository.
+3. Select the repository to enable.
+4. Start with safe defaults:
    - `CI_ROOTCAUSE_APP_ENABLED=true`
    - `CI_ROOTCAUSE_APP_POST_COMMENT=true`
    - `CI_ROOTCAUSE_APP_ENABLE_PR_MODE=false`
    - `CI_ROOTCAUSE_APP_CREATE_FIX_PR=false`
-3. Trigger a failed `workflow_run`.
-4. Verify the PR or commit receives an RCA comment with:
+5. Trigger a failed `workflow_run`.
+6. Verify the PR or commit receives an RCA comment with:
    - classification,
    - confidence,
    - first-failure evidence,
    - suggested fix,
    - artifact paths,
    - outcome reason codes.
-5. Enable fix PR creation only after comment-only behavior is trusted:
+7. Enable fix PR creation only after comment-only behavior is trusted:
    - `CI_ROOTCAUSE_APP_ENABLE_PR_MODE=true`
    - `CI_ROOTCAUSE_APP_CREATE_FIX_PR=true`
    - `CI_ROOTCAUSE_APP_MIN_PR_CONFIDENCE=0.75`
 
 Setup references:
 
+- [`docs/app-deployment.md`](docs/app-deployment.md)
 - [`docs/app-first-mvp.md`](docs/app-first-mvp.md)
 - [`docs/app-config-contract.md`](docs/app-config-contract.md)
 - [`docs/app-outcome-codes.md`](docs/app-outcome-codes.md)

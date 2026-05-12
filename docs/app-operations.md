@@ -7,10 +7,14 @@ For app-mode webhook processing:
 - GitHub App private key (PEM).
 - GitHub App webhook secret.
 - Installed GitHub App on the target repository.
+- Hosted app server with public HTTPS URL.
 
 The server mints installation tokens at runtime from the App ID, private key,
 and `installation.id` in each webhook payload. You do not need to manually
 create or paste an installation token.
+
+Deployment and first-run setup:
+- [`docs/app-deployment.md`](app-deployment.md)
 
 ## Minimum Permissions
 
@@ -46,6 +50,19 @@ continues RCA/comment/PR processing in a background thread.
 
 In async mode, GitHub's delivery response only confirms acceptance. The final result is
 visible in server logs and the posted GitHub comment.
+
+## Health And Webhook Endpoints
+
+- Health check: `GET /healthz`
+- GitHub webhook: `POST /webhooks/github`
+
+For hosted deployments, configure the GitHub App webhook URL as:
+
+```text
+https://<your-host>/webhooks/github
+```
+
+Use `/healthz` as the platform health check path when supported.
 
 ## Local Ollama App Run
 
