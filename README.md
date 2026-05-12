@@ -71,6 +71,7 @@ Reports:
 - [`docs/reports/mvp-benchmark-report.json`](docs/reports/mvp-benchmark-report.json)
 - [`docs/reports/ollama-comparison.md`](docs/reports/ollama-comparison.md)
 - [`docs/limitations.md`](docs/limitations.md)
+- [`CHANGELOG.md`](CHANGELOG.md)
 
 ## Example Output
 
