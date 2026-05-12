@@ -45,6 +45,7 @@ class GitHubAppRepoConfig:
     typecheck_validation_commands: tuple[str, ...] = ()
     lint_validation_commands: tuple[str, ...] = ()
     test_validation_commands: tuple[str, ...] = ()
+    monitor_fix_pr_checks: bool = False
     llm_provider: str | None = None
     llm_model: str | None = None
     llm_api_key: str | None = None
@@ -96,6 +97,11 @@ def _pipeline_summary(state: Any) -> dict[str, Any]:
     pr_created = False
     pr_failure_reason_code = ""
     pr_failure_reason = ""
+    ci_monitoring_attempted = False
+    ci_monitoring_status = ""
+    ci_monitoring_conclusion = ""
+    ci_monitoring_url = ""
+    ci_monitoring_reason = ""
     confidence_reasons: list[str] = []
     evidence: list[dict[str, object]] = []
     suggested_fix = ""
@@ -132,6 +138,11 @@ def _pipeline_summary(state: Any) -> dict[str, Any]:
             pr_failure_reason_code = str(pr_output["failure_reason_code"])
         if pr_output.get("failure_reason"):
             pr_failure_reason = str(pr_output["failure_reason"])
+        ci_monitoring_attempted = bool(pr_output.get("ci_monitoring_attempted", False))
+        ci_monitoring_status = str(pr_output.get("ci_monitoring_status", ""))
+        ci_monitoring_conclusion = str(pr_output.get("ci_monitoring_conclusion", "") or "")
+        ci_monitoring_url = str(pr_output.get("ci_monitoring_url", "") or "")
+        ci_monitoring_reason = str(pr_output.get("ci_monitoring_reason", "") or "")
 
     return {
         "classification": classification,
@@ -142,6 +153,11 @@ def _pipeline_summary(state: Any) -> dict[str, Any]:
         "pr_created": pr_created,
         "pr_failure_reason_code": pr_failure_reason_code,
         "pr_failure_reason": pr_failure_reason,
+        "ci_monitoring_attempted": ci_monitoring_attempted,
+        "ci_monitoring_status": ci_monitoring_status,
+        "ci_monitoring_conclusion": ci_monitoring_conclusion,
+        "ci_monitoring_url": ci_monitoring_url,
+        "ci_monitoring_reason": ci_monitoring_reason,
         "confidence_reasons": confidence_reasons,
         "evidence": evidence,
         "suggested_fix": suggested_fix,
@@ -464,6 +480,7 @@ def process_github_app_webhook(
         typecheck_validation_commands=list(config.typecheck_validation_commands),
         lint_validation_commands=list(config.lint_validation_commands),
         test_validation_commands=list(config.test_validation_commands),
+        monitor_fix_pr_checks=config.monitor_fix_pr_checks,
         llm_provider=config.llm_provider,
         llm_model=config.llm_model,
         llm_api_key=config.llm_api_key,
@@ -531,6 +548,10 @@ def process_github_app_webhook(
             pr_created=bool(summary["pr_created"]),
             pr_failure_reason=str(summary["pr_failure_reason"]),
             pr_failure_reason_code=str(summary["pr_failure_reason_code"]),
+            ci_monitoring_attempted=bool(summary["ci_monitoring_attempted"]),
+            ci_monitoring_status=str(summary["ci_monitoring_status"]),
+            ci_monitoring_conclusion=str(summary["ci_monitoring_conclusion"]),
+            ci_monitoring_url=str(summary["ci_monitoring_url"]),
         )
         try:
             if pull_request_number > 0:

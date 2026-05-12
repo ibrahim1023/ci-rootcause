@@ -123,6 +123,10 @@ def load_repo_config_from_env() -> GitHubAppRepoConfig:
         test_validation_commands=_parse_command_list(
             os.getenv("CI_ROOTCAUSE_APP_TEST_VALIDATION_COMMANDS", "")
         ),
+        monitor_fix_pr_checks=_parse_bool(
+            os.getenv("CI_ROOTCAUSE_APP_MONITOR_FIX_PR_CHECKS", "false"),
+            default=False,
+        ),
         execution_mode=os.getenv("CI_ROOTCAUSE_APP_MODE", "deterministic").strip()
         or "deterministic",
         llm_provider=llm_provider,

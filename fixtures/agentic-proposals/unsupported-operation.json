@@ -1,0 +1,17 @@
+{
+  "summary": "Model attempted an unsupported append operation.",
+  "candidate_fix_steps": [
+    {
+      "file": "src/a.py",
+      "instruction": "Append a missing helper.",
+      "rationale": "CI evidence points at src/a.py."
+    }
+  ],
+  "patch_plan": [
+    {
+      "op": "append",
+      "file": "src/a.py",
+      "content": "def helper():\n    return 1\n"
+    }
+  ]
+}

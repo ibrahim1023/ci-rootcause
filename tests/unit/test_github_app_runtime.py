@@ -814,6 +814,7 @@ def test_process_github_app_webhook_passes_llm_settings_to_pipeline_request(monk
         github_token="token",
         repo_config=GitHubAppRepoConfig(
             execution_mode="agentic_assist",
+            monitor_fix_pr_checks=True,
             llm_provider="local",
             llm_model="qwen2.5-coder:7b",
             llm_base_url="http://localhost:11434",
@@ -825,6 +826,7 @@ def test_process_github_app_webhook_passes_llm_settings_to_pipeline_request(monk
     assert request.llm_provider == "local"
     assert request.llm_model == "qwen2.5-coder:7b"
     assert request.llm_base_url == "http://localhost:11434"
+    assert request.monitor_fix_pr_checks is True
     assert result["status"] == "ok"
 
 

@@ -1,0 +1,16 @@
+{
+  "summary": "Model omitted replacement file content.",
+  "candidate_fix_steps": [
+    {
+      "file": "src/a.py",
+      "instruction": "Update the failing function.",
+      "rationale": "CI evidence points at src/a.py."
+    }
+  ],
+  "patch_plan": [
+    {
+      "op": "modify",
+      "file": "src/a.py"
+    }
+  ]
+}

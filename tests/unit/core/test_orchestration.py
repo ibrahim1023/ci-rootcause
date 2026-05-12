@@ -154,6 +154,52 @@ def test_run_pipeline_wires_shared_context_and_outputs(tmp_path: Path) -> None:
     assert obs_payload["agent_status_counts"]["completed"] == len(result.execution_order)
 
 
+def test_run_pipeline_uses_flaky_detection_for_safe_test_fix_guidance(tmp_path: Path) -> None:
+    request = PipelineRequest(
+        raw_log=(
+            "tests/test_api.py::test_retry FAILED\n"
+            "AssertionError in tests/test_api.py::test_retry\n"
+        ),
+        raw_diff="diff --git a/tests/test_api.py b/tests/test_api.py\n",
+        timestamp="2026-02-20T00:00:00Z",
+        commit="abc123",
+        run_id="gha_flaky",
+        base_commit="abc123",
+        head_commit="def456",
+        output_dir=str(tmp_path),
+        create_fix_pr=False,
+        historical_runs=[
+            {
+                "run_id": "old_1",
+                "failure_events": [
+                    {
+                        "error_signature": "AssertionError in tests/test_api.py::test_retry",
+                        "log_excerpt": "tests/test_api.py::test_retry failed",
+                    }
+                ],
+            },
+            {
+                "run_id": "old_2",
+                "failure_events": [
+                    {
+                        "error_signature": "TimeoutError in tests/test_api.py::test_retry",
+                        "log_excerpt": "tests/test_api.py::test_retry timed out",
+                    }
+                ],
+            },
+        ],
+        use_adk_runtime=False,
+    )
+
+    result = run_pipeline(request=request)
+
+    assert result.agent_outputs["failure_classification"]["flaky_test_detection"]["detected"]
+    instruction = result.agent_outputs["fix_planner"]["fix_steps"][0]["instruction"].lower()
+    assert "retry" in instruction
+    assert "isolate" in instruction
+    assert "quarantine" in instruction
+
+
 def test_run_pipeline_adk_mode_matches_local_outputs(tmp_path: Path) -> None:
     base_request = PipelineRequest(
         raw_log=_sample_log(),

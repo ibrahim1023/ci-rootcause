@@ -69,6 +69,15 @@ class GitHubClient(Protocol):
     ) -> dict[str, Any]:
         """Create a pull request and return response payload."""
 
+    def get_pull_request_check_summary(
+        self,
+        *,
+        owner: str,
+        repo: str,
+        ref: str,
+    ) -> dict[str, Any]:
+        """Return a best-effort CI check summary for a fix PR head ref."""
+
 
 @dataclass(frozen=True)
 class BranchCreationPlan:
@@ -119,6 +128,11 @@ def _base_result(
     validation_passed: bool | None = None,
     validation_commands: list[str] | None = None,
     commit_message: str | None = None,
+    ci_monitoring_attempted: bool = False,
+    ci_monitoring_status: str = "not_requested",
+    ci_monitoring_conclusion: str | None = None,
+    ci_monitoring_url: str | None = None,
+    ci_monitoring_reason: str | None = None,
 ) -> dict[str, Any]:
     return {
         "pr_created": pr_created,
@@ -131,6 +145,11 @@ def _base_result(
         "validation_passed": validation_passed,
         "validation_commands": list(validation_commands or []),
         "commit_message": commit_message,
+        "ci_monitoring_attempted": ci_monitoring_attempted,
+        "ci_monitoring_status": ci_monitoring_status,
+        "ci_monitoring_conclusion": ci_monitoring_conclusion,
+        "ci_monitoring_url": ci_monitoring_url,
+        "ci_monitoring_reason": ci_monitoring_reason,
     }
 
 
@@ -699,6 +718,39 @@ class GitHubRESTClient:
             },
         )
 
+    def get_pull_request_check_summary(
+        self,
+        *,
+        owner: str,
+        repo: str,
+        ref: str,
+    ) -> dict[str, Any]:
+        statuses = self._request(
+            method="GET",
+            path=f"/repos/{owner}/{repo}/commits/{ref}/status",
+        )
+        state = "unknown"
+        target_url = ""
+        if isinstance(statuses, dict):
+            state = str(statuses.get("state", "unknown"))
+            statuses_list = statuses.get("statuses", [])
+            if isinstance(statuses_list, list) and statuses_list:
+                first = statuses_list[0]
+                if isinstance(first, dict):
+                    target_url = str(first.get("target_url", "") or "")
+        conclusion = {
+            "success": "success",
+            "failure": "failure",
+            "error": "failure",
+            "pending": "pending",
+        }.get(state, "unknown")
+        return {
+            "status": state,
+            "conclusion": conclusion,
+            "url": target_url,
+            "source": "commit_status",
+        }
+
 
 def create_or_reuse_pull_request(
     payload: dict[str, Any],
@@ -746,6 +798,57 @@ def find_existing_pull_request(
         head_branch=request_payload.head_branch,
         base_branch=request_payload.base_branch,
     )
+
+
+def _monitor_fix_pr_checks(
+    *,
+    payload: dict[str, Any],
+    pr_branch: str,
+    github_client: GitHubClient,
+) -> dict[str, Any]:
+    if not bool(payload.get("monitor_fix_pr_checks", False)):
+        return {
+            "attempted": False,
+            "status": "not_requested",
+            "conclusion": None,
+            "url": None,
+            "reason": None,
+        }
+    request_payload = build_pull_request_request(
+        payload=payload,
+        pr_branch=pr_branch,
+        changed_files=[],
+    )
+    try:
+        summary = github_client.get_pull_request_check_summary(
+            owner=request_payload.owner,
+            repo=request_payload.repo,
+            ref=pr_branch,
+        )
+    except AttributeError:
+        return {
+            "attempted": True,
+            "status": "unsupported",
+            "conclusion": None,
+            "url": None,
+            "reason": "github client does not support check monitoring",
+        }
+    except ProviderAdapterError as exc:
+        return {
+            "attempted": True,
+            "status": "error",
+            "conclusion": None,
+            "url": None,
+            "reason": str(exc),
+        }
+
+    return {
+        "attempted": True,
+        "status": str(summary.get("status", "unknown")),
+        "conclusion": str(summary.get("conclusion", "unknown")),
+        "url": str(summary.get("url", "") or "") or None,
+        "reason": None,
+    }
 
 
 def run_pr_creation(
@@ -855,6 +958,11 @@ def run_pr_creation(
             github_client=client,
         )
         if existing is not None:
+            ci_monitoring = _monitor_fix_pr_checks(
+                payload=payload,
+                pr_branch=plan.pr_branch,
+                github_client=client,
+            )
             return _base_result(
                 pr_created=True,
                 pr_url=str(existing["html_url"]),
@@ -865,6 +973,11 @@ def run_pr_creation(
                 validation_attempted=requires_validation,
                 validation_passed=True if requires_validation else None,
                 validation_commands=validation_commands,
+                ci_monitoring_attempted=bool(ci_monitoring["attempted"]),
+                ci_monitoring_status=str(ci_monitoring["status"]),
+                ci_monitoring_conclusion=ci_monitoring["conclusion"],
+                ci_monitoring_url=ci_monitoring["url"],
+                ci_monitoring_reason=ci_monitoring["reason"],
             )
 
     created_branch = create_fix_branch(plan=plan, repo_path=repo_path, git_runner=git_runner)
@@ -929,6 +1042,11 @@ def run_pr_creation(
         changed_files=changed_files,
         github_client=client,
     )
+    ci_monitoring = _monitor_fix_pr_checks(
+        payload=payload,
+        pr_branch=created_branch,
+        github_client=client,
+    )
 
     return _base_result(
         pr_created=True,
@@ -941,4 +1059,9 @@ def run_pr_creation(
         validation_passed=True if requires_validation else None,
         validation_commands=validation_commands,
         commit_message=commit_message,
+        ci_monitoring_attempted=bool(ci_monitoring["attempted"]),
+        ci_monitoring_status=str(ci_monitoring["status"]),
+        ci_monitoring_conclusion=ci_monitoring["conclusion"],
+        ci_monitoring_url=ci_monitoring["url"],
+        ci_monitoring_reason=ci_monitoring["reason"],
     )

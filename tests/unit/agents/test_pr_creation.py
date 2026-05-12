@@ -74,6 +74,7 @@ class FakeGitRunner:
 class FakeGitHubClient:
     existing: dict | None
     created: dict | None
+    check_summary: dict | None = None
     create_calls: int = 0
 
     def find_open_pull_request(
@@ -102,6 +103,18 @@ class FakeGitHubClient:
         if self.created is None:
             raise AssertionError("created payload missing")
         return self.created
+
+    def get_pull_request_check_summary(
+        self,
+        *,
+        owner: str,
+        repo: str,
+        ref: str,
+    ) -> dict:
+        del owner, repo, ref
+        if self.check_summary is None:
+            raise AssertionError("check summary missing")
+        return self.check_summary
 
 
 def test_build_fix_branch_name_is_deterministic() -> None:
@@ -220,6 +233,11 @@ def test_run_pr_creation_returns_skip_when_disabled() -> None:
         "validation_passed": None,
         "validation_commands": [],
         "commit_message": None,
+        "ci_monitoring_attempted": False,
+        "ci_monitoring_status": "not_requested",
+        "ci_monitoring_conclusion": None,
+        "ci_monitoring_url": None,
+        "ci_monitoring_reason": None,
     }
 
 
@@ -848,6 +866,54 @@ def test_run_pr_creation_opens_pr_via_client(tmp_path: Path) -> None:
         "origin",
         "ci-rootcause/fix/abc123deadbe-def456feedfa",
     ] in runner.seen
+
+
+def test_run_pr_creation_can_monitor_remote_ci_without_automerge(tmp_path: Path) -> None:
+    runner = FakeGitRunner(fail_on={"show-ref"}, seen=[])
+    client = FakeGitHubClient(
+        existing=None,
+        created={"html_url": "https://github.com/acme/repo/pull/12", "number": 12},
+        check_summary={
+            "status": "success",
+            "conclusion": "success",
+            "url": "https://github.com/acme/repo/actions/runs/123",
+        },
+    )
+    payload = {
+        "create_fix_pr": True,
+        "monitor_fix_pr_checks": True,
+        "repository": "acme/repo",
+        "target_branch": "main",
+        "summary": "Fix type mismatch",
+        "classification": "TYPECHECK",
+        "confidence": 0.91,
+        "primary_root_cause": {"title": "Invalid return type in src/core/math.py"},
+        "meta": {
+            "base_commit": "abc123deadbeef",
+            "head_commit": "def456feedface",
+            "run_id": "gha_889",
+        },
+        "allowed_files": ["src/core/math.py"],
+        "validated_changes": [
+            {"file": "src/core/math.py", "content": "def calc() -> int:\n    return 3\n"}
+        ],
+        "github_token": "unused-in-test",
+    }
+
+    result = run_pr_creation(
+        payload=payload,
+        repo_path=str(tmp_path),
+        git_runner=runner,
+        github_client=client,
+    )
+
+    assert result["pr_created"] is True
+    assert result["validation_passed"] is None
+    assert result["ci_monitoring_attempted"] is True
+    assert result["ci_monitoring_status"] == "success"
+    assert result["ci_monitoring_conclusion"] == "success"
+    assert result["ci_monitoring_url"] == "https://github.com/acme/repo/actions/runs/123"
+    assert "merge" not in " ".join(" ".join(item) for item in runner.seen)
 
 
 def test_run_pr_creation_short_circuits_when_open_pr_exists(tmp_path: Path) -> None:

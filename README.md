@@ -403,7 +403,7 @@ Notes:
 - Classification is deterministic-pattern based and may miss unseen signatures.
 - Fix generation is intentionally conservative and validation-gated.
 - App mode currently targets GitHub Actions `workflow_run` events.
-- CI rerun orchestration is not included.
+- CI rerun orchestration is not included; fix-PR check/status lookup is opt-in reporting only.
 - Automatic merge and branch-protection bypass are not supported.
 
 ## Roadmap

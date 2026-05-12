@@ -80,6 +80,7 @@ CI_ROOTCAUSE_APP_ENABLE_PR_MODE=true
 CI_ROOTCAUSE_APP_CREATE_FIX_PR=true
 CI_ROOTCAUSE_APP_MIN_PR_CONFIDENCE=0.75
 CI_ROOTCAUSE_APP_MAX_FIX_FILES=5
+CI_ROOTCAUSE_APP_MONITOR_FIX_PR_CHECKS=false
 ```
 
 Optional local/Ollama-compatible agentic mode:
@@ -162,6 +163,7 @@ Then verify PR mode separately:
 - [ ] Validation commands are configured for the target failure class.
 - [ ] The app blocks low-confidence or validation-failed proposals.
 - [ ] Any created fix PR targets the failing branch and does not auto-merge.
+- [ ] Optional remote CI monitoring, when enabled, reports check status without merging.
 
 ## Troubleshooting Links
 

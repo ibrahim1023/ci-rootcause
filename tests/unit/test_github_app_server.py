@@ -142,6 +142,14 @@ def test_load_repo_config_from_env_reads_output_mode(monkeypatch) -> None:
     assert config.output_mode == "summary-inline"
 
 
+def test_load_repo_config_from_env_reads_fix_pr_check_monitoring(monkeypatch) -> None:
+    monkeypatch.setenv("CI_ROOTCAUSE_APP_MONITOR_FIX_PR_CHECKS", "true")
+
+    config = load_repo_config_from_env()
+
+    assert config.monitor_fix_pr_checks is True
+
+
 def test_load_repo_config_from_env_reads_max_fix_files(monkeypatch) -> None:
     monkeypatch.setenv("CI_ROOTCAUSE_APP_MAX_FIX_FILES", "2")
 

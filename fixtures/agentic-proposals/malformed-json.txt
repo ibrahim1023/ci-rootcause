@@ -1,0 +1,2 @@
+Here is the fix:
+{"summary":"missing closing brace","candidate_fix_steps":[]

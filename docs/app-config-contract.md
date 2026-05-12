@@ -16,6 +16,7 @@ Repository-level app configuration schema (logical contract):
   "typecheck_validation_commands": [],
   "lint_validation_commands": [],
   "test_validation_commands": [],
+  "monitor_fix_pr_checks": false,
   "post_comment": true,
   "min_comment_confidence": 0.5,
   "output_mode": "summary"
@@ -55,6 +56,10 @@ Repository-level app configuration schema (logical contract):
   - Optional commands used only for `LINT` failures.
 - `test_validation_commands`:
   - Optional commands used only for `TEST` failures.
+- `monitor_fix_pr_checks`:
+  - Optional post-PR check/status lookup for app-created fix PRs.
+  - Defaults to `false`.
+  - Reports remote CI status separately from local validation and never auto-merges.
 - `post_comment`:
   - Whether app posts RCA summary comment for failed runs.
 - `min_comment_confidence`:
@@ -84,6 +89,7 @@ Processing controls:
 - `CI_ROOTCAUSE_APP_CREATE_FIX_PR`
 - `CI_ROOTCAUSE_APP_MIN_PR_CONFIDENCE`
 - `CI_ROOTCAUSE_APP_MAX_FIX_FILES`
+- `CI_ROOTCAUSE_APP_MONITOR_FIX_PR_CHECKS`
 - `CI_ROOTCAUSE_APP_MODE`
 - `CI_ROOTCAUSE_APP_OUTPUT_DIR`
 - `CI_ROOTCAUSE_APP_POST_COMMENT`

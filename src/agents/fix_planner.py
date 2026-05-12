@@ -216,23 +216,45 @@ def run_fix_planner(payload: dict) -> dict:
     allowed_files = set(payload.get("allowed_files") or _extract_allowed_files(primary))
     _validate_evidence_scope(primary, allowed_files)
 
-    raw_steps_payload = payload.get("candidate_fix_steps")
-    if raw_steps_payload:
+    flaky_detection = payload.get("flaky_test_detection")
+    if (
+        classification == FailureClass.TEST
+        and isinstance(flaky_detection, dict)
+        and bool(flaky_detection.get("detected", False))
+    ):
+        primary_file = sorted(_extract_allowed_files(primary))[0]
         raw_steps = [
             FixStep(
-                file=str(step["file"]),
-                instruction=str(step["instruction"]),
-                reason=str(step.get("reason", "Evidence-backed fix step")),
+                file=primary_file,
+                instruction=(
+                    "Treat as likely flaky: retry the failed test, isolate the test case, "
+                    "and quarantine only if repeat failures confirm nondeterminism."
+                ),
+                reason=(
+                    "Historical runs show the same test failing with multiple signatures; "
+                    "avoid speculative code changes."
+                ),
             )
-            for step in raw_steps_payload
         ]
     else:
-        primary_file = sorted(_extract_allowed_files(primary))[0]
-        raw_steps = _template_steps(
-            classification=classification,
-            file_path=primary_file,
-            title=str(primary["title"]),
-        )
+        raw_steps_payload = payload.get("candidate_fix_steps")
+        raw_steps = []
+        if raw_steps_payload:
+            raw_steps = [
+                FixStep(
+                    file=str(step["file"]),
+                    instruction=str(step["instruction"]),
+                    reason=str(step.get("reason", "Evidence-backed fix step")),
+                )
+                for step in raw_steps_payload
+            ]
+        else:
+            primary_file = sorted(_extract_allowed_files(primary))[0]
+            raw_steps = _template_steps(
+                classification=classification,
+                file_path=primary_file,
+                title=str(primary["title"]),
+            )
 
     normalized_steps = _normalize_steps(raw_steps)
     _validate_no_speculative_references(normalized_steps, allowed_files)

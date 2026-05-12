@@ -185,6 +185,7 @@ class PipelineRequest:
     typecheck_validation_commands: list[str] = field(default_factory=list)
     lint_validation_commands: list[str] = field(default_factory=list)
     test_validation_commands: list[str] = field(default_factory=list)
+    monitor_fix_pr_checks: bool = False
     create_fix_pr_disabled_reason: str | None = None
     ci_provider: str | None = None
     provider_adapter: str | None = None
@@ -254,6 +255,7 @@ def _run_fix_planner_agent(state: PipelineState) -> dict[str, Any]:
     base_payload = {
         "classification": classification_output["classification"],
         "primary_root_cause": primary,
+        "flaky_test_detection": classification_output.get("flaky_test_detection", {}),
     }
     if state.request.execution_mode != "agentic_assist":
         return run_fix_planner(base_payload)
@@ -554,6 +556,7 @@ def _run_pr_creation_agent(state: PipelineState) -> dict[str, Any]:
         "typecheck_validation_commands": list(state.request.typecheck_validation_commands),
         "lint_validation_commands": list(state.request.lint_validation_commands),
         "test_validation_commands": list(state.request.test_validation_commands),
+        "monitor_fix_pr_checks": state.request.monitor_fix_pr_checks,
         "min_pr_confidence": state.request.min_pr_confidence,
         "max_fix_files": state.request.max_fix_files,
         "offline_only": state.request.offline_only,

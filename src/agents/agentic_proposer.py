@@ -47,6 +47,13 @@ class AgenticPatchProposal:
     patch_plan: tuple[PatchPlanOp, ...]
 
 
+OP_ALIASES = {
+    "edit": "modify",
+    "update": "modify",
+    "replace": "modify",
+}
+
+
 def _provider_prompt(payload: dict[str, Any]) -> str:
     schema_example = {
         "summary": "One sentence diagnosis grounded in the supplied CI evidence.",
@@ -72,7 +79,8 @@ def _provider_prompt(payload: dict[str, Any]) -> str:
         "candidate_fix_steps items require: file, instruction, rationale.\n"
         "patch_plan items require: op, file, content.\n"
         "Allowed patch_plan op values are exactly: modify, create, delete, rename.\n"
-        "Never use unsupported operations such as append, replace, update, insert, or edit.\n"
+        "Use op=modify for edits/replacements/updates to an existing file. "
+        "Never use unsupported operations such as append, insert, or patch.\n"
         "Use only repo-relative paths listed in allowed_files. "
         "If no evidence-backed change is possible, return empty arrays for "
         "candidate_fix_steps and patch_plan with a summary explaining why.\n\n"
@@ -325,15 +333,21 @@ def validate_agentic_patch_proposal(payload: dict[str, Any]) -> AgenticPatchProp
         if not isinstance(item, dict):
             raise AgenticProposalContractError(f"patch_plan[{index}] must be a JSON object")
         op = _require_non_empty_str(item.get("op"), field=f"patch_plan[{index}].op").lower()
+        op = OP_ALIASES.get(op, op)
         if op not in {"modify", "create", "delete", "rename"}:
             raise AgenticProposalContractError(
                 f"patch_plan[{index}].op must be one of: modify, create, delete, rename"
+            )
+        content = str(item.get("content", ""))
+        if op in {"modify", "create"} and not content.strip():
+            raise AgenticProposalContractError(
+                f"patch_plan[{index}].content must be non-empty for {op}"
             )
         plan.append(
             PatchPlanOp(
                 op=op,
                 file=_normalize_file(item.get("file"), field=f"patch_plan[{index}].file"),
-                content=str(item.get("content", "")),
+                content=content,
             )
         )
 

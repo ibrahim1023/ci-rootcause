@@ -117,9 +117,14 @@ export CI_ROOTCAUSE_APP_ENABLE_PR_MODE=true
 export CI_ROOTCAUSE_APP_CREATE_FIX_PR=true
 export CI_ROOTCAUSE_APP_MIN_PR_CONFIDENCE=0.75
 export CI_ROOTCAUSE_APP_MAX_FIX_FILES=5
+export CI_ROOTCAUSE_APP_MONITOR_FIX_PR_CHECKS=false
 ```
 
 Keep PR mode disabled until comment-only behavior is verified in the target repository.
+
+Set `CI_ROOTCAUSE_APP_MONITOR_FIX_PR_CHECKS=true` only when you want the app to perform
+a best-effort remote CI status lookup after it creates or reuses a fix PR. This is reporting
+only: local validation and remote CI are surfaced separately, and the app never auto-merges.
 
 ## Proven Live Smoke Path
 
@@ -131,6 +136,7 @@ The current app flow has been validated with live `workflow_run` deliveries:
 - local/Ollama suggestions are accepted when schema-valid,
 - validation failures block PR creation,
 - passing scoped typecheck fixes can create a reviewable PR that passes repository CI.
+- optional fix-PR check monitoring reports remote CI status separately from local validation.
 
 ## Troubleshooting
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import pytest
 
@@ -9,6 +10,7 @@ from src.agents.agentic_proposer import (
     AgenticProposalProviderError,
     HostedLlmPatchProposer,
     LocalLlmPatchProposer,
+    _extract_json_object,
     run_agentic_patch_proposal,
     validate_agentic_patch_proposal,
 )
@@ -129,6 +131,47 @@ def test_validate_agentic_patch_proposal_rejects_invalid_op() -> None:
         )
 
 
+def test_validate_agentic_patch_proposal_normalizes_common_modify_aliases() -> None:
+    proposal = validate_agentic_patch_proposal(
+        {
+            "summary": "weak local model used update op",
+            "candidate_fix_steps": [{"file": "src/a.py", "instruction": "x", "rationale": "y"}],
+            "patch_plan": [{"op": "update", "file": "src/a.py", "content": "print(1)\n"}],
+        }
+    )
+
+    assert proposal.patch_plan[0].op == "modify"
+
+
+def test_validate_agentic_patch_proposal_rejects_incomplete_modify_plan() -> None:
+    with pytest.raises(AgenticProposalContractError, match="content must be non-empty"):
+        validate_agentic_patch_proposal(
+            {
+                "summary": "missing content",
+                "candidate_fix_steps": [{"file": "src/a.py", "instruction": "x", "rationale": "y"}],
+                "patch_plan": [{"op": "modify", "file": "src/a.py"}],
+            }
+        )
+
+
+def test_agentic_regression_fixtures_cover_malformed_json_and_bad_plans() -> None:
+    malformed = Path("fixtures/agentic-proposals/malformed-json.txt").read_text()
+    with pytest.raises(AgenticProposalProviderError, match="did not contain JSON object"):
+        _extract_json_object(malformed)
+
+    unsupported = json.loads(
+        Path("fixtures/agentic-proposals/unsupported-operation.json").read_text()
+    )
+    with pytest.raises(AgenticProposalContractError, match="must be one of"):
+        validate_agentic_patch_proposal(unsupported)
+
+    incomplete = json.loads(
+        Path("fixtures/agentic-proposals/incomplete-patch-plan.json").read_text()
+    )
+    with pytest.raises(AgenticProposalContractError, match="content must be non-empty"):
+        validate_agentic_patch_proposal(incomplete)
+
+
 def test_validate_agentic_patch_proposal_rejects_unsafe_paths() -> None:
     with pytest.raises(AgenticProposalContractError, match="Parent directory traversal"):
         validate_agentic_patch_proposal(
@@ -137,7 +180,7 @@ def test_validate_agentic_patch_proposal_rejects_unsafe_paths() -> None:
                 "candidate_fix_steps": [
                     {"file": "../escape.py", "instruction": "x", "rationale": "y"}
                 ],
-                "patch_plan": [{"op": "modify", "file": "../escape.py", "content": ""}],
+                "patch_plan": [{"op": "modify", "file": "../escape.py", "content": "x\n"}],
             }
         )
 

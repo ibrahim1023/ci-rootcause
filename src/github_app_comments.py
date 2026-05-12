@@ -71,6 +71,10 @@ def build_app_comment_body(
     pr_created: bool = False,
     pr_failure_reason: str = "",
     pr_failure_reason_code: str = "",
+    ci_monitoring_attempted: bool = False,
+    ci_monitoring_status: str = "",
+    ci_monitoring_conclusion: str = "",
+    ci_monitoring_url: str = "",
 ) -> str:
     reason = confidence_reason.strip() or "No confidence explanation recorded."
     evidence_items = list(evidence or [])
@@ -96,6 +100,15 @@ def build_app_comment_body(
             f"{outcome} PR gate: `{pr_failure_reason_code or 'not_created'}`"
             f" - {pr_failure_reason or 'not specified'}"
         )
+    ci_lines: list[str] = []
+    if ci_monitoring_attempted:
+        ci_lines.append(
+            "- Remote CI: "
+            f"`{ci_monitoring_status or 'unknown'}`"
+            f" / `{ci_monitoring_conclusion or 'unknown'}`"
+        )
+        if ci_monitoring_url:
+            ci_lines.append(f"- Remote CI URL: {ci_monitoring_url}")
 
     return "\n".join(
         [
@@ -118,6 +131,7 @@ def build_app_comment_body(
             "",
             "## App outcome",
             f"- {outcome}",
+            *ci_lines,
             f"- Run ID: `{run_id}`",
             "",
             "Artifacts:",

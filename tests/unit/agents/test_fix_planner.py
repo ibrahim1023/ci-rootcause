@@ -76,6 +76,29 @@ def test_fix_planner_output_contains_constrained_prompt_and_schema() -> None:
     assert "fix_steps" in output["output_schema"]["required"]
 
 
+def test_fix_planner_suggests_retry_isolate_quarantine_for_flaky_tests() -> None:
+    output = run_fix_planner(
+        {
+            "classification": "TEST",
+            "primary_root_cause": {
+                "title": "tests/test_api.py::test_retry failed intermittently",
+                "evidence": [{"file": "tests/test_api.py", "line": 12}],
+            },
+            "flaky_test_detection": {
+                "detected": True,
+                "matched_failure_runs": 2,
+                "unique_failure_signatures": 2,
+            },
+        }
+    )
+
+    instruction = output["fix_steps"][0]["instruction"].lower()
+    assert "retry" in instruction
+    assert "isolate" in instruction
+    assert "quarantine" in instruction
+    assert "speculative code changes" in output["fix_steps"][0]["reason"].lower()
+
+
 def test_fix_planner_post_processing_is_deterministic() -> None:
     payload = _base_payload()
     payload["candidate_fix_steps"] = [
