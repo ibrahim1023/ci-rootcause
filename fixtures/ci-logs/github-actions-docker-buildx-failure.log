@@ -1,0 +1,6 @@
+##[group]Run docker buildx build .
+#11 [stage-1 4/6] RUN npm ci
+#11 ERROR: failed to solve: process "/bin/sh -c npm ci" did not complete successfully: exit code: 1
+failed to solve with frontend dockerfile.v0: failed to solve with frontend gateway.v0
+##[error]Process completed with exit code 1.
+##[endgroup]

@@ -256,6 +256,9 @@ def _run_fix_planner_agent(state: PipelineState) -> dict[str, Any]:
         "classification": classification_output["classification"],
         "primary_root_cause": primary,
         "flaky_test_detection": classification_output.get("flaky_test_detection", {}),
+        "dependency_change_flags": state.agent_outputs["diff_analysis"].get(
+            "dependency_change_flags", {}
+        ),
     }
     if state.request.execution_mode != "agentic_assist":
         return run_fix_planner(base_payload)

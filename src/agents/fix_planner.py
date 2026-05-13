@@ -217,6 +217,39 @@ def run_fix_planner(payload: dict) -> dict:
     _validate_evidence_scope(primary, allowed_files)
 
     flaky_detection = payload.get("flaky_test_detection")
+    dependency_flags = payload.get("dependency_change_flags", {})
+    dependency_hint_command = ""
+    dependency_hint_reason = ""
+    if isinstance(dependency_flags, dict):
+        changed_lockfiles = {
+            str(item).strip() for item in dependency_flags.get("changed_lockfiles", []) or []
+        }
+        changed_manifests = {
+            str(item).strip() for item in dependency_flags.get("changed_manifests", []) or []
+        }
+        if "package-lock.json" in changed_lockfiles:
+            dependency_hint_command = "npm ci"
+            dependency_hint_reason = "npm lockfile evidence indicates deterministic install drift."
+        elif "pnpm-lock.yaml" in changed_lockfiles:
+            dependency_hint_command = "pnpm install --frozen-lockfile"
+            dependency_hint_reason = "pnpm lockfile evidence indicates dependency graph drift."
+        elif "yarn.lock" in changed_lockfiles:
+            dependency_hint_command = "yarn install --frozen-lockfile"
+            dependency_hint_reason = "Yarn lockfile evidence indicates dependency graph drift."
+        elif "package.json" in changed_manifests:
+            dependency_hint_command = "npm ci"
+            dependency_hint_reason = (
+                "Node manifest changed; re-resolve dependencies deterministically."
+            )
+        elif {"poetry.lock", "uv.lock", "Pipfile.lock"}.intersection(changed_lockfiles):
+            dependency_hint_command = "uv sync"
+            dependency_hint_reason = "Python lockfile evidence indicates environment drift."
+        elif "requirements.txt" in changed_manifests:
+            dependency_hint_command = "pip install -r requirements.txt"
+            dependency_hint_reason = (
+                "requirements manifest changed; dependency install reconciliation is needed."
+            )
+
     if (
         classification == FailureClass.TEST
         and isinstance(flaky_detection, dict)
@@ -234,6 +267,18 @@ def run_fix_planner(payload: dict) -> dict:
                     "Historical runs show the same test failing with multiple signatures; "
                     "avoid speculative code changes."
                 ),
+            )
+        ]
+    elif classification == FailureClass.DEPENDENCY and dependency_hint_command:
+        primary_file = sorted(_extract_allowed_files(primary))[0]
+        raw_steps = [
+            FixStep(
+                file=primary_file,
+                instruction=(
+                    "Reconcile manifest and lockfile state, then rerun dependency resolution with "
+                    f"`{dependency_hint_command}`."
+                ),
+                reason=dependency_hint_reason or "Dependency drift indicators were detected.",
             )
         ]
     else:

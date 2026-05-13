@@ -34,6 +34,13 @@ from src.agents.failure_classification import (
             "pattern:ts2345",
         ),
         (
+            "typecheck-tsc",
+            [{"error_signature": "tsc error TS7006", "log_excerpt": "cannot find name Foo"}],
+            None,
+            "TYPECHECK",
+            "pattern:ts7006",
+        ),
+        (
             "mypy-arg-type",
             [
                 {
@@ -63,11 +70,51 @@ from src.agents.failure_classification import (
             "pattern:assertionerror",
         ),
         (
+            "test-vitest",
+            [{"error_signature": "FAIL src/math.test.ts", "log_excerpt": "vitest failed"}],
+            None,
+            "TEST",
+            "pattern:vitest",
+        ),
+        (
+            "test-go",
+            [{"error_signature": "--- FAIL: TestAdd", "log_excerpt": "go test ./..."}],
+            None,
+            "TEST",
+            "pattern:--- fail:",
+        ),
+        (
             "build",
             [{"error_signature": "cannot compile", "log_excerpt": "build failed"}],
             None,
             "BUILD",
             "pattern:cannot compile",
+        ),
+        (
+            "build-rust",
+            [{"error_signature": "error[E0308]: mismatched types", "log_excerpt": "cargo build"}],
+            None,
+            "BUILD",
+            "pattern:error[e",
+        ),
+        (
+            "build-docker-buildx",
+            [{"error_signature": "failed to solve", "log_excerpt": "docker buildx build ."}],
+            None,
+            "BUILD",
+            "pattern:failed to solve",
+        ),
+        (
+            "dependency-node-install",
+            [
+                {
+                    "error_signature": "npm ERR! code ERESOLVE",
+                    "log_excerpt": "unable to resolve dependency tree",
+                }
+            ],
+            {"has_lockfile_change": True, "has_manifest_change": True},
+            "DEPENDENCY",
+            "pattern:npm err! code eresolve",
         ),
     ],
 )
@@ -194,6 +241,6 @@ def test_fixture_accuracy_tracks_misclassification_rate() -> None:
 
     metrics = evaluate_classification_accuracy(cases)
 
-    assert metrics["total"] == 17
-    assert metrics["correct"] >= 16
+    assert metrics["total"] == 21
+    assert metrics["correct"] >= 20
     assert metrics["misclassification_rate"] <= 0.1

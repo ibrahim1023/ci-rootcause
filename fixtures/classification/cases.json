@@ -176,5 +176,49 @@
       }
     ],
     "expected_classification": "UNKNOWN"
+  },
+  {
+    "name": "dependency-node-eresolve",
+    "failure_events": [
+      {
+        "error_signature": "npm ERR! code ERESOLVE",
+        "log_excerpt": "unable to resolve dependency tree"
+      }
+    ],
+    "dependency_change_flags": {
+      "has_lockfile_change": true,
+      "has_manifest_change": true
+    },
+    "expected_classification": "DEPENDENCY"
+  },
+  {
+    "name": "test-go-fail",
+    "failure_events": [
+      {
+        "error_signature": "--- FAIL: TestAdd",
+        "log_excerpt": "go test ./..."
+      }
+    ],
+    "expected_classification": "TEST"
+  },
+  {
+    "name": "build-rust-e0308",
+    "failure_events": [
+      {
+        "error_signature": "error[E0308]: mismatched types",
+        "log_excerpt": "cargo build"
+      }
+    ],
+    "expected_classification": "BUILD"
+  },
+  {
+    "name": "build-docker-buildx-failed-to-solve",
+    "failure_events": [
+      {
+        "error_signature": "failed to solve with frontend dockerfile.v0",
+        "log_excerpt": "docker buildx build ."
+      }
+    ],
+    "expected_classification": "BUILD"
   }
 ]

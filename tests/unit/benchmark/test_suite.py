@@ -13,7 +13,7 @@ def test_load_benchmark_suite_returns_sorted_cases() -> None:
     suite_name, cases = load_benchmark_suite(SUITE_PATH)
 
     assert suite_name == "mvp-curated-v3"
-    assert len(cases) == 13
+    assert len(cases) == 17
     assert [case.case_id for case in cases] == sorted(case.case_id for case in cases)
     assert {case.expected_classification for case in cases} == {
         "DEPENDENCY",
@@ -21,6 +21,7 @@ def test_load_benchmark_suite_returns_sorted_cases() -> None:
         "TEST",
         "TYPECHECK",
         "INFRA",
+        "BUILD",
     }
     typecheck_case = next(case for case in cases if case.case_id == "case-typecheck-ts2345")
     assert typecheck_case.expected_primary_root_cause_file == "src/app.ts"

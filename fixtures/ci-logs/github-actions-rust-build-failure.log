@@ -1,0 +1,9 @@
+##[group]Run cargo build
+error[E0308]: mismatched types
+  --> src/lib.rs:21:18
+   |
+21 |     let value: i32 = "7";
+   |                  ^^^ expected `i32`, found `&str`
+error: could not compile `acme-core` (lib) due to previous error
+##[error]Process completed with exit code 101.
+##[endgroup]

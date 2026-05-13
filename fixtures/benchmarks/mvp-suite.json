@@ -319,6 +319,58 @@
       "head_commit": "ghi123",
       "expected_classification": "INFRA",
       "expected_primary_root_cause_contains": "connection reset"
+    },
+    {
+      "case_id": "case-node-install-eresolve",
+      "description": "Node npm install dependency resolution failure",
+      "log_path": "fixtures/ci-logs/github-actions-node-install-failure.log",
+      "diff_path": "fixtures/diffs/node-mixed-code-lock.diff",
+      "timestamp": "2026-02-24T00:00:00Z",
+      "commit": "node123",
+      "run_id": "bench_008",
+      "base_commit": "node122",
+      "head_commit": "node123",
+      "expected_classification": "DEPENDENCY",
+      "expected_primary_root_cause_contains": "ERESOLVE"
+    },
+    {
+      "case_id": "case-go-test-fail",
+      "description": "Go test failure with explicit failing test output",
+      "log_path": "fixtures/ci-logs/github-actions-go-test-failure.log",
+      "diff_path": "fixtures/diffs/refactor-only.diff",
+      "timestamp": "2026-02-24T00:00:00Z",
+      "commit": "go123",
+      "run_id": "bench_009",
+      "base_commit": "go122",
+      "head_commit": "go123",
+      "expected_classification": "TEST",
+      "expected_primary_root_cause_contains": "FAIL: TestAdd"
+    },
+    {
+      "case_id": "case-rust-build-e0308",
+      "description": "Rust cargo build failure with E0308 type mismatch",
+      "log_path": "fixtures/ci-logs/github-actions-rust-build-failure.log",
+      "diff_path": "fixtures/diffs/refactor-only.diff",
+      "timestamp": "2026-02-24T00:00:00Z",
+      "commit": "rust123",
+      "run_id": "bench_010",
+      "base_commit": "rust122",
+      "head_commit": "rust123",
+      "expected_classification": "BUILD",
+      "expected_primary_root_cause_contains": "error[E0308]"
+    },
+    {
+      "case_id": "case-docker-buildx-failed-to-solve",
+      "description": "Docker buildx failure with failed-to-solve signature",
+      "log_path": "fixtures/ci-logs/github-actions-docker-buildx-failure.log",
+      "diff_path": "fixtures/diffs/refactor-only.diff",
+      "timestamp": "2026-02-24T00:00:00Z",
+      "commit": "dock123",
+      "run_id": "bench_011",
+      "base_commit": "dock122",
+      "head_commit": "dock123",
+      "expected_classification": "BUILD",
+      "expected_primary_root_cause_contains": "failed to solve"
     }
   ]
 }

@@ -8,6 +8,8 @@ ERROR_PATTERNS: tuple[re.Pattern[str], ...] = (
         r"\b(error|exception|traceback|failed|failure|assertionerror)\b",
         re.IGNORECASE,
     ),
+    re.compile(r"npm err!", re.IGNORECASE),
+    re.compile(r"^---\s*FAIL:", re.IGNORECASE),
 )
 
 LOCATION_PATTERNS: tuple[re.Pattern[str], ...] = (

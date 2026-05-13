@@ -99,6 +99,27 @@ def test_fix_planner_suggests_retry_isolate_quarantine_for_flaky_tests() -> None
     assert "speculative code changes" in output["fix_steps"][0]["reason"].lower()
 
 
+def test_fix_planner_dependency_hint_uses_lockfile_command_when_evidence_is_strong() -> None:
+    output = run_fix_planner(
+        {
+            "classification": "DEPENDENCY",
+            "primary_root_cause": {
+                "title": "npm ERR! code ERESOLVE",
+                "evidence": [{"file": "package-lock.json", "line": 1}],
+            },
+            "dependency_change_flags": {
+                "has_lockfile_change": True,
+                "has_manifest_change": True,
+                "changed_lockfiles": ["package-lock.json"],
+                "changed_manifests": ["package.json"],
+            },
+        }
+    )
+
+    instruction = output["fix_steps"][0]["instruction"]
+    assert "npm ci" in instruction
+
+
 def test_fix_planner_post_processing_is_deterministic() -> None:
     payload = _base_payload()
     payload["candidate_fix_steps"] = [

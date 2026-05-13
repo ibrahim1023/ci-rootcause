@@ -1,0 +1,7 @@
+##[group]Run go test ./...
+--- FAIL: TestAdd (0.00s)
+    math_test.go:14: expected 4, got 3
+FAIL
+FAIL	github.com/acme/app	0.021s
+##[error]Process completed with exit code 1.
+##[endgroup]

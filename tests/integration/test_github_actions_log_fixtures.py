@@ -43,3 +43,51 @@ def test_pipeline_handles_cancelled_partial_fixture(tmp_path: Path) -> None:
     assert state.pipeline_status == "completed"
     assert state.agent_outputs["failure_classification"]["classification"] == "INFRA"
     assert state.agent_outputs["log_ingest"]["first_failure_event"] is not None
+
+
+def test_pipeline_handles_node_install_dependency_fixture(tmp_path: Path) -> None:
+    state = _run_fixture_pipeline(
+        "fixtures/ci-logs/github-actions-node-install-failure.log",
+        tmp_path / "node-install",
+        "gha_node_install_fixture",
+    )
+
+    assert state.pipeline_status == "completed"
+    assert state.agent_outputs["failure_classification"]["classification"] == "DEPENDENCY"
+    assert state.agent_outputs["log_ingest"]["first_failure_event"] is not None
+
+
+def test_pipeline_handles_go_test_fixture(tmp_path: Path) -> None:
+    state = _run_fixture_pipeline(
+        "fixtures/ci-logs/github-actions-go-test-failure.log",
+        tmp_path / "go-test",
+        "gha_go_test_fixture",
+    )
+
+    assert state.pipeline_status == "completed"
+    assert state.agent_outputs["failure_classification"]["classification"] == "TEST"
+    assert state.agent_outputs["log_ingest"]["first_failure_event"] is not None
+
+
+def test_pipeline_handles_rust_build_fixture(tmp_path: Path) -> None:
+    state = _run_fixture_pipeline(
+        "fixtures/ci-logs/github-actions-rust-build-failure.log",
+        tmp_path / "rust-build",
+        "gha_rust_build_fixture",
+    )
+
+    assert state.pipeline_status == "completed"
+    assert state.agent_outputs["failure_classification"]["classification"] == "BUILD"
+    assert state.agent_outputs["log_ingest"]["first_failure_event"] is not None
+
+
+def test_pipeline_handles_docker_buildx_fixture(tmp_path: Path) -> None:
+    state = _run_fixture_pipeline(
+        "fixtures/ci-logs/github-actions-docker-buildx-failure.log",
+        tmp_path / "docker-buildx",
+        "gha_docker_buildx_fixture",
+    )
+
+    assert state.pipeline_status == "completed"
+    assert state.agent_outputs["failure_classification"]["classification"] == "BUILD"
+    assert state.agent_outputs["log_ingest"]["first_failure_event"] is not None
