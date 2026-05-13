@@ -1,0 +1,40 @@
+{
+  "suite": "mvp-curated-v3",
+  "last_updated": "2026-05-13",
+  "deterministic": {
+    "total_cases": 17,
+    "classification_accuracy": 1.0,
+    "baseline_classification_accuracy": 0.5294,
+    "classification_lift": 0.4706,
+    "top1_root_cause_accuracy": 1.0,
+    "primary_root_cause_accuracy": 0.8235,
+    "false_fix_blocked_rate": 0.5,
+    "validation_pass_rate": 0.5,
+    "mean_time_to_rca_ms": 61.75,
+    "artifact_reproducibility": 1.0
+  },
+  "local_ollama": {
+    "qwen2.5-coder:3b": {
+      "total_cases": 6,
+      "classification_accuracy": 1.0,
+      "top1_root_cause_accuracy": 1.0,
+      "proposal_validity": 1.0,
+      "false_fix_blocked_rate": 0.5,
+      "median_time_to_rca_ms": 3763.331,
+      "p95_time_to_rca_ms": 4979.155
+    },
+    "qwen2.5-coder:7b": {
+      "total_cases": 6,
+      "classification_accuracy": 1.0,
+      "top1_root_cause_accuracy": 1.0,
+      "proposal_validity": 1.0,
+      "false_fix_blocked_rate": 0.5,
+      "median_time_to_rca_ms": 6185.112,
+      "p95_time_to_rca_ms": 6581.861
+    }
+  },
+  "sources": [
+    "docs/reports/mvp-benchmark-report.json",
+    "docs/reports/ollama-comparison.md"
+  ]
+}

@@ -40,18 +40,19 @@ Core outputs:
 - `ci-rca.json` and `ci-rca.md` artifacts
 - `ci-rca-observability.json` telemetry with trace, timing, and reason-code data
 
-Supported failure classes in the current benchmark: `TYPECHECK`, `LINT`, `TEST`, `DEPENDENCY`, and `INFRA`.
+Supported failure classes in the current benchmark: `TYPECHECK`, `LINT`, `TEST`, `DEPENDENCY`, `INFRA`, and `BUILD`.
 
 ## Proven Results
 
-Curated MVP benchmark (`13` cases):
+Curated MVP benchmark (`17` cases):
 
 | Metric | Result |
 | --- | ---: |
-| Classification accuracy | `100%` (`13/13`) |
-| Baseline classification accuracy | `69.23%` (`9/13`) |
-| Classification lift | `+30.77` percentage points, about `44.4%` relative lift |
+| Classification accuracy | `100%` (`17/17`) |
+| Baseline classification accuracy | `52.94%` (`9/17`) |
+| Classification lift | `+47.06` percentage points, about `88.9%` relative lift |
 | Top-1 root-cause accuracy | `100%` (`12/12` applicable cases) |
+| Primary root-cause accuracy | `82.35%` (`14/17`) |
 | Agentic proposal validity | `100%` (`6/6` exercised cases) |
 | Guarded validation gate | `50%` (`3/6`, three valid fixes passed and three bad fixes were blocked) |
 | Artifact hash reproducibility | `100%` |
@@ -59,8 +60,8 @@ Curated MVP benchmark (`13` cases):
 
 Validated coverage so far:
 
-- Automated test suite: `299` tests passing, `1` opt-in live GitHub test skipped by default.
-- Benchmark failure classes: `TYPECHECK`, `LINT`, `TEST`, `DEPENDENCY`, and `INFRA`.
+- Automated test suite: `327` tests passing, `1` opt-in live GitHub test skipped by default.
+- Benchmark failure classes: `TYPECHECK`, `LINT`, `TEST`, `DEPENDENCY`, `INFRA`, and `BUILD`.
 - Agentic benchmark coverage: `6` proposal cases across lint, test, and typecheck fixes.
 - Guardrails: safe default comment-only mode, PR opt-in gate, confidence threshold, scoped file changes, validation pass/fail, missing hosted API key, malformed proposal retry, low-signal comment suppression, and formatted fix commits.
 - Live GitHub App smoke coverage: real `workflow_run` webhooks, PR comment create/update, typecheck/dependency/infra failures, local/Ollama suggestions, validation-failed PR gate, async webhook acknowledgement for slow local models, and app-created fix PRs that pass repository CI.
@@ -69,7 +70,11 @@ Reports:
 
 - [`docs/reports/mvp-benchmark-report.md`](docs/reports/mvp-benchmark-report.md)
 - [`docs/reports/mvp-benchmark-report.json`](docs/reports/mvp-benchmark-report.json)
+- [`docs/reports/benchmark-leaderboard.md`](docs/reports/benchmark-leaderboard.md)
+- [`docs/reports/benchmark-leaderboard.json`](docs/reports/benchmark-leaderboard.json)
 - [`docs/reports/ollama-comparison.md`](docs/reports/ollama-comparison.md)
+- [`docs/demo-repo-playbook.md`](docs/demo-repo-playbook.md)
+- [`docs/community-fixtures.md`](docs/community-fixtures.md)
 - [`docs/limitations.md`](docs/limitations.md)
 - [`CHANGELOG.md`](CHANGELOG.md)
 
